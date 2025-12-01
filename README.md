@@ -17,60 +17,44 @@ Unlike standard installers, this is an intelligent **Lifecycle Manager**. It doe
 ### 🏗️ Architecture
 The system is built on a robust stack designed for stability and speed.
 
-```mermaid
-graph LR
-    %% --- STYLING ---
-    classDef user fill:#2d3436,stroke:#dfe6e9,stroke-width:2px,color:#fff;
-    classDef shield fill:#0984e3,stroke:#dfe6e9,stroke-width:2px,color:#fff;
-    classDef app fill:#00b894,stroke:#dfe6e9,stroke-width:2px,color:#fff;
-    classDef data fill:#6c5ce7,stroke:#dfe6e9,stroke-width:2px,color:#fff;
-    classDef auto fill:#e17055,stroke:#dfe6e9,stroke-width:2px,color:#fff;
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          👤 USER / INTERNET                             │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │ HTTPS (443)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🛡️ SECURE GATEWAY                                                      │
+│  ┌──────────────────────┐  ┌──────────────────────┐  ┌───────────────┐  │
+│  │  🔥 UFW Firewall     │──▶  ⚡ Nginx Proxy      │──▶  🔒 SSL Certs │  │
+│  └──────────────────────┘  └──────────┬───────────┘  └───────────────┘  │
+└───────────────────────────────────────┼─────────────────────────────────┘
+                                        │
+          ┌─────────────────────────────┼─────────────────────────────┐
+          │                             │                             │
+          ▼                             ▼                             ▼
+┌────────────────────┐        ┌────────────────────┐        ┌────────────────────┐
+│ 🖥️ DASHBOARD       │        │ ☁️ NEXTCLOUD       │        │ 🐙 GITEA           │
+│ (admin.cyl.ae)     │        │ (cloud.cyl.ae)     │        │ (git.cyl.ae)       │
+└────────────────────┘        └────────────────────┘        └────────────────────┘
+          │                             │                             │
+          ▼                             ▼                             ▼
+┌────────────────────┐        ┌────────────────────┐        ┌────────────────────┐
+│ 📧 MAIL SERVER     │        │ 🔑 VAULTWARDEN     │        │ 📈 UPTIME KUMA     │
+│ (mail.cyl.ae)      │        │ (pass.cyl.ae)      │        │ (status.cyl.ae)    │
+└────────────────────┘        └────────────────────┘        └────────────────────┘
+          │                             │                             │
+          └──────────────┬──────────────┴──────────────┬──────────────┘
+                         │                             │
+                         ▼                             ▼
+            ┌────────────────────────┐    ┌────────────────────────┐
+            │ 🐳 DOCKER ENGINE       │    │ 🗄️ DATABASE (MariaDB)  │
+            └────────────────────────┘    └────────────────────────┘
 
-    %% --- NODES ---
-    User(("👤 YOU")):::user
-    
-    subgraph Gateway ["🛡️ SECURE GATEWAY"]
-        direction TB
-        FW["🔥 Firewall"]:::shield
-        Proxy["⚡ Nginx Proxy"]:::shield
-        SSL["🔒 SSL Certs"]:::shield
-    end
-
-    subgraph Ecosystem ["🚀 YOUR APPS"]
-        direction TB
-        Dash["🖥️ Dashboard"]:::app
-        Cloud["☁️ Nextcloud"]:::app
-        Git["🐙 Gitea"]:::app
-        Pass["🔑 Vaultwarden"]:::app
-        Mail["📧 Mail"]:::app
-    end
-
-    subgraph Engine ["⚙️ CORE ENGINE"]
-        direction TB
-        DB[("🗄️ Databases")]:::data
-        Docker[("🐳 Docker")]:::data
-    end
-
-    subgraph Guardian ["🤖 AUTO-PILOT"]
-        direction TB
-        Update["🔄 Auto-Update"]:::auto
-        Backup["💾 Auto-Backup"]:::auto
-    end
-
-    %% --- FLOW ---
-    User ==> FW
-    FW ==> Proxy
-    Proxy -.-> SSL
-    
-    Proxy ==> Dash
-    Proxy ==> Cloud
-    Proxy ==> Git
-    Proxy ==> Pass
-    Proxy ==> Mail
-
-    Ecosystem -.-> Engine
-    Guardian -.-> Engine
-    Guardian -.-> Ecosystem
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🤖 AUTO-PILOT SYSTEM (Daily @ 04:00)                                   │
+│  [ 🔄 Auto-Update ]  [ 💾 Auto-Backup ]  [ 🛡️ SSL Renew ]  [ 🧹 Clean ] │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### ✨ Key Features
