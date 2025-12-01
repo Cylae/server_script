@@ -27,14 +27,14 @@ graph TD
     classDef sys fill:#ccc,stroke:#333,stroke-width:2px,color:black;
 
     %% External
-    User((👤 User / Internet)):::user
-    DNS[🌐 DNS: Google/Cloudflare]:::sys
+    User(("👤 User / Internet")):::user
+    DNS["🌐 DNS: Google/Cloudflare"]:::sys
     
     %% Entry Point
-    subgraph "🛡️ Server Entry"
-        FW[🔥 UFW Firewall]:::sys
-        Nginx[⚡ Nginx Reverse Proxy]:::proxy
-        SSL[🔒 Let's Encrypt SSL]:::sys
+    subgraph Entry ["🛡️ Server Entry"]
+        FW["🔥 UFW Firewall"]:::sys
+        Nginx["⚡ Nginx Reverse Proxy"]:::proxy
+        SSL["🔒 Let's Encrypt SSL"]:::sys
     end
 
     %% Connections
@@ -44,22 +44,22 @@ graph TD
     Nginx --- SSL
 
     %% Docker Swarm / Network
-    subgraph "🐳 Docker Network (server-net)"
+    subgraph Docker ["🐳 Docker Network (server-net)"]
         direction TB
         
-        subgraph "Apps"
-            Dash[🖥️ Admin Dashboard]:::app
-            Gitea[🐙 Gitea]:::app
-            Cloud[☁️ Nextcloud]:::app
-            Vault[🔑 Vaultwarden]:::app
-            Kuma[📈 Uptime Kuma]:::app
-            Mail[📧 Mail Server]:::app
+        subgraph Apps ["Apps"]
+            Dash["🖥️ Admin Dashboard"]:::app
+            Gitea["🐙 Gitea"]:::app
+            Cloud["☁️ Nextcloud"]:::app
+            Vault["🔑 Vaultwarden"]:::app
+            Kuma["📈 Uptime Kuma"]:::app
+            Mail["📧 Mail Server"]:::app
         end
         
-        subgraph "Data Persistence"
-            MariaDB[(🗄️ MariaDB)]:::db
-            Redis[(⚡ Redis)]:::db
-            Vols[📂 Docker Volumes]:::db
+        subgraph Data ["Data Persistence"]
+            MariaDB[("🗄️ MariaDB")]:::db
+            Redis[("⚡ Redis")]:::db
+            Vols[("📂 Docker Volumes")]:::db
         end
     end
 
@@ -79,11 +79,11 @@ graph TD
     Mail --> Vols
 
     %% Maintenance System
-    subgraph "🤖 Auto-Pilot System"
-        Cron[⏱️ Cron Job (04:00)]:::sys
-        Watch[👀 Watchtower]:::sys
-        Updater[🔄 System Updater]:::sys
-        Backup[💾 Backup Manager]:::sys
+    subgraph AutoPilot ["🤖 Auto-Pilot System"]
+        Cron["⏱️ Cron Job (04:00)"]:::sys
+        Watch["👀 Watchtower"]:::sys
+        Updater["🔄 System Updater"]:::sys
+        Backup["💾 Backup Manager"]:::sys
     end
 
     Cron --> Watch
