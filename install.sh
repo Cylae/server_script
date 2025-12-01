@@ -3,7 +3,8 @@
 export DEBIAN_FRONTEND=noninteractive
 
 # ==============================================================================
-#  CYL.AE SERVER MANAGER V6.0 (Performance Edition)
+# ==============================================================================
+#  CYL.AE SERVER MANAGER V6.0 (Universal Edition)
 #  Features: Auto-Tuning, Modular, Monitoring, SSL-Sync
 # ==============================================================================
 
@@ -11,7 +12,34 @@ export DEBIAN_FRONTEND=noninteractive
 # 1. CONFIGURATION
 # ------------------------------------------------------------------------------
 
-DOMAIN="cyl.ae"
+CONFIG_FILE="/etc/cyl_manager.conf"
+
+# Load Config
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+fi
+
+# Initial Setup Prompt
+if [ -z "$DOMAIN" ]; then
+    clear
+    echo "================================================================="
+    echo "  CYL.AE SERVER MANAGER - INITIAL SETUP"
+    echo "================================================================="
+    echo "Welcome! Let's configure your server."
+    echo ""
+    read -p "Enter your domain name (e.g., example.com): " DOMAIN
+    
+    if [ -z "$DOMAIN" ]; then
+        echo "Error: Domain cannot be empty."
+        exit 1
+    fi
+    
+    # Save to config
+    echo "DOMAIN=\"$DOMAIN\"" >> "$CONFIG_FILE"
+    echo "EMAIL=\"admin@$DOMAIN\"" >> "$CONFIG_FILE"
+    echo "INSTALL_DIR=\"$(pwd)\"" >> "$CONFIG_FILE"
+fi
+
 EMAIL="admin@$DOMAIN"
 LOG_FILE="/var/log/server_manager.log"
 AUTH_FILE="/root/.auth_details"

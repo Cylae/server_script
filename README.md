@@ -1,18 +1,18 @@
-# 🚀 CYL.AE Server Manager (v6.0)
+# 🚀 Cylae Server Manager (v6.0)
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Production%20Ready-success.svg)
 
 > **The Ultimate "Set & Forget" Self-Hosting Solution.**  
-> *Performance Edition | Auto-Tuning | Fully Modular*
+> *Universal Edition | Auto-Tuning | Fully Modular*
 
 ---
 
 ## 🇬🇧 English Version
 
 ### 📖 Introduction
-**CYL.AE Server Manager** is a premium, all-in-one Bash framework designed to transform a fresh Debian/Ubuntu server into a production-ready fortress. 
+**Cylae Server Manager** is a premium, all-in-one Bash framework designed to transform **ANY** fresh Debian/Ubuntu server into a production-ready fortress. 
 
-Unlike standard installers, this is an intelligent **Lifecycle Manager**. It doesn't just install software; it maintains it. It detects your hardware to optimize performance, manages services via Docker, handles SSL certificates automatically, and even updates itself and your entire system while you sleep.
+Whether your domain is `cyl.ae`, `example.com`, or `my-awesome-server.net`, this script adapts automatically. It detects your hardware to optimize performance, manages services via Docker, handles SSL certificates automatically, and even updates itself and your entire system while you sleep.
 
 ### 🏗️ Architecture
 The system is built on a robust stack designed for stability and speed.
@@ -91,27 +91,6 @@ A background cron job runs every night at **04:00 AM**:
     ./install.sh
     ```
 
-3.  **Follow the menu!** Select the services you want to install.
-
-### 📦 Available Modules
-
-| Service | Subdomain | Description |
-| :--- | :--- | :--- |
-| **Admin Dashboard** | `admin.cyl.ae` | Centralized dashboard to manage all your services. |
-| **Gitea** | `git.cyl.ae` | Lightweight, self-hosted Git service (GitHub alternative). |
-| **Nextcloud** | `cloud.cyl.ae` | Your personal cloud for files, contacts, and calendar. |
-| **Vaultwarden** | `pass.cyl.ae` | Secure password manager (Bitwarden compatible). |
-| **Uptime Kuma** | `status.cyl.ae` | Beautiful monitoring dashboard for your services. |
-| **Portainer** | `portainer.cyl.ae` | GUI to manage your Docker containers easily. |
-| **Netdata** | `netdata.cyl.ae` | Real-time performance monitoring (CPU, RAM, Network). |
-| **Mail Server** | `mail.cyl.ae` | Full-stack mail server (Postfix, Dovecot, Roundcube). |
-| **YOURLS** | `x.cyl.ae` | Your own URL shortener. |
-| **FTP** | N/A | Classic FTP server for legacy file transfer needs. |
-
-### 🛠️ Advanced Usage
-
-*   **DNS Helper**: Option 15 calculates the exact DNS records (A, CNAME, MX, TXT) you need to add to your registrar.
-*   **Backups**: Option 11 performs a full backup (Database SQL dumps + Files) to `/var/backups/cyl_manager`.
 *   **Force Re-init**: Option 13 allows you to force a full system re-initialization if you need to reset configurations.
 
 ---
@@ -142,57 +121,4 @@ Le script analyse la RAM de votre serveur au démarrage :
 *   **Tuning Nginx** : Configuré pour une haute concurrence avec support HTTP/2.
 
 #### 🛡️ Sécurité Béton
-*   **Pare-feu (UFW)** : Seuls les ports essentiels sont ouverts. Le sous-réseau Docker est whitelisté.
-*   **Fail2Ban** : Protège SSH et HTTP contre les attaques par force brute.
-*   **Durcissement SSH** : L'option 16 permet de désactiver l'authentification par mot de passe en un clic (Clés uniquement).
-*   **SSL Partout** : Certificats Let's Encrypt automatiques pour tous vos sous-domaines.
-
-#### 🤖 Mode Pilote Automatique
-Une tâche de fond s'exécute chaque nuit à **04h00** :
-1.  **Auto-Update** : Récupère la dernière version de ce script depuis Git.
-2.  **Mise à jour Système** : Lance `apt-get update && upgrade`.
-3.  **Mise à jour Conteneurs** : Utilise Watchtower pour mettre à jour tous les conteneurs Docker.
-4.  **Nettoyage** : Supprime les images Docker inutilisées pour gagner de la place.
-5.  **SSL** : Vérifie et renouvelle les certificats si nécessaire.
-
-### 🚀 Démarrage Rapide
-
-**Prérequis :** Un serveur Debian 11/12 ou Ubuntu 20.04/22.04 vierge.
-
-1.  **Cloner le dépôt :**
-    ```bash
-    git clone https://github.com/votre-repo/server_script.git
-    cd server_script
-    ```
-
-2.  **Lancer le script (en root) :**
-    ```bash
-    chmod +x install.sh
-    ./install.sh
-    ```
-
-3.  **Suivez le menu !** Sélectionnez les services que vous souhaitez installer.
-
-### 📦 Modules Disponibles
-
-| Service | Sous-domaine | Description |
-| :--- | :--- | :--- |
-| **Admin Dashboard** | `admin.cyl.ae` | Tableau de bord centralisé pour gérer tous vos services. |
-| **Gitea** | `git.cyl.ae` | Service Git léger auto-hébergé (alternative à GitHub). |
-| **Nextcloud** | `cloud.cyl.ae` | Votre cloud personnel pour fichiers, contacts et calendrier. |
-| **Vaultwarden** | `pass.cyl.ae` | Gestionnaire de mots de passe sécurisé (compatible Bitwarden). |
-| **Uptime Kuma** | `status.cyl.ae` | Tableau de bord de surveillance magnifique pour vos services. |
-| **Portainer** | `portainer.cyl.ae` | Interface graphique pour gérer vos conteneurs Docker. |
-| **Netdata** | `netdata.cyl.ae` | Monitoring de performance temps réel (CPU, RAM, Réseau). |
-| **Mail Server** | `mail.cyl.ae` | Serveur mail complet (Postfix, Dovecot, Roundcube). |
-| **YOURLS** | `x.cyl.ae` | Votre propre raccourcisseur d'URL. |
-| **FTP** | N/A | Serveur FTP classique pour les besoins de transfert legacy. |
-
-### 🛠️ Avancé
-
-*   **Assistant DNS** : L'option 15 calcule les enregistrements DNS exacts à ajouter chez votre registrar.
-*   **Sauvegardes** : L'option 11 effectue une sauvegarde complète (Dumps SQL + Fichiers) dans `/var/backups/cyl_manager`.
-*   **Force Re-init** : L'option 13 vous permet de forcer une réinitialisation complète du système si vous avez besoin de remettre les configurations à zéro.
-
----
 *Made with ❤️ for Cylae.*
