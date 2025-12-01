@@ -1,5 +1,7 @@
 # 🚀 CYL.AE Server Manager (v6.0)
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Production%20Ready-success.svg)
+
 > **The Ultimate "Set & Forget" Self-Hosting Solution.**  
 > *Performance Edition | Auto-Tuning | Fully Modular*
 
@@ -7,22 +9,67 @@
 
 ## 🇬🇧 English Version
 
-### What is this?
-**CYL.AE Server Manager** is a powerful, all-in-one Bash script designed to turn a fresh Debian/Ubuntu server into a production-ready fortress in minutes. 
+### 📖 Introduction
+**CYL.AE Server Manager** is a premium, all-in-one Bash framework designed to transform a fresh Debian/Ubuntu server into a production-ready fortress. 
 
-It's not just an installer; it's an intelligent **Lifecycle Manager**. It detects your hardware resources to optimize performance, manages your services via Docker, handles SSL certificates automatically, and even updates itself while you sleep.
+Unlike standard installers, this is an intelligent **Lifecycle Manager**. It doesn't just install software; it maintains it. It detects your hardware to optimize performance, manages services via Docker, handles SSL certificates automatically, and even updates itself and your entire system while you sleep.
+
+### 🏗️ Architecture
+The system is built on a robust stack designed for stability and speed.
+
+```mermaid
+graph TD
+    User[User / Internet] -->|HTTPS/443| Nginx[Nginx Reverse Proxy]
+    Nginx -->|Port 80| Dashboard[Admin Dashboard]
+    Nginx -->|Port 3000| Gitea[Gitea]
+    Nginx -->|Port 8080| Nextcloud[Nextcloud]
+    Nginx -->|Port 8082| Vaultwarden[Vaultwarden]
+    Nginx -->|Port 3001| Kuma[Uptime Kuma]
+    
+    subgraph "Docker Network (server-net)"
+        Gitea
+        Nextcloud
+        Vaultwarden
+        Kuma
+        MariaDB[(MariaDB)]
+        Redis[(Redis)]
+    end
+    
+    Cron[Auto-Update Cron] -->|Daily 04:00| Watchtower[Watchtower]
+    Cron -->|Daily 04:00| Apt[System Updates]
+    Cron -->|Daily 04:00| Certbot[SSL Renewal]
+```
 
 ### ✨ Key Features
 
-*   **🧠 Intelligent Auto-Tuning**: Detects your RAM (Low/High profile) and dynamically tunes MariaDB and PHP-FPM configs for maximum performance or stability.
-*   **⚡ TCP BBR Enabled**: Automatically enables Google's BBR congestion control for blazing fast network speeds.
-*   **🛡️ Ironclad Security**: Configures UFW firewall, Fail2Ban, and auto-generates strong passwords for every service.
-*   **🔄 Zero-Downtime Architecture**: The script is idempotent. Run it as many times as you want; it won't restart services unless necessary.
-*   **🤖 Auto-Pilot Mode**: Includes a background cron job that updates the OS, Docker containers (via Watchtower), and SSL certs every night at 4:00 AM.
-*   **🌐 DNS Helper**: Built-in tool to calculate and list exactly which DNS records (A/CNAME/MX) you need to create for your domain.
-*   **🔒 SSL Everywhere**: Automatic Let's Encrypt certificates for all your subdomains.
+#### 🧠 Intelligent Auto-Tuning
+The script analyzes your server's RAM at startup:
+*   **< 4GB RAM**: Activates "Low Profile". Optimizes MariaDB for low memory footprint, limits PHP workers.
+*   **> 4GB RAM**: Activates "High Performance". Allocates generous buffers for MariaDB and PHP for maximum speed.
+
+#### ⚡ Performance & Network
+*   **TCP BBR**: Automatically enables Google's BBR congestion control algorithm.
+*   **Swap Management**: Creates a 2GB Swap file to prevent OOM crashes.
+*   **DNS Tuning**: Configures systemd-resolved to use high-speed Google & Cloudflare DNS resolvers.
+*   **Nginx Tuning**: Configured for high-concurrency with HTTP/2 support.
+
+#### 🛡️ Ironclad Security
+*   **Firewall (UFW)**: Only essential ports are opened. Docker subnet is whitelisted for internal comms.
+*   **Fail2Ban**: Protects SSH and HTTP against brute-force attacks.
+*   **SSH Hardening**: Option 16 allows you to disable Password Authentication with one click (Keys Only).
+*   **SSL Everywhere**: Automatic Let's Encrypt certificates for all subdomains.
+
+#### 🤖 Auto-Pilot Mode
+A background cron job runs every night at **04:00 AM**:
+1.  **Self-Update**: Pulls the latest version of this script from Git.
+2.  **System Update**: Runs `apt-get update && upgrade`.
+3.  **Container Update**: Uses Watchtower to update all running Docker containers.
+4.  **Cleanup**: Prunes unused Docker images to save disk space.
+5.  **SSL**: Checks and renews certificates if needed.
 
 ### 🚀 Quick Start
+
+**Prerequisites:** A fresh Debian 11/12 or Ubuntu 20.04/22.04 server.
 
 1.  **Clone the repo:**
     ```bash
@@ -53,9 +100,9 @@ It's not just an installer; it's an intelligent **Lifecycle Manager**. It detect
 | **YOURLS** | `x.cyl.ae` | Your own URL shortener. |
 | **FTP** | N/A | Classic FTP server for legacy file transfer needs. |
 
-### 🛠️ Advanced
+### 🛠️ Advanced Usage
 
-*   **DNS Records**: Option 15 calculates the exact DNS records you need to add to your registrar.
+*   **DNS Helper**: Option 15 calculates the exact DNS records (A, CNAME, MX, TXT) you need to add to your registrar.
 *   **Backups**: Option 11 performs a full backup (Database SQL dumps + Files) to `/var/backups/cyl_manager`.
 *   **Force Re-init**: Option 13 allows you to force a full system re-initialization if you need to reset configurations.
 
@@ -63,22 +110,46 @@ It's not just an installer; it's an intelligent **Lifecycle Manager**. It detect
 
 ## 🇫🇷 Version Française
 
-### C'est quoi ?
-**CYL.AE Server Manager** est un script Bash tout-en-un puissant, conçu pour transformer un serveur Debian/Ubuntu vierge en une forteresse de production en quelques minutes.
+### 📖 Introduction
+**CYL.AE Server Manager** est un framework Bash premium tout-en-un, conçu pour transformer un serveur Debian/Ubuntu vierge en une forteresse de production.
 
-Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** intelligent. Il détecte vos ressources matérielles pour l'optimisation, gère vos services via Docker, s'occupe des certificats SSL automatiquement, et se met même à jour pendant que vous dormez.
+Contrairement aux installeurs classiques, c'est un **Gestionnaire de Cycle de Vie** intelligent. Il ne se contente pas d'installer des logiciels ; il les maintient. Il détecte votre matériel pour optimiser les performances, gère les services via Docker, s'occupe des certificats SSL automatiquement, et met même à jour le système entier (et lui-même) pendant que vous dormez.
+
+### 🏗️ Architecture
+Le système repose sur une stack robuste conçue pour la stabilité et la vitesse.
+
+*(Voir le diagramme Mermaid ci-dessus)*
 
 ### ✨ Fonctionnalités Clés
 
-*   **🧠 Auto-Tuning Intelligent** : Détecte votre RAM (Profil Bas/Haut) et ajuste dynamiquement les configs MariaDB et PHP-FPM pour une performance ou une stabilité maximale.
-*   **⚡ TCP BBR Activé** : Active automatiquement l'algorithme de congestion BBR de Google pour une vitesse réseau fulgurante.
-*   **🛡️ Sécurité Béton** : Configure le pare-feu UFW, Fail2Ban, et génère automatiquement des mots de passe forts pour chaque service.
-*   **🔄 Architecture Zéro-Coupure** : Le script est idempotent. Lancez-le autant de fois que vous voulez ; il ne redémarrera pas les services sauf si nécessaire.
-*   **🤖 Mode Pilote Automatique** : Inclut une tâche de fond qui met à jour l'OS, les conteneurs Docker (via Watchtower) et les certificats SSL chaque nuit à 04h00.
-*   **🌐 Assistant DNS** : Outil intégré qui calcule et liste exactement les enregistrements DNS (A/CNAME/MX) que vous devez créer chez votre registrar.
-*   **🔒 SSL Partout** : Certificats Let's Encrypt automatiques pour tous vos sous-domaines.
+#### 🧠 Auto-Tuning Intelligent
+Le script analyse la RAM de votre serveur au démarrage :
+*   **< 4GB RAM** : Active le "Profil Bas". Optimise MariaDB pour une faible empreinte mémoire.
+*   **> 4GB RAM** : Active la "Haute Performance". Alloue des buffers généreux pour une vitesse maximale.
+
+#### ⚡ Performance & Réseau
+*   **TCP BBR** : Active automatiquement l'algorithme BBR de Google pour une vitesse réseau fulgurante.
+*   **Gestion Swap** : Crée un fichier Swap de 2GB pour éviter les crashs OOM.
+*   **Tuning DNS** : Configure systemd-resolved pour utiliser les DNS rapides Google & Cloudflare.
+*   **Tuning Nginx** : Configuré pour une haute concurrence avec support HTTP/2.
+
+#### 🛡️ Sécurité Béton
+*   **Pare-feu (UFW)** : Seuls les ports essentiels sont ouverts. Le sous-réseau Docker est whitelisté.
+*   **Fail2Ban** : Protège SSH et HTTP contre les attaques par force brute.
+*   **Durcissement SSH** : L'option 16 permet de désactiver l'authentification par mot de passe en un clic (Clés uniquement).
+*   **SSL Partout** : Certificats Let's Encrypt automatiques pour tous vos sous-domaines.
+
+#### 🤖 Mode Pilote Automatique
+Une tâche de fond s'exécute chaque nuit à **04h00** :
+1.  **Auto-Update** : Récupère la dernière version de ce script depuis Git.
+2.  **Mise à jour Système** : Lance `apt-get update && upgrade`.
+3.  **Mise à jour Conteneurs** : Utilise Watchtower pour mettre à jour tous les conteneurs Docker.
+4.  **Nettoyage** : Supprime les images Docker inutilisées pour gagner de la place.
+5.  **SSL** : Vérifie et renouvelle les certificats si nécessaire.
 
 ### 🚀 Démarrage Rapide
+
+**Prérequis :** Un serveur Debian 11/12 ou Ubuntu 20.04/22.04 vierge.
 
 1.  **Cloner le dépôt :**
     ```bash
@@ -111,7 +182,7 @@ Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** inte
 
 ### 🛠️ Avancé
 
-*   **Enregistrements DNS** : L'option 15 calcule les enregistrements DNS exacts à ajouter chez votre registrar.
+*   **Assistant DNS** : L'option 15 calcule les enregistrements DNS exacts à ajouter chez votre registrar.
 *   **Sauvegardes** : L'option 11 effectue une sauvegarde complète (Dumps SQL + Fichiers) dans `/var/backups/cyl_manager`.
 *   **Force Re-init** : L'option 13 vous permet de forcer une réinitialisation complète du système si vous avez besoin de remettre les configurations à zéro.
 

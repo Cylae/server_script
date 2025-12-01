@@ -87,6 +87,14 @@ init_system() {
         echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
         sysctl -p >/dev/null
     fi
+    
+    # DNS Optimization (Google + Cloudflare)
+    if [ -f /etc/systemd/resolved.conf ]; then
+        msg "Configuring Optimized DNS..."
+        sed -i 's/#DNS=/DNS=8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1/' /etc/systemd/resolved.conf
+        sed -i 's/#FallbackDNS=/FallbackDNS=1.1.1.1 1.0.0.1/' /etc/systemd/resolved.conf
+        systemctl restart systemd-resolved
+    fi
 
     # 3. Docker Engine
     if ! command -v docker &> /dev/null; then
@@ -155,6 +163,9 @@ EOF
 
     
     setup_autoupdate
+    
+    # Save Install Dir for Auto-Update
+    echo "INSTALL_DIR=$(pwd)" > /etc/cyl_manager.conf
     
     touch /root/.server_installed
     success "System Initialized"
@@ -620,6 +631,31 @@ show_dns_records() {
     read -p "Press Enter to continue..." dummy >&3
 }
 
+manage_ssh() {
+    msg "Hardening SSH Security..."
+    
+    # 1. Check for Keys
+    if [ ! -f /root/.ssh/authorized_keys ] || [ ! -s /root/.ssh/authorized_keys ]; then
+        warn "NO SSH KEYS FOUND!"
+        echo "You must add your public key to /root/.ssh/authorized_keys before disabling passwords."
+        echo "Otherwise you will be LOCKED OUT."
+        read -p "Abort? (y/n): " confirm >&3
+        if [[ "$confirm" != "n" ]]; then return; fi
+    fi
+    
+    # 2. Backup
+    cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+    
+    # 3. Configure
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sed -i 's/PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+    
+    # 4. Restart
+    systemctl restart sshd
+    success "SSH Hardened (Keys Only Mode)"
+}
+
 setup_autoupdate() {
     msg "Configuring Auto-Update..."
     
@@ -759,6 +795,7 @@ show_menu() {
     echo -e "13. FORCE RE-INIT SYSTEM" >&3
 
     echo -e "15. SHOW DNS RECORDS" >&3
+    echo -e "16. HARDEN SSH (Keys Only)" >&3
     echo -e "0. Exit" >&3
     echo -e "" >&3
 }
@@ -788,6 +825,7 @@ while true; do
         13) rm -f /root/.server_installed && init_system ;;
 
         15) show_dns_records ;;
+        16) manage_ssh ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;
     esac
