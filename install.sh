@@ -60,6 +60,9 @@ detect_profile() {
 # ------------------------------------------------------------------------------
 
 init_system() {
+    if [ -f "/root/.server_installed" ]; then
+        return
+    fi
     msg "Initializing System Infrastructure..."
     
     # 1. Basics
@@ -89,7 +92,7 @@ init_system() {
     if ! command -v docker &> /dev/null; then
         curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-        apt-get update -q && apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-compose >/dev/null
+        apt-get update -q && apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin >/dev/null
     fi
     
     # Docker Network
@@ -148,6 +151,13 @@ EOF
     # 8. Auth Init
     if [ ! -f $AUTH_FILE ]; then touch $AUTH_FILE && chmod 600 $AUTH_FILE; fi
     init_db_password
+    
+
+    
+    setup_autoupdate
+    
+    touch /root/.server_installed
+    success "System Initialized"
 }
 
 init_db_password() {
@@ -488,6 +498,70 @@ EOF
     fi
 }
 
+manage_vaultwarden() {
+    if [ "$1" == "install" ]; then
+        msg "Installing Vaultwarden..."
+        mkdir -p /opt/vaultwarden
+        cat <<EOF > /opt/vaultwarden/docker-compose.yml
+version: '3'
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: always
+    environment:
+      - SIGNUPS_ALLOWED=true
+    volumes:
+      - ./data:/data
+    networks:
+      - $DOCKER_NET
+    ports:
+      - "127.0.0.1:8082:80"
+networks:
+  $DOCKER_NET:
+    external: true
+EOF
+        cd /opt/vaultwarden && docker compose up -d
+        update_nginx "pass.$DOMAIN" "8082" "proxy"
+        success "Vaultwarden Installed"
+    elif [ "$1" == "remove" ]; then
+        cd /opt/vaultwarden && docker compose down
+        rm -f /etc/nginx/sites-enabled/pass.$DOMAIN
+        success "Vaultwarden Removed"
+    fi
+}
+
+manage_uptimekuma() {
+    if [ "$1" == "install" ]; then
+        msg "Installing Uptime Kuma..."
+        mkdir -p /opt/uptimekuma
+        cat <<EOF > /opt/uptimekuma/docker-compose.yml
+version: '3'
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: always
+    volumes:
+      - ./data:/app/data
+    networks:
+      - $DOCKER_NET
+    ports:
+      - "127.0.0.1:3001:3001"
+networks:
+  $DOCKER_NET:
+    external: true
+EOF
+        cd /opt/uptimekuma && docker compose up -d
+        update_nginx "status.$DOMAIN" "3001" "proxy"
+        success "Uptime Kuma Installed"
+    elif [ "$1" == "remove" ]; then
+        cd /opt/uptimekuma && docker compose down
+        rm -f /etc/nginx/sites-enabled/status.$DOMAIN
+        success "Uptime Kuma Removed"
+    fi
+}
+
 manage_backup() {
     msg "Starting Backup..."
     mkdir -p $BACKUP_DIR
@@ -520,6 +594,23 @@ system_update() {
     success "System Updated"
 }
 
+setup_autoupdate() {
+    msg "Configuring Auto-Update..."
+    
+    # Copy script to /usr/local/bin
+    cp $(dirname "$0")/auto_update.sh /usr/local/bin/server_autoupdate.sh
+    chmod +x /usr/local/bin/server_autoupdate.sh
+    
+    # Add to crontab (run daily at 4:00 AM)
+    CRON_CMD="0 4 * * * /usr/local/bin/server_autoupdate.sh"
+    
+    # Check if already exists
+    (crontab -l 2>/dev/null | grep -v "server_autoupdate.sh"; echo "$CRON_CMD") | crontab -
+    
+    success "Auto-Update Scheduled (Daily @ 04:00)"
+    msg "Logs will be available at: /var/log/server_autoupdate.log"
+}
+
 # ------------------------------------------------------------------------------
 # 5. SYNC & MENU
 # ------------------------------------------------------------------------------
@@ -539,6 +630,8 @@ sync_infrastructure() {
     [ -d "/opt/nextcloud" ] && LINKS+="<a href='https://cloud.$DOMAIN' class='card'>Nextcloud</a>"
     [ -d "/opt/mail" ] && LINKS+="<a href='https://mail.$DOMAIN' class='card'>Webmail</a>"
     [ -d "/var/www/yourls" ] && LINKS+="<a href='https://x.$DOMAIN' class='card'>Shortener</a>"
+    [ -d "/opt/vaultwarden" ] && LINKS+="<a href='https://pass.$DOMAIN' class='card'>Vaultwarden</a>"
+    [ -d "/opt/uptimekuma" ] && LINKS+="<a href='https://status.$DOMAIN' class='card'>Status</a>"
     docker ps | grep -q portainer && LINKS+="<a href='https://portainer.$DOMAIN' class='card'>Portainer</a>"
     docker ps | grep -q netdata && LINKS+="<a href='https://netdata.$DOMAIN' class='card'>Monitoring</a>"
 
@@ -562,6 +655,8 @@ EOF
     [ -f /etc/nginx/sites-enabled/cloud.$DOMAIN ] && DOMAINS+=" -d cloud.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/mail.$DOMAIN ] && DOMAINS+=" -d mail.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/x.$DOMAIN ] && DOMAINS+=" -d x.$DOMAIN"
+    [ -f /etc/nginx/sites-enabled/pass.$DOMAIN ] && DOMAINS+=" -d pass.$DOMAIN"
+    [ -f /etc/nginx/sites-enabled/status.$DOMAIN ] && DOMAINS+=" -d status.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/portainer.$DOMAIN ] && DOMAINS+=" -d portainer.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/netdata.$DOMAIN ] && DOMAINS+=" -d netdata.$DOMAIN"
     
@@ -591,6 +686,8 @@ show_menu() {
     status_mail=$( [ -d "/opt/mail" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
     status_url=$( [ -d "/var/www/yourls" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
     status_ftp=$( command -v vsftpd &>/dev/null && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
+    status_vault=$( [ -d "/opt/vaultwarden" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
+    status_kuma=$( [ -d "/opt/uptimekuma" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
 
     echo -e "1. Gitea       [$status_gitea]" >&3
     echo -e "2. Nextcloud   [$status_next]" >&3
@@ -599,10 +696,13 @@ show_menu() {
     echo -e "5. Mail Server [$status_mail]" >&3
     echo -e "6. YOURLS      [$status_url]" >&3
     echo -e "7. FTP Server  [$status_ftp]" >&3
+    echo -e "8. Vaultwarden [$status_vault]" >&3
+    echo -e "9. Uptime Kuma [$status_kuma]" >&3
     echo -e "-----------------------------" >&3
-    echo -e "8. SYSTEM UPDATE" >&3
-    echo -e "9. BACKUP NOW" >&3
-    echo -e "10. SYNC ALL (SSL & Dashboard)" >&3
+    echo -e "10. SYSTEM UPDATE" >&3
+    echo -e "11. BACKUP NOW" >&3
+    echo -e "12. SYNC ALL (SSL & Dashboard)" >&3
+    echo -e "13. FORCE RE-INIT SYSTEM" >&3
     echo -e "0. Exit" >&3
     echo -e "" >&3
 }
@@ -624,19 +724,22 @@ while true; do
         5) [ -d "/opt/mail" ] && manage_mail "remove" || manage_mail "install" ;;
         6) [ -d "/var/www/yourls" ] && manage_yourls "remove" || manage_yourls "install" ;;
         7) command -v vsftpd &>/dev/null && manage_ftp "remove" || manage_ftp "install" ;;
-        8) system_update ;;
-        9) manage_backup ;;
-        10) sync_infrastructure ;;
+        8) [ -d "/opt/vaultwarden" ] && manage_vaultwarden "remove" || manage_vaultwarden "install" ;;
+        9) [ -d "/opt/uptimekuma" ] && manage_uptimekuma "remove" || manage_uptimekuma "install" ;;
+        10) system_update ;;
+        11) manage_backup ;;
+        12) sync_infrastructure ;;
+        13) rm -f /root/.server_installed && init_system ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;
     esac
     
-    if [[ "$choice" =~ [1-7] ]]; then
+    if [[ "$choice" =~ [1-9] ]]; then
         read -p "Apply changes now? (y/n): " confirm >&3
         if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
     fi
     
-    if [[ "$choice" == "8" ]] || [[ "$choice" == "9" ]]; then
+    if [[ "$choice" -ge 10 ]]; then
         read -p "Press Enter to continue..." dummy >&3
     fi
 done
