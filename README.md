@@ -19,25 +19,77 @@ The system is built on a robust stack designed for stability and speed.
 
 ```mermaid
 graph TD
-    User[User / Internet] -->|HTTPS/443| Nginx[Nginx Reverse Proxy]
-    Nginx -->|Port 80| Dashboard[Admin Dashboard]
-    Nginx -->|Port 3000| Gitea[Gitea]
-    Nginx -->|Port 8080| Nextcloud[Nextcloud]
-    Nginx -->|Port 8082| Vaultwarden[Vaultwarden]
-    Nginx -->|Port 3001| Kuma[Uptime Kuma]
+    %% Styles
+    classDef user fill:#f9f,stroke:#333,stroke-width:2px,color:black;
+    classDef proxy fill:#ff9,stroke:#333,stroke-width:2px,color:black;
+    classDef app fill:#9f9,stroke:#333,stroke-width:2px,color:black;
+    classDef db fill:#99f,stroke:#333,stroke-width:2px,color:black;
+    classDef sys fill:#ccc,stroke:#333,stroke-width:2px,color:black;
+
+    %% External
+    User((👤 User / Internet)):::user
+    DNS[🌐 DNS: Google/Cloudflare]:::sys
     
-    subgraph "Docker Network (server-net)"
-        Gitea
-        Nextcloud
-        Vaultwarden
-        Kuma
-        MariaDB[(MariaDB)]
-        Redis[(Redis)]
+    %% Entry Point
+    subgraph "🛡️ Server Entry"
+        FW[🔥 UFW Firewall]:::sys
+        Nginx[⚡ Nginx Reverse Proxy]:::proxy
+        SSL[🔒 Let's Encrypt SSL]:::sys
     end
-    
-    Cron[Auto-Update Cron] -->|Daily 04:00| Watchtower[Watchtower]
-    Cron -->|Daily 04:00| Apt[System Updates]
-    Cron -->|Daily 04:00| Certbot[SSL Renewal]
+
+    %% Connections
+    User -->|HTTPS/443| FW
+    DNS -.->|Resolution| User
+    FW --> Nginx
+    Nginx --- SSL
+
+    %% Docker Swarm / Network
+    subgraph "🐳 Docker Network (server-net)"
+        direction TB
+        
+        subgraph "Apps"
+            Dash[🖥️ Admin Dashboard]:::app
+            Gitea[🐙 Gitea]:::app
+            Cloud[☁️ Nextcloud]:::app
+            Vault[🔑 Vaultwarden]:::app
+            Kuma[📈 Uptime Kuma]:::app
+            Mail[📧 Mail Server]:::app
+        end
+        
+        subgraph "Data Persistence"
+            MariaDB[(🗄️ MariaDB)]:::db
+            Redis[(⚡ Redis)]:::db
+            Vols[📂 Docker Volumes]:::db
+        end
+    end
+
+    %% Routing
+    Nginx -->|admin.cyl.ae| Dash
+    Nginx -->|git.cyl.ae| Gitea
+    Nginx -->|cloud.cyl.ae| Cloud
+    Nginx -->|pass.cyl.ae| Vault
+    Nginx -->|status.cyl.ae| Kuma
+    Nginx -->|mail.cyl.ae| Mail
+
+    %% App to Data
+    Gitea --> MariaDB
+    Cloud --> MariaDB
+    Cloud --> Redis
+    Vault --> Vols
+    Mail --> Vols
+
+    %% Maintenance System
+    subgraph "🤖 Auto-Pilot System"
+        Cron[⏱️ Cron Job (04:00)]:::sys
+        Watch[👀 Watchtower]:::sys
+        Updater[🔄 System Updater]:::sys
+        Backup[💾 Backup Manager]:::sys
+    end
+
+    Cron --> Watch
+    Cron --> Updater
+    Cron --> Backup
+    Watch -.->|Updates| Apps
 ```
 
 ### ✨ Key Features
