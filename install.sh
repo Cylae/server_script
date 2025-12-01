@@ -594,6 +594,32 @@ system_update() {
     success "System Updated"
 }
 
+show_dns_records() {
+    IP=$(curl -s https://api.ipify.org)
+    msg "REQUIRED DNS RECORDS FOR $DOMAIN"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}"
+    echo -e "TYPE  | HOST                 | VALUE"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}"
+    echo -e "A     | @                    | $IP"
+    echo -e "CNAME | www                  | $DOMAIN"
+    echo -e "CNAME | admin                | $DOMAIN"
+    
+    [ -d "/opt/gitea" ] && echo -e "CNAME | git                  | $DOMAIN"
+    [ -d "/opt/nextcloud" ] && echo -e "CNAME | cloud                | $DOMAIN"
+    [ -d "/opt/mail" ] && echo -e "CNAME | mail                 | $DOMAIN"
+    [ -d "/var/www/yourls" ] && echo -e "CNAME | x                    | $DOMAIN"
+    [ -d "/opt/vaultwarden" ] && echo -e "CNAME | pass                 | $DOMAIN"
+    [ -d "/opt/uptimekuma" ] && echo -e "CNAME | status               | $DOMAIN"
+    docker ps | grep -q portainer && echo -e "CNAME | portainer            | $DOMAIN"
+    docker ps | grep -q netdata && echo -e "CNAME | netdata              | $DOMAIN"
+    
+    echo -e "${YELLOW}-----------------------------------------------------${NC}"
+    echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)"
+    echo -e "TXT   | @                    | v=spf1 mx ~all"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}"
+    read -p "Press Enter to continue..." dummy >&3
+}
+
 setup_autoupdate() {
     msg "Configuring Auto-Update..."
     
@@ -636,21 +662,49 @@ sync_infrastructure() {
     docker ps | grep -q netdata && LINKS+="<a href='https://netdata.$DOMAIN' class='card'>Monitoring</a>"
 
     cat <<EOF > /var/www/dashboard/index.php
-<!DOCTYPE html><html><head><title>Admin $DOMAIN</title>
-<style>body{font-family:'Segoe UI',sans-serif;background:#222;color:#fff;text-align:center;padding:50px}
-.card{display:inline-block;padding:25px;margin:15px;background:#444;color:#fff;text-decoration:none;border-radius:8px;font-size:18px;transition:0.3s}
-.card:hover{background:#00d2ff;color:#000;transform:scale(1.05)}
-.grid{margin-top:40px}</style></head>
-<body><h1>Server Dashboard</h1><p>Profile: $(cat /tmp/server_profile)</p><div class='grid'>$LINKS</div></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin $DOMAIN</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #00d2ff; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-image: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%); }
+        h1 { font-weight: 700; font-size: 2.5rem; margin-bottom: 10px; background: linear-gradient(45deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { color: #94a3b8; margin-bottom: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; width: 90%; max-width: 1000px; }
+        .card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); text-decoration: none; color: var(--text); font-weight: 500; transition: all 0.3s ease; text-align: center; display: flex; align-items: center; justify-content: center; flex-direction: column; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 210, 255, 0.15); color: var(--primary); }
+        .status { font-size: 0.8rem; margin-top: 10px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <h1>Server Dashboard</h1>
+    <p>System Profile: $(cat /tmp/server_profile) | <a href='/adminer.php' style='color:var(--primary)'>DB Admin</a></p>
+    <div class='grid'>$LINKS</div>
+</body>
+</html>
 EOF
     [ ! -f /var/www/dashboard/adminer.php ] && wget -q https://github.com/vrana/adminer/releases/download/v$ADMINER_VER/adminer-$ADMINER_VER.php -O /var/www/dashboard/adminer.php
     chown -R www-data:www-data /var/www/dashboard
-    update_nginx "$DOMAIN" "0" "dashboard" "/var/www/dashboard"
+    
+    # Admin Dashboard on admin.domain
+    update_nginx "admin.$DOMAIN" "0" "dashboard" "/var/www/dashboard"
+    
+    # Landing Page on root domain
+    mkdir -p /var/www/landing
+    cat <<EOF > /var/www/landing/index.html
+<!DOCTYPE html><html><head><title>Welcome to $DOMAIN</title><style>body{background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif}h1{font-weight:300;letter-spacing:5px}</style></head><body><h1>$DOMAIN</h1></body></html>
+EOF
+    chown -R www-data:www-data /var/www/landing
+    update_nginx "$DOMAIN" "0" "php" "/var/www/landing"
 
     nginx -t && systemctl reload nginx
     
     # Certbot
-    DOMAINS="-d $DOMAIN"
+    DOMAINS="-d $DOMAIN -d admin.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/git.$DOMAIN ] && DOMAINS+=" -d git.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/cloud.$DOMAIN ] && DOMAINS+=" -d cloud.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/mail.$DOMAIN ] && DOMAINS+=" -d mail.$DOMAIN"
@@ -703,6 +757,8 @@ show_menu() {
     echo -e "11. BACKUP NOW" >&3
     echo -e "12. SYNC ALL (SSL & Dashboard)" >&3
     echo -e "13. FORCE RE-INIT SYSTEM" >&3
+
+    echo -e "15. SHOW DNS RECORDS" >&3
     echo -e "0. Exit" >&3
     echo -e "" >&3
 }
@@ -730,6 +786,8 @@ while true; do
         11) manage_backup ;;
         12) sync_infrastructure ;;
         13) rm -f /root/.server_installed && init_system ;;
+
+        15) show_dns_records ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;
     esac

@@ -19,6 +19,7 @@ It's not just an installer; it's an intelligent **Lifecycle Manager**. It detect
 *   **🛡️ Ironclad Security**: Configures UFW firewall, Fail2Ban, and auto-generates strong passwords for every service.
 *   **🔄 Zero-Downtime Architecture**: The script is idempotent. Run it as many times as you want; it won't restart services unless necessary.
 *   **🤖 Auto-Pilot Mode**: Includes a background cron job that updates the OS, Docker containers (via Watchtower), and SSL certs every night at 4:00 AM.
+*   **🌐 DNS Helper**: Built-in tool to calculate and list exactly which DNS records (A/CNAME/MX) you need to create for your domain.
 *   **🔒 SSL Everywhere**: Automatic Let's Encrypt certificates for all your subdomains.
 
 ### 🚀 Quick Start
@@ -41,6 +42,7 @@ It's not just an installer; it's an intelligent **Lifecycle Manager**. It detect
 
 | Service | Subdomain | Description |
 | :--- | :--- | :--- |
+| **Admin Dashboard** | `admin.cyl.ae` | Centralized dashboard to manage all your services. |
 | **Gitea** | `git.cyl.ae` | Lightweight, self-hosted Git service (GitHub alternative). |
 | **Nextcloud** | `cloud.cyl.ae` | Your personal cloud for files, contacts, and calendar. |
 | **Vaultwarden** | `pass.cyl.ae` | Secure password manager (Bitwarden compatible). |
@@ -53,7 +55,7 @@ It's not just an installer; it's an intelligent **Lifecycle Manager**. It detect
 
 ### 🛠️ Advanced
 
-*   **Dashboard**: Access `cyl.ae` to see a centralized dashboard of all your installed services.
+*   **DNS Records**: Option 15 calculates the exact DNS records you need to add to your registrar.
 *   **Backups**: Option 11 performs a full backup (Database SQL dumps + Files) to `/var/backups/cyl_manager`.
 *   **Force Re-init**: Option 13 allows you to force a full system re-initialization if you need to reset configurations.
 
@@ -64,7 +66,7 @@ It's not just an installer; it's an intelligent **Lifecycle Manager**. It detect
 ### C'est quoi ?
 **CYL.AE Server Manager** est un script Bash tout-en-un puissant, conçu pour transformer un serveur Debian/Ubuntu vierge en une forteresse de production en quelques minutes.
 
-Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** intelligent. Il détecte vos ressources matérielles pour optimiser les performances, gère vos services via Docker, s'occupe des certificats SSL automatiquement, et se met même à jour pendant que vous dormez.
+Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** intelligent. Il détecte vos ressources matérielles pour l'optimisation, gère vos services via Docker, s'occupe des certificats SSL automatiquement, et se met même à jour pendant que vous dormez.
 
 ### ✨ Fonctionnalités Clés
 
@@ -73,6 +75,7 @@ Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** inte
 *   **🛡️ Sécurité Béton** : Configure le pare-feu UFW, Fail2Ban, et génère automatiquement des mots de passe forts pour chaque service.
 *   **🔄 Architecture Zéro-Coupure** : Le script est idempotent. Lancez-le autant de fois que vous voulez ; il ne redémarrera pas les services sauf si nécessaire.
 *   **🤖 Mode Pilote Automatique** : Inclut une tâche de fond qui met à jour l'OS, les conteneurs Docker (via Watchtower) et les certificats SSL chaque nuit à 04h00.
+*   **🌐 Assistant DNS** : Outil intégré qui calcule et liste exactement les enregistrements DNS (A/CNAME/MX) que vous devez créer chez votre registrar.
 *   **🔒 SSL Partout** : Certificats Let's Encrypt automatiques pour tous vos sous-domaines.
 
 ### 🚀 Démarrage Rapide
@@ -95,6 +98,7 @@ Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** inte
 
 | Service | Sous-domaine | Description |
 | :--- | :--- | :--- |
+| **Admin Dashboard** | `admin.cyl.ae` | Tableau de bord centralisé pour gérer tous vos services. |
 | **Gitea** | `git.cyl.ae` | Service Git léger auto-hébergé (alternative à GitHub). |
 | **Nextcloud** | `cloud.cyl.ae` | Votre cloud personnel pour fichiers, contacts et calendrier. |
 | **Vaultwarden** | `pass.cyl.ae` | Gestionnaire de mots de passe sécurisé (compatible Bitwarden). |
@@ -107,7 +111,7 @@ Ce n'est pas juste un installeur, c'est un **Gestionnaire de Cycle de Vie** inte
 
 ### 🛠️ Avancé
 
-*   **Dashboard** : Accédez à `cyl.ae` pour voir un tableau de bord centralisé de tous vos services installés.
+*   **Enregistrements DNS** : L'option 15 calcule les enregistrements DNS exacts à ajouter chez votre registrar.
 *   **Sauvegardes** : L'option 11 effectue une sauvegarde complète (Dumps SQL + Fichiers) dans `/var/backups/cyl_manager`.
 *   **Force Re-init** : L'option 13 vous permet de forcer une réinitialisation complète du système si vous avez besoin de remettre les configurations à zéro.
 
