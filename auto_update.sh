@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export DEBIAN_FRONTEND=noninteractive
+
 # ==============================================================================
 #  CYL.AE AUTO-UPDATE SCRIPT
 #  Runs in background to keep system, docker, and ssl up to date.

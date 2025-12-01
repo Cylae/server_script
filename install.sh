@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export DEBIAN_FRONTEND=noninteractive
+
 # ==============================================================================
 #  CYL.AE SERVER MANAGER V6.0 (Performance Edition)
 #  Features: Auto-Tuning, Modular, Monitoring, SSL-Sync
@@ -293,6 +295,9 @@ services:
       - GITEA__database__NAME=gitea
       - GITEA__database__USER=gitea
       - GITEA__database__PASSWD=$PASS
+      - GITEA__server__SSH_DOMAIN=git.$DOMAIN
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__ROOT_URL=https://git.$DOMAIN/
     restart: always
     volumes:
       - ./data:/data
@@ -344,8 +349,10 @@ networks:
     external: true
 EOF
         cd /opt/nextcloud && docker compose up -d
-        msg "Waiting for Nextcloud..."
-        sleep 15
+        msg "Waiting for Nextcloud to initialize..."
+        until docker exec -u www-data nextcloud_app php occ status >/dev/null 2>&1; do
+            sleep 2
+        done
         docker exec -u www-data nextcloud_app php occ config:system:set trusted_proxies 0 --value="127.0.0.1" >/dev/null 2>&1
         docker exec -u www-data nextcloud_app php occ config:system:set overwriteprotocol --value="https" >/dev/null 2>&1
         update_nginx "cloud.$DOMAIN" "8080" "proxy"
@@ -418,7 +425,11 @@ EOF
         ufw allow 25,587,465,143,993/tcp >/dev/null
         update_nginx "mail.$DOMAIN" "8081" "proxy"
         
-        sleep 10
+        msg "Waiting for Mailserver..."
+        until docker exec mailserver setup email list >/dev/null 2>&1; do
+            sleep 2
+        done
+        
         if ! docker exec mailserver setup email list | grep -q "postmaster"; then
             PASS=$(openssl rand -base64 12)
             docker exec mailserver setup email add postmaster@$DOMAIN "$PASS"
@@ -487,6 +498,7 @@ ssl_tlsv1=YES
 pasv_min_port=40000
 pasv_max_port=50000
 allow_writeable_chroot=YES
+pasv_address=$(curl -s https://api.ipify.org)
 EOF
         ufw allow 20,21,990/tcp >/dev/null
         ufw allow 40000:50000/tcp >/dev/null
