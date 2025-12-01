@@ -18,78 +18,59 @@ Unlike standard installers, this is an intelligent **Lifecycle Manager**. It doe
 The system is built on a robust stack designed for stability and speed.
 
 ```mermaid
-graph TD
-    %% Styles
-    classDef user fill:#f9f,stroke:#333,stroke-width:2px,color:black;
-    classDef proxy fill:#ff9,stroke:#333,stroke-width:2px,color:black;
-    classDef app fill:#9f9,stroke:#333,stroke-width:2px,color:black;
-    classDef db fill:#99f,stroke:#333,stroke-width:2px,color:black;
-    classDef sys fill:#ccc,stroke:#333,stroke-width:2px,color:black;
+graph LR
+    %% --- STYLING ---
+    classDef user fill:#2d3436,stroke:#dfe6e9,stroke-width:2px,color:#fff;
+    classDef shield fill:#0984e3,stroke:#dfe6e9,stroke-width:2px,color:#fff;
+    classDef app fill:#00b894,stroke:#dfe6e9,stroke-width:2px,color:#fff;
+    classDef data fill:#6c5ce7,stroke:#dfe6e9,stroke-width:2px,color:#fff;
+    classDef auto fill:#e17055,stroke:#dfe6e9,stroke-width:2px,color:#fff;
 
-    %% External
-    User(("👤 User / Internet")):::user
-    DNS["🌐 DNS: Google/Cloudflare"]:::sys
+    %% --- NODES ---
+    User(("👤 YOU")):::user
     
-    %% Entry Point
-    subgraph Entry ["🛡️ Server Entry"]
-        FW["🔥 UFW Firewall"]:::sys
-        Nginx["⚡ Nginx Reverse Proxy"]:::proxy
-        SSL["🔒 Let's Encrypt SSL"]:::sys
-    end
-
-    %% Connections
-    User -->|HTTPS/443| FW
-    DNS -.->|Resolution| User
-    FW --> Nginx
-    Nginx --- SSL
-
-    %% Docker Swarm / Network
-    subgraph Docker ["🐳 Docker Network (server-net)"]
+    subgraph Gateway ["🛡️ SECURE GATEWAY"]
         direction TB
-        
-        subgraph Apps ["Apps"]
-            Dash["🖥️ Admin Dashboard"]:::app
-            Gitea["🐙 Gitea"]:::app
-            Cloud["☁️ Nextcloud"]:::app
-            Vault["🔑 Vaultwarden"]:::app
-            Kuma["📈 Uptime Kuma"]:::app
-            Mail["📧 Mail Server"]:::app
-        end
-        
-        subgraph Data ["Data Persistence"]
-            MariaDB[("🗄️ MariaDB")]:::db
-            Redis[("⚡ Redis")]:::db
-            Vols[("📂 Docker Volumes")]:::db
-        end
+        FW["🔥 Firewall"]:::shield
+        Proxy["⚡ Nginx Proxy"]:::shield
+        SSL["🔒 SSL Certs"]:::shield
     end
 
-    %% Routing
-    Nginx -->|admin.cyl.ae| Dash
-    Nginx -->|git.cyl.ae| Gitea
-    Nginx -->|cloud.cyl.ae| Cloud
-    Nginx -->|pass.cyl.ae| Vault
-    Nginx -->|status.cyl.ae| Kuma
-    Nginx -->|mail.cyl.ae| Mail
-
-    %% App to Data
-    Gitea --> MariaDB
-    Cloud --> MariaDB
-    Cloud --> Redis
-    Vault --> Vols
-    Mail --> Vols
-
-    %% Maintenance System
-    subgraph AutoPilot ["🤖 Auto-Pilot System"]
-        Cron["⏱️ Cron Job (04:00)"]:::sys
-        Watch["👀 Watchtower"]:::sys
-        Updater["🔄 System Updater"]:::sys
-        Backup["💾 Backup Manager"]:::sys
+    subgraph Ecosystem ["🚀 YOUR APPS"]
+        direction TB
+        Dash["🖥️ Dashboard"]:::app
+        Cloud["☁️ Nextcloud"]:::app
+        Git["🐙 Gitea"]:::app
+        Pass["🔑 Vaultwarden"]:::app
+        Mail["📧 Mail"]:::app
     end
 
-    Cron --> Watch
-    Cron --> Updater
-    Cron --> Backup
-    Watch -.->|Updates| Apps
+    subgraph Engine ["⚙️ CORE ENGINE"]
+        direction TB
+        DB[("🗄️ Databases")]:::data
+        Docker[("🐳 Docker")]:::data
+    end
+
+    subgraph Guardian ["🤖 AUTO-PILOT"]
+        direction TB
+        Update["🔄 Auto-Update"]:::auto
+        Backup["💾 Auto-Backup"]:::auto
+    end
+
+    %% --- FLOW ---
+    User ==> FW
+    FW ==> Proxy
+    Proxy -.-> SSL
+    
+    Proxy ==> Dash
+    Proxy ==> Cloud
+    Proxy ==> Git
+    Proxy ==> Pass
+    Proxy ==> Mail
+
+    Ecosystem -.-> Engine
+    Guardian -.-> Engine
+    Guardian -.-> Ecosystem
 ```
 
 ### ✨ Key Features
