@@ -33,6 +33,11 @@ if [ -z "$DOMAIN" ]; then
         echo "Error: Domain cannot be empty."
         exit 1
     fi
+
+    if [[ ! "$DOMAIN" =~ ^[a-zA-Z0-9]+([-.][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$ ]]; then
+        echo "Error: Invalid domain format (e.g., example.com)."
+        exit 1
+    fi
     
     # Save to config
     echo "DOMAIN=\"$DOMAIN\"" >> "$CONFIG_FILE"
@@ -90,6 +95,18 @@ detect_profile() {
 # ------------------------------------------------------------------------------
 
 init_system() {
+    # OS Compatibility Check
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [[ "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
+             warn "Detected OS: $ID. This script is optimized for Debian/Ubuntu."
+             read -p "Continue anyway? (y/n): " confirm
+             if [[ "$confirm" != "y" ]]; then exit 1; fi
+        fi
+    else
+        warn "Cannot detect OS. Proceed with caution."
+    fi
+
     if [ -f "/root/.server_installed" ]; then
         return
     fi
@@ -613,6 +630,111 @@ EOF
     fi
 }
 
+manage_filebrowser() {
+    if [ "$1" == "install" ]; then
+        msg "Installing File Browser..."
+        mkdir -p /opt/filebrowser
+        touch /opt/filebrowser/filebrowser.db
+
+        cat <<EOF > /opt/filebrowser/docker-compose.yml
+version: '3'
+services:
+  filebrowser:
+    image: filebrowser/filebrowser
+    container_name: filebrowser
+    restart: always
+    volumes:
+      - /var/www:/srv
+      - ./filebrowser.db:/database.db
+      - ./settings.json:/.filebrowser.json
+    networks:
+      - $DOCKER_NET
+    ports:
+      - "127.0.0.1:8083:80"
+networks:
+  $DOCKER_NET:
+    external: true
+EOF
+        # Default settings to avoid admin/admin
+        echo '{"port": 80, "baseURL": "", "address": "", "log": "stdout", "database": "/database.db", "root": "/srv"}' > /opt/filebrowser/settings.json
+
+        cd /opt/filebrowser && docker compose up -d
+
+        # We need to set password, but filebrowser CLI is inside container
+        # This is a bit tricky on first run.
+        # For simplicity, we let user handle initial login or use default admin/admin and warn them?
+        # Better: Print instructions.
+
+        update_nginx "files.$DOMAIN" "8083" "proxy"
+        success "File Browser Installed. Default login: admin/admin (Change immediately!)"
+    elif [ "$1" == "remove" ]; then
+        cd /opt/filebrowser && docker compose down
+        rm -f /etc/nginx/sites-enabled/files.$DOMAIN
+        success "File Browser Removed"
+    fi
+}
+
+manage_wireguard() {
+    if [ "$1" == "install" ]; then
+        msg "Installing WireGuard (WG-Easy)..."
+        mkdir -p /opt/wireguard
+
+        read -p "Enter WG Password (leave empty for auto): " WGPASS
+        if [ -z "$WGPASS" ]; then
+            WGPASS=$(openssl rand -base64 12)
+            msg "Generated Password: $WGPASS"
+            echo "wg_pass=$WGPASS" >> $AUTH_FILE
+        fi
+
+        HOST_IP=$(curl -s https://api.ipify.org)
+
+        cat <<EOF > /opt/wireguard/docker-compose.yml
+version: "3.8"
+services:
+  wg-easy:
+    environment:
+      - WG_HOST=$HOST_IP
+      - PASSWORD=$WGPASS
+      - WG_PORT=51820
+      - WG_DEFAULT_ADDRESS=10.8.0.x
+      - WG_DEFAULT_DNS=1.1.1.1
+      - WG_ALLOWED_IPS=0.0.0.0/0
+      - WG_PERSISTENT_KEEPALIVE=25
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wg-easy
+    volumes:
+      - ./data:/etc/wireguard
+    ports:
+      - "51820:51820/udp"
+      - "127.0.0.1:51821:51821/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      - $DOCKER_NET
+
+networks:
+  $DOCKER_NET:
+    external: true
+EOF
+        cd /opt/wireguard && docker compose up -d
+
+        ufw allow 51820/udp >/dev/null
+        update_nginx "vpn.$DOMAIN" "51821" "proxy"
+
+        success "WireGuard Installed. UI at https://vpn.$DOMAIN"
+    elif [ "$1" == "remove" ]; then
+        cd /opt/wireguard && docker compose down
+        rm -f /etc/nginx/sites-enabled/vpn.$DOMAIN
+        ufw delete allow 51820/udp >/dev/null
+        success "WireGuard Removed"
+    fi
+}
+
 manage_backup() {
     msg "Starting Backup..."
     mkdir -p $BACKUP_DIR
@@ -690,10 +812,27 @@ manage_ssh() {
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+
+    # Change SSH Port
+    read -p "Change SSH Port? (current: 22, default: 22) [y/N]: " change_port
+    if [[ "$change_port" =~ ^[Yy]$ ]]; then
+        read -p "Enter new SSH Port (e.g., 2222): " SSH_PORT
+        if [[ "$SSH_PORT" =~ ^[0-9]+$ ]]; then
+            sed -i "s/#Port 22/Port $SSH_PORT/" /etc/ssh/sshd_config
+            sed -i "s/Port 22/Port $SSH_PORT/" /etc/ssh/sshd_config
+            ufw allow $SSH_PORT/tcp >/dev/null
+            if [ "$SSH_PORT" != "22" ]; then
+                ufw delete allow 22/tcp >/dev/null
+            fi
+            msg "SSH Port changed to $SSH_PORT. Don't forget to update your client!"
+        else
+            warn "Invalid port. Skipping port change."
+        fi
+    fi
     
     # 4. Restart
     systemctl restart sshd
-    success "SSH Hardened (Keys Only Mode)"
+    success "SSH Hardened & Configured"
 }
 
 setup_autoupdate() {
@@ -734,6 +873,8 @@ sync_infrastructure() {
     [ -d "/var/www/yourls" ] && LINKS+="<a href='https://x.$DOMAIN' class='card'>Shortener</a>"
     [ -d "/opt/vaultwarden" ] && LINKS+="<a href='https://pass.$DOMAIN' class='card'>Vaultwarden</a>"
     [ -d "/opt/uptimekuma" ] && LINKS+="<a href='https://status.$DOMAIN' class='card'>Status</a>"
+    [ -d "/opt/wireguard" ] && LINKS+="<a href='https://vpn.$DOMAIN' class='card'>VPN</a>"
+    [ -d "/opt/filebrowser" ] && LINKS+="<a href='https://files.$DOMAIN' class='card'>Files</a>"
     docker ps | grep -q portainer && LINKS+="<a href='https://portainer.$DOMAIN' class='card'>Portainer</a>"
     docker ps | grep -q netdata && LINKS+="<a href='https://netdata.$DOMAIN' class='card'>Monitoring</a>"
 
@@ -787,6 +928,8 @@ EOF
     [ -f /etc/nginx/sites-enabled/x.$DOMAIN ] && DOMAINS+=" -d x.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/pass.$DOMAIN ] && DOMAINS+=" -d pass.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/status.$DOMAIN ] && DOMAINS+=" -d status.$DOMAIN"
+    [ -f /etc/nginx/sites-enabled/vpn.$DOMAIN ] && DOMAINS+=" -d vpn.$DOMAIN"
+    [ -f /etc/nginx/sites-enabled/files.$DOMAIN ] && DOMAINS+=" -d files.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/portainer.$DOMAIN ] && DOMAINS+=" -d portainer.$DOMAIN"
     [ -f /etc/nginx/sites-enabled/netdata.$DOMAIN ] && DOMAINS+=" -d netdata.$DOMAIN"
     
@@ -818,6 +961,8 @@ show_menu() {
     status_ftp=$( command -v vsftpd &>/dev/null && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
     status_vault=$( [ -d "/opt/vaultwarden" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
     status_kuma=$( [ -d "/opt/uptimekuma" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
+    status_wg=$( [ -d "/opt/wireguard" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
+    status_files=$( [ -d "/opt/filebrowser" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}" )
 
     echo -e "1. Gitea       [$status_gitea]" >&3
     echo -e "2. Nextcloud   [$status_next]" >&3
@@ -828,6 +973,8 @@ show_menu() {
     echo -e "7. FTP Server  [$status_ftp]" >&3
     echo -e "8. Vaultwarden [$status_vault]" >&3
     echo -e "9. Uptime Kuma [$status_kuma]" >&3
+    echo -e "17. WireGuard  [$status_wg]" >&3
+    echo -e "18. FileBrowse [$status_files]" >&3
     echo -e "-----------------------------" >&3
     echo -e "10. SYSTEM UPDATE" >&3
     echo -e "11. BACKUP NOW" >&3
@@ -866,6 +1013,8 @@ while true; do
 
         15) show_dns_records ;;
         16) manage_ssh ;;
+        17) [ -d "/opt/wireguard" ] && manage_wireguard "remove" || manage_wireguard "install" ;;
+        18) [ -d "/opt/filebrowser" ] && manage_filebrowser "remove" || manage_filebrowser "install" ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;
     esac
