@@ -1,137 +1,120 @@
-# 🚀 Cylae Server Manager (v6.0)
+# 🚀 Cylae Server Manager (v7.0)
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Production%20Ready-success.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Stable-success.svg)
 
-> **The Ultimate "Set & Forget" Self-Hosting Solution.**  
-> *Universal Edition | Auto-Tuning | Fully Modular*
+> **The Ultimate "Turnkey" Self-Hosting Solution.**
+> *Universal Edition | Auto-Tuning | Modular | Secure by Default*
 
 ---
 
-## 🇬🇧 English Version
+## 🌟 Why this script?
 
-### 📖 Introduction
-**Cylae Server Manager** is a premium, all-in-one Bash framework designed to transform **ANY** fresh Debian/Ubuntu server into a production-ready fortress. 
+You have a fresh VPS (Debian/Ubuntu) and you want to host your own services (Nextcloud, Gitea, Bitwarden/Vaultwarden, VPN...).
+Normally, you would spend hours configuring Nginx, setting up Docker, securing SSH, creating databases, and managing SSL certificates.
 
-Whether your domain is `cyl.ae`, `example.com`, or `my-awesome-server.net`, this script adapts automatically. It detects your hardware to optimize performance, manages services via Docker, handles SSL certificates automatically, and even updates itself and your entire system while you sleep.
+**Cylae Server Manager** does it all for you in **minutes**.
 
-### 🏗️ Architecture
-The system is built on a robust stack designed for stability and speed.
+It is designed to be **The Best Script EVER**:
+*   **Intelligent**: Detects your hardware (RAM) and tunes MySQL/PHP config accordingly.
+*   **Modular**: Install/Remove services cleanly without leaving junk behind.
+*   **Secure**: Hardens SSH, configures Firewall (UFW), and sets up Nginx with security headers.
+*   **Automated**: Updates itself, your system, and your docker containers every night.
+*   **Unified**: Provides a beautiful dashboard to access all your services.
 
-```mermaid
-graph LR
-    %% Nodes
-    User(("👤 User"))
-    Nginx["⚡ Nginx Proxy"]
-    
-    subgraph Services ["🚀 Services"]
-        direction TB
-        Dash["🖥️ Dashboard"]
-        Cloud["☁️ Nextcloud"]
-        Git["🐙 Gitea"]
-        Pass["🔑 Vaultwarden"]
-        Mail["📧 Mail"]
-        Wire["🛡️ WireGuard"]
-        Files["📂 Files"]
-    end
-    
-    subgraph Data ["💾 Data"]
-        DB[("🗄️ MariaDB")]
-        Docker[("🐳 Docker")]
-    end
+---
 
-    %% Flow
-    User -->|HTTPS| Nginx
-    Nginx --> Dash
-    Nginx --> Cloud
-    Nginx --> Git
-    Nginx --> Pass
-    Nginx --> Mail
-    Nginx --> Wire
-    Nginx --> Files
-    
-    Services -.-> Data
-```
+## 🛠️ Installation
 
-### ✨ Key Features
+**Prerequisites:**
+*   A fresh **Debian 11/12** (Recommended) or **Ubuntu 20.04/22.04** server.
+*   Root access.
+*   A domain name pointing to your server IP.
 
-#### 🧠 Intelligent Auto-Tuning
-The script analyzes your server's RAM at startup:
-*   **< 4GB RAM**: Activates "Low Profile". Optimizes MariaDB for low memory footprint, limits PHP workers.
-*   **> 4GB RAM**: Activates "High Performance". Allocates generous buffers for MariaDB and PHP for maximum speed.
+### Quick Start
 
-#### ⚡ Performance & Network
-*   **TCP BBR**: Automatically enables Google's BBR congestion control algorithm.
-*   **Swap Management**: Creates a 2GB Swap file to prevent OOM crashes.
-*   **DNS Tuning**: Configures systemd-resolved to use high-speed Google & Cloudflare DNS resolvers.
-*   **Nginx Tuning**: Configured for high-concurrency with HTTP/2 support.
-
-#### 🛡️ Ironclad Security
-*   **Firewall (UFW)**: Only essential ports are opened. Docker subnet is whitelisted for internal comms.
-*   **Fail2Ban**: Protects SSH and HTTP against brute-force attacks.
-*   **SSH Hardening**: Option 16 allows you to disable Password Authentication and **change the default SSH port**.
-*   **SSL Everywhere**: Automatic Let's Encrypt certificates for all subdomains.
-
-#### 🧩 New Modules (v6.0+)
-*   **WireGuard VPN**: Deploy a VPN server with a web UI (wg-easy) in seconds.
-*   **File Browser**: A Web-based file manager to manage your server files easily.
-
-#### 🤖 Auto-Pilot Mode
-A background cron job runs every night at **04:00 AM**:
-1.  **Self-Update**: Pulls the latest version of this script from Git.
-2.  **System Update**: Runs `apt-get update && upgrade`.
-3.  **Container Update**: Uses Watchtower to update all running Docker containers.
-4.  **Cleanup**: Prunes unused Docker images to save disk space.
-5.  **SSL**: Checks and renews certificates if needed.
-
-### 🚀 Quick Start
-
-**Prerequisites:** A fresh Debian 11/12 or Ubuntu 20.04/22.04 server.
-
-1.  **Clone the repo:**
+1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-repo/server_script.git
-    cd server_script
+    git clone https://github.com/your-username/cylae-server-manager.git /opt/cylae-manager
+    cd /opt/cylae-manager
     ```
 
-2.  **Run the script (as root):**
+2.  **Run the script:**
     ```bash
     chmod +x install.sh
     ./install.sh
     ```
 
-*   **Force Re-init**: Option 13 allows you to force a full system re-initialization if you need to reset configurations.
+3.  **Follow the wizard:**
+    *   Enter your domain name.
+    *   Select services to install from the menu.
 
 ---
 
-## 🇫🇷 Version Française
+## 📦 Services Catalog
 
-### 📖 Introduction
-**CYL.AE Server Manager** est un framework Bash premium tout-en-un, conçu pour transformer un serveur Debian/Ubuntu vierge en une forteresse de production.
+All services are deployed via **Docker** for maximum isolation and stability, served behind **Nginx** with automatic **Let's Encrypt SSL**.
 
-Contrairement aux installeurs classiques, c'est un **Gestionnaire de Cycle de Vie** intelligent. Il ne se contente pas d'installer des logiciels ; il les maintient. Il détecte votre matériel pour optimiser les performances, gère les services via Docker, s'occupe des certificats SSL automatiquement, et met même à jour le système entier (et lui-même) pendant que vous dormez.
+| Service | Description | URL |
+| :--- | :--- | :--- |
+| **Gitea** | Lightweight Git hosting (Github alternative). | `https://git.yourdomain.com` |
+| **Nextcloud** | File hosting & sharing (Google Drive alternative). | `https://cloud.yourdomain.com` |
+| **Vaultwarden** | Password manager (Bitwarden compatible). | `https://pass.yourdomain.com` |
+| **Mail Server** | Full stack mail server (Postfix, Dovecot, SpamAssassin). | `https://mail.yourdomain.com` |
+| **Uptime Kuma** | Monitoring tool to track uptime of services. | `https://status.yourdomain.com` |
+| **WireGuard** | Modern, fast VPN with web UI (wg-easy). | `https://vpn.yourdomain.com` |
+| **File Browser** | Web-based file manager. | `https://files.yourdomain.com` |
+| **YOURLS** | URL Shortener. | `https://x.yourdomain.com` |
+| **Portainer** | GUI for managing Docker containers. | `https://portainer.yourdomain.com` |
+| **Netdata** | Real-time performance monitoring. | `https://netdata.yourdomain.com` |
 
-### 🏗️ Architecture
-Le système repose sur une stack robuste conçue pour la stabilité et la vitesse.
+> **Note:** Databases are managed via a centralized MariaDB instance (bare-metal) for performance, accessible via **Adminer** on the dashboard.
 
-*(Voir le diagramme Mermaid ci-dessus)*
+---
 
-### ✨ Fonctionnalités Clés
+## ⚙️ Advanced Features
 
-#### 🧠 Auto-Tuning Intelligent
-Le script analyse la RAM de votre serveur au démarrage :
-*   **< 4GB RAM** : Active le "Profil Bas". Optimise MariaDB pour une faible empreinte mémoire.
-*   **> 4GB RAM** : Active la "Haute Performance". Alloue des buffers généreux pour une vitesse maximale.
+### 🧠 Smart Auto-Tuning
+The script checks your RAM on every run:
+*   **Low Profile (< 4GB)**: Optimizes for stability. Reduces database buffers and PHP workers.
+*   **High Profile (>= 4GB)**: Optimizes for speed. Increases cache sizes and connection limits.
 
-#### ⚡ Performance & Réseau
-*   **TCP BBR** : Active automatiquement l'algorithme BBR de Google pour une vitesse réseau fulgurante.
-*   **Gestion Swap** : Crée un fichier Swap de 2GB pour éviter les crashs OOM.
-*   **Tuning DNS** : Configure systemd-resolved pour utiliser les DNS rapides Google & Cloudflare.
-*   **Tuning Nginx** : Configuré pour une haute concurrence avec support HTTP/2.
+### 🛡️ Security
+*   **SSH Hardening**: Option to disable password login and change SSH port.
+*   **Firewall**: UFW is configured to deny all incoming traffic except SSH, HTTP/S, and specific service ports.
+*   **Isolation**: Docker containers run in a dedicated network.
+*   **Updates**:
+    *   Daily System Updates (`apt-get upgrade`)
+    *   Daily Docker Updates (`Watchtower`)
+    *   Daily Self-Updates (`git pull`)
 
-#### 🛡️ Sécurité Béton
-*   **Pare-feu (UFW)** : Ports essentiels uniquement.
-*   **SSH Blindé** : Désactivation des mots de passe et **changement de port** SSH en un clic.
-*   **VPN WireGuard** : Déploiement instantané d'un VPN personnel.
-*   **File Browser** : Gestionnaire de fichiers web inclus.
+### 📂 Directory Structure
+*   **Config**: `/etc/cyl_manager.conf`
+*   **Logs**: `/var/log/server_manager.log`
+*   **Credentials**: `/root/.auth_details` (Contains generated passwords)
+*   **Service Data**: `/opt/<service_name>`
+*   **Backups**: `/var/backups/cyl_manager`
 
-*Made with ❤️ for Cylae.*
+---
+
+## ❓ Troubleshooting
+
+**Q: I added a service but the URL doesn't work.**
+A: Ensure you have created the DNS record (CNAME) for the subdomain. Use option `d` in the menu to see required records. Then run option `r` (Sync All) to refresh Nginx and SSL.
+
+**Q: How do I access the Database?**
+A: Go to your main dashboard (`https://admin.yourdomain.com`) and click "DB Admin". Login with `root` and the password found in `/root/.auth_details`.
+
+**Q: The script failed during installation.**
+A: Check the logs at `/var/log/server_manager.log` for detailed error messages.
+
+**Q: How do I restore a backup?**
+A: Backups are stored in `/var/backups/cyl_manager`.
+*   **Database**: `mysql < db_backup.sql`
+*   **Files**: Extract the tarball to root: `tar -xzf files_backup.tar.gz -C /`
+
+---
+
+## 🤝 Contributing
+Feel free to open issues or pull requests to make this script even better!
+
+*v7.0 - Ultimate Edition*
