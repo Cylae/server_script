@@ -8,6 +8,12 @@ export DEBIAN_FRONTEND=noninteractive
 # ==============================================================================
 
 LOG_FILE="/var/log/server_autoupdate.log"
+
+# Log Rotation (Keep < 1MB)
+if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 1048576 ]; then
+    mv "$LOG_FILE" "$LOG_FILE.old"
+fi
+
 exec 1>>$LOG_FILE 2>&1
 
 echo "----------------------------------------------------------------"
