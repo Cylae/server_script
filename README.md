@@ -30,6 +30,8 @@ graph LR
         Git["🐙 Gitea"]
         Pass["🔑 Vaultwarden"]
         Mail["📧 Mail"]
+        Wire["🛡️ WireGuard"]
+        Files["📂 Files"]
     end
     
     subgraph Data ["💾 Data"]
@@ -44,6 +46,8 @@ graph LR
     Nginx --> Git
     Nginx --> Pass
     Nginx --> Mail
+    Nginx --> Wire
+    Nginx --> Files
     
     Services -.-> Data
 ```
@@ -64,8 +68,12 @@ The script analyzes your server's RAM at startup:
 #### 🛡️ Ironclad Security
 *   **Firewall (UFW)**: Only essential ports are opened. Docker subnet is whitelisted for internal comms.
 *   **Fail2Ban**: Protects SSH and HTTP against brute-force attacks.
-*   **SSH Hardening**: Option 16 allows you to disable Password Authentication with one click (Keys Only).
+*   **SSH Hardening**: Option 16 allows you to disable Password Authentication and **change the default SSH port**.
 *   **SSL Everywhere**: Automatic Let's Encrypt certificates for all subdomains.
+
+#### 🧩 New Modules (v6.0+)
+*   **WireGuard VPN**: Deploy a VPN server with a web UI (wg-easy) in seconds.
+*   **File Browser**: A Web-based file manager to manage your server files easily.
 
 #### 🤖 Auto-Pilot Mode
 A background cron job runs every night at **04:00 AM**:
@@ -121,4 +129,9 @@ Le script analyse la RAM de votre serveur au démarrage :
 *   **Tuning Nginx** : Configuré pour une haute concurrence avec support HTTP/2.
 
 #### 🛡️ Sécurité Béton
+*   **Pare-feu (UFW)** : Ports essentiels uniquement.
+*   **SSH Blindé** : Désactivation des mots de passe et **changement de port** SSH en un clic.
+*   **VPN WireGuard** : Déploiement instantané d'un VPN personnel.
+*   **File Browser** : Gestionnaire de fichiers web inclus.
+
 *Made with ❤️ for Cylae.*

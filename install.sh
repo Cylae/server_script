@@ -94,6 +94,48 @@ detect_profile() {
 # 3. SYSTEM INFRASTRUCTURE (The Foundation)
 # ------------------------------------------------------------------------------
 
+tune_system() {
+    msg "Applying System Tuning..."
+    PROFILE=$(cat /tmp/server_profile)
+
+    # 1. Database Tuning
+    if [ "$PROFILE" == "LOW" ]; then
+        # Low RAM Optimization
+        cat <<EOF > /etc/mysql/mariadb.conf.d/99-tuning.cnf
+[mysqld]
+innodb_buffer_pool_size = 128M
+max_connections = 50
+performance_schema = OFF
+bind-address = 0.0.0.0
+EOF
+    else
+        # High RAM Optimization
+        cat <<EOF > /etc/mysql/mariadb.conf.d/99-tuning.cnf
+[mysqld]
+innodb_buffer_pool_size = 1G
+max_connections = 200
+bind-address = 0.0.0.0
+EOF
+    fi
+
+    # 2. PHP Tuning
+    PHP_VER=$(php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;")
+    if [ "$PROFILE" == "LOW" ]; then
+        sed -i 's/pm.max_children = .*/pm.max_children = 10/' /etc/php/$PHP_VER/fpm/pool.d/www.conf
+        sed -i 's/memory_limit = .*/memory_limit = 256M/' /etc/php/$PHP_VER/fpm/php.ini
+    else
+        sed -i 's/pm.max_children = .*/pm.max_children = 50/' /etc/php/$PHP_VER/fpm/pool.d/www.conf
+        sed -i 's/memory_limit = .*/memory_limit = 512M/' /etc/php/$PHP_VER/fpm/php.ini
+    fi
+    # Common PHP settings
+    sed -i 's/upload_max_filesize = .*/upload_max_filesize = 512M/' /etc/php/$PHP_VER/fpm/php.ini
+    sed -i 's/post_max_size = .*/post_max_size = 512M/' /etc/php/$PHP_VER/fpm/php.ini
+
+    systemctl restart php$PHP_VER-fpm
+    systemctl restart mariadb
+    success "System Tuned for $PROFILE usage."
+}
+
 init_system() {
     # OS Compatibility Check
     if [ -f /etc/os-release ]; then
@@ -158,42 +200,7 @@ init_system() {
     # 4. Host Stack (Nginx/PHP/MariaDB)
     apt-get install -y nginx mariadb-server certbot python3-certbot-nginx php-fpm php-mysql php-curl php-gd php-mbstring php-xml php-zip php-intl php-bcmath >/dev/null
     
-    # 5. Database Tuning (Based on Profile)
-    PROFILE=$(cat /tmp/server_profile)
-    if [ "$PROFILE" == "LOW" ]; then
-        # Low RAM Optimization
-        cat <<EOF > /etc/mysql/mariadb.conf.d/99-tuning.cnf
-[mysqld]
-innodb_buffer_pool_size = 128M
-max_connections = 50
-performance_schema = OFF
-bind-address = 0.0.0.0
-EOF
-    else
-        # High RAM Optimization
-        cat <<EOF > /etc/mysql/mariadb.conf.d/99-tuning.cnf
-[mysqld]
-innodb_buffer_pool_size = 1G
-max_connections = 200
-bind-address = 0.0.0.0
-EOF
-    fi
-
-    # 6. PHP Tuning
-    PHP_VER=$(php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;")
-    if [ "$PROFILE" == "LOW" ]; then
-        sed -i 's/pm.max_children = .*/pm.max_children = 10/' /etc/php/$PHP_VER/fpm/pool.d/www.conf
-        sed -i 's/memory_limit = .*/memory_limit = 256M/' /etc/php/$PHP_VER/fpm/php.ini
-    else
-        sed -i 's/pm.max_children = .*/pm.max_children = 50/' /etc/php/$PHP_VER/fpm/pool.d/www.conf
-        sed -i 's/memory_limit = .*/memory_limit = 512M/' /etc/php/$PHP_VER/fpm/php.ini
-    fi
-    # Common PHP settings
-    sed -i 's/upload_max_filesize = .*/upload_max_filesize = 512M/' /etc/php/$PHP_VER/fpm/php.ini
-    sed -i 's/post_max_size = .*/post_max_size = 512M/' /etc/php/$PHP_VER/fpm/php.ini
-    
-    systemctl restart php$PHP_VER-fpm
-    systemctl restart mariadb
+    tune_system
     
     # 7. Security (UFW)
     ufw allow ssh >/dev/null
@@ -979,7 +986,8 @@ show_menu() {
     echo -e "10. SYSTEM UPDATE" >&3
     echo -e "11. BACKUP NOW" >&3
     echo -e "12. SYNC ALL (SSL & Dashboard)" >&3
-    echo -e "13. FORCE RE-INIT SYSTEM" >&3
+    echo -e "13. RE-TUNE SYSTEM (Apply $PROFILE settings)" >&3
+    echo -e "14. FORCE RE-INIT SYSTEM" >&3
 
     echo -e "15. SHOW DNS RECORDS" >&3
     echo -e "16. HARDEN SSH (Keys Only)" >&3
@@ -1009,7 +1017,8 @@ while true; do
         10) system_update ;;
         11) manage_backup ;;
         12) sync_infrastructure ;;
-        13) rm -f /root/.server_installed && init_system ;;
+        13) tune_system ;;
+        14) rm -f /root/.server_installed && init_system ;;
 
         15) show_dns_records ;;
         16) manage_ssh ;;
