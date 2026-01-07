@@ -1,62 +1,116 @@
 #!/bin/bash
 
-export DEBIAN_FRONTEND=noninteractive
-
 # ==============================================================================
-#  CYL.AE AUTO-UPDATE SCRIPT
-#  Runs in background to keep system, docker, and ssl up to date.
+#  CYL.AE SERVER MANAGER - AUTO UPDATE AGENT
+#  Version: 2.0 (Enhanced Reliability)
 # ==============================================================================
 
+# Strict mode
+set -u
+
+# Constants
 LOG_FILE="/var/log/server_autoupdate.log"
+CONFIG_FILE="/etc/cyl_manager.conf"
+LOCK_FILE="/var/run/server_autoupdate.lock"
 
-# Log Rotation (Keep < 1MB)
-if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 1048576 ]; then
-    mv "$LOG_FILE" "$LOG_FILE.old"
+# Redirect output to log
+exec 1>>"$LOG_FILE" 2>&1
+
+# Prevent concurrent execution
+if [ -f "$LOCK_FILE" ]; then
+    PID=$(cat "$LOCK_FILE")
+    if ps -p "$PID" > /dev/null 2>&1; then
+        echo "$(date) - Script already running with PID $PID. Exiting."
+        exit 1
+    fi
 fi
+echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT
 
-exec 1>>$LOG_FILE 2>&1
-
-echo "----------------------------------------------------------------"
+echo "================================================================"
 echo "STARTING UPDATE: $(date)"
 
-# 0. Self-Update
-if [ -f /etc/cyl_manager.conf ]; then
-    source /etc/cyl_manager.conf
-    if [ -d "$INSTALL_DIR/.git" ]; then
-        echo "[SELF] Updating Server Manager script..."
-        if git -C "$INSTALL_DIR" pull -q; then
-             echo "[SELF] Git pull successful. Updating installed binary..."
-             cp "$INSTALL_DIR/auto_update.sh" /usr/local/bin/server_autoupdate.sh
-             chmod +x /usr/local/bin/server_autoupdate.sh
+log() { echo "$(date +'%Y-%m-%d %H:%M:%S') - $1"; }
+
+# 1. Self-Update
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+    if [ -n "${INSTALL_DIR:-}" ] && [ -d "$INSTALL_DIR/.git" ]; then
+        log "[SELF] Checking for script updates in $INSTALL_DIR..."
+
+        # Fetch only
+        git -C "$INSTALL_DIR" fetch origin
+
+        LOCAL=$(git -C "$INSTALL_DIR" rev-parse HEAD)
+        REMOTE=$(git -C "$INSTALL_DIR" rev-parse @{u})
+
+        if [ "$LOCAL" != "$REMOTE" ]; then
+            log "[SELF] Update found. Pulling..."
+            if git -C "$INSTALL_DIR" pull -q; then
+                 log "[SELF] Git pull successful."
+                 # Update binaries
+                 if [ -f "$INSTALL_DIR/install.sh" ]; then
+                    cp "$INSTALL_DIR/install.sh" /usr/local/bin/server_manager.sh
+                    chmod +x /usr/local/bin/server_manager.sh
+                 fi
+                 if [ -f "$INSTALL_DIR/auto_update.sh" ]; then
+                    cp "$INSTALL_DIR/auto_update.sh" /usr/local/bin/server_autoupdate.sh
+                    chmod +x /usr/local/bin/server_autoupdate.sh
+                 fi
+                 log "[SELF] Binaries updated."
+            else
+                 log "[SELF] ERROR: Git pull failed."
+            fi
         else
-             echo "[SELF] Git pull failed"
+            log "[SELF] No updates found."
         fi
+    else
+        log "[SELF] Git repository not found or INSTALL_DIR not set."
     fi
 fi
 
-# 1. System Updates
-echo "[SYSTEM] Updating apt packages..."
-apt-get update -q && apt-get upgrade -y -q
-
-# 2. Docker Updates (via Watchtower)
-echo "[DOCKER] Updating containers..."
-if docker ps >/dev/null 2>&1; then
-    # Run Watchtower once to update all running containers, then remove it
-    docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        containrrr/watchtower \
-        --run-once --cleanup --include-restarting
+# 2. System Updates
+export DEBIAN_FRONTEND=noninteractive
+log "[SYSTEM] Updating apt packages..."
+if apt-get update -q && apt-get upgrade -y -q; then
+    log "[SYSTEM] Packages updated successfully."
 else
-    echo "[DOCKER] Docker not running, skipping."
+    log "[SYSTEM] ERROR: Package update failed."
 fi
 
-# 3. Cleanup Docker
-echo "[DOCKER] Cleaning up unused images..."
-docker image prune -f
+# 3. Docker Updates (via Watchtower)
+if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+    log "[DOCKER] Checking for container updates..."
+    # Run Watchtower once to update all running containers
+    # We use containrrr/watchtower:latest-dev for latest features or stable
+    if docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        containrrr/watchtower \
+        --run-once --cleanup --include-restarting; then
+        log "[DOCKER] Containers updated."
+    else
+        log "[DOCKER] Watchtower run failed."
+    fi
+
+    # Prune
+    log "[DOCKER] Cleaning up unused images..."
+    docker image prune -f
+else
+    log "[DOCKER] Docker not running or not installed."
+fi
 
 # 4. SSL Renewal
-echo "[SSL] Checking certificates..."
-certbot renew --quiet --post-hook "systemctl reload nginx"
+if command -v certbot >/dev/null 2>&1; then
+    log "[SSL] Checking certificates..."
+    certbot renew --quiet --post-hook "systemctl reload nginx"
+fi
+
+# 5. Log Rotation
+if [ -f "$LOG_FILE" ] && [ $(stat -c%s "$LOG_FILE") -gt 5242880 ]; then # 5MB
+    log "[LOG] Rotating log file..."
+    mv "$LOG_FILE" "$LOG_FILE.old"
+    # Keep only 1 old log
+fi
 
 echo "UPDATE COMPLETE: $(date)"
-echo "----------------------------------------------------------------"
+echo "================================================================"
