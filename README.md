@@ -1,4 +1,4 @@
-# 🚀 Cylae Server Manager (v7.0)
+# 🚀 Cylae Server Manager (v7.1)
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Stable-success.svg)
 
@@ -16,24 +16,23 @@ Normalement, vous passeriez des heures à configurer Nginx, installer Docker, s�
 
 **Cylae Server Manager** fait tout cela pour vous en **quelques minutes**.
 
-### 🔐 Accès et Identifiants
-Une fois les services installés, vous pouvez retrouver **tous les mots de passe générés** via le menu du script.
-1. Lancez le script : `./install.sh`
-2. Choisissez l'option **`c`** (SHOW CREDENTIALS).
-3. Le script affichera les mots de passe pour la Base de données, le Mail (postmaster), WireGuard, etc.
-
-*Note : Le fichier brut est stocké dans `/root/.auth_details` (accessible uniquement en root).*
+### 🔐 Accès et Identifiants (Interactif)
+Lors de l'installation de chaque service, le script vous demandera de définir vos propres **nom d'utilisateur et mot de passe administrateur**.
+*   Si vous laissez les champs vides, des identifiants sécurisés par défaut seront générés.
+*   Vous pouvez retrouver **tous les mots de passe** via le menu du script (Option **`c`**).
 
 ### 🔄 Réinstallation et Réparation
 Le script est **idempotent** : vous pouvez le relancer autant de fois que nécessaire (par exemple, pour mettre à jour une configuration ou réparer un service).
 *   Il détectera les services existants.
 *   Il **préservera vos mots de passe** (stockés dans `.auth_details`).
 *   Il mettra à jour les conteneurs et les configurations sans perte de données.
+*   Il vérifie automatiquement l'intégrité des services après installation.
 
 Il est conçu pour être **Le Meilleur Script JAMAIS conçu** :
 *   **Intelligent** : Détecte votre matériel (RAM) et optimise la config MySQL/PHP en conséquence.
 *   **Modulaire** : Installez/Supprimez des services proprement sans laisser de résidus.
 *   **Sécurisé** : Durcit SSH, configure le Pare-feu (UFW), et configure Nginx avec des en-têtes de sécurité.
+*   **SSL Automatique** : Configure automatiquement **Let's Encrypt** pour tous vos domaines (Option **`r`**).
 *   **Automatisé** : Se met à jour, met à jour votre système et vos conteneurs docker chaque nuit.
 *   **Unifié** : Fournit un tableau de bord magnifique pour accéder à tous vos services.
 
@@ -63,6 +62,7 @@ Il est conçu pour être **Le Meilleur Script JAMAIS conçu** :
 3.  **Suivre l'assistant :**
     *   Entrez votre nom de domaine.
     *   Sélectionnez les services à installer depuis le menu.
+    *   Définissez vos identifiants administrateur.
 
 ---
 
@@ -75,7 +75,7 @@ Tous les services sont déployés via **Docker** pour une isolation et une stabi
 | **Gitea** | Hébergement Git léger (alternative à Github). | `https://git.votre-domaine.com` |
 | **Nextcloud** | Hébergement & partage de fichiers (alternative à Google Drive). | `https://cloud.votre-domaine.com` |
 | **Vaultwarden** | Gestionnaire de mots de passe (compatible Bitwarden). | `https://pass.votre-domaine.com` |
-| **Serveur Mail** | Serveur mail complet. Utilisateur par défaut : `postmaster@votre-domaine.com`. | `https://mail.votre-domaine.com` |
+| **Serveur Mail** | Serveur mail complet. | `https://mail.votre-domaine.com` |
 | **Uptime Kuma** | Outil de surveillance pour suivre la disponibilité des services. | `https://status.votre-domaine.com` |
 | **WireGuard** | VPN moderne et rapide avec interface web (wg-easy). | `https://vpn.votre-domaine.com` |
 | **File Browser** | Gestionnaire de fichiers web. | `https://files.votre-domaine.com` |
@@ -115,7 +115,7 @@ Le script vérifie votre RAM à chaque exécution :
 ## ❓ Dépannage
 
 **Q : J'ai ajouté un service mais l'URL ne fonctionne pas.**
-R : Assurez-vous d'avoir créé l'enregistrement DNS (CNAME) pour le sous-domaine. Utilisez l'option `d` dans le menu pour voir les enregistrements requis. Puis lancez l'option `r` (Sync All) pour rafraîchir Nginx et SSL.
+R : Assurez-vous d'avoir créé l'enregistrement DNS (CNAME) pour le sous-domaine. Utilisez l'option `d` dans le menu pour voir les enregistrements requis. Puis lancez l'option **`r`** (Sync Infrastructure) pour configurer **SSL (Let's Encrypt)**.
 
 **Q : Comment accéder à la Base de Données ?**
 R : Allez sur votre tableau de bord principal (`https://admin.votre-domaine.com`) et cliquez sur "DB Admin". Connectez-vous avec `root` et le mot de passe trouvé dans `/root/.auth_details`.
@@ -133,7 +133,7 @@ R : Les sauvegardes sont stockées dans `/var/backups/cyl_manager`.
 ## 🤝 Contribuer
 N'hésitez pas à ouvrir des issues ou des pull requests pour rendre ce script encore meilleur !
 
-*v7.0 - Édition Ultime*
+*v7.1 - Édition Ultime*
 
 ---
 ---
@@ -142,7 +142,7 @@ N'hésitez pas à ouvrir des issues ou des pull requests pour rendre ce script e
 
 <div id="english"></div>
 
-# 🚀 Cylae Server Manager (v7.0)
+# 🚀 Cylae Server Manager (v7.1)
 
 > **The Ultimate "Turnkey" Self-Hosting Solution.**
 > *Universal Edition | Auto-Tuning | Modular | Secure by Default*
@@ -158,24 +158,23 @@ Normally, you would spend hours configuring Nginx, setting up Docker, securing S
 
 **Cylae Server Manager** does it all for you in **minutes**.
 
-### 🔐 Access and Credentials
-Once services are installed, you can retrieve **all generated passwords** via the script menu.
-1. Run the script: `./install.sh`
-2. Choose option **`c`** (SHOW CREDENTIALS).
-3. The script will display passwords for Database, Mail (postmaster), WireGuard, etc.
-
-*Note: The raw file is stored in `/root/.auth_details` (root access only).*
+### 🔐 Access and Credentials (Interactive)
+When installing each service, the script will ask you to set your own **admin username and password**.
+*   If you leave them empty, secure defaults will be generated.
+*   You can retrieve **all passwords** via the script menu (Option **`c`**).
 
 ### 🔄 Reinstall & Repair
 The script is **idempotent**: you can run it as many times as needed (e.g., to update configuration or repair a service).
 *   It detects existing services.
 *   It **preserves your passwords** (stored in `.auth_details`).
 *   It updates containers and configurations without data loss.
+*   It automatically verifies service integrity after installation.
 
 It is designed to be **The Best Script EVER**:
 *   **Intelligent**: Detects your hardware (RAM) and tunes MySQL/PHP config accordingly.
 *   **Modular**: Install/Remove services cleanly without leaving junk behind.
 *   **Secure**: Hardens SSH, configures Firewall (UFW), and sets up Nginx with security headers.
+*   **Automatic SSL**: Automatically configures **Let's Encrypt** for all your domains (Option **`r`**).
 *   **Automated**: Updates itself, your system, and your docker containers every night.
 *   **Unified**: Provides a beautiful dashboard to access all your services.
 
@@ -205,6 +204,7 @@ It is designed to be **The Best Script EVER**:
 3.  **Follow the wizard:**
     *   Enter your domain name.
     *   Select services to install from the menu.
+    *   Define your admin credentials.
 
 ---
 
@@ -217,7 +217,7 @@ All services are deployed via **Docker** for maximum isolation and stability, se
 | **Gitea** | Lightweight Git hosting (Github alternative). | `https://git.yourdomain.com` |
 | **Nextcloud** | File hosting & sharing (Google Drive alternative). | `https://cloud.yourdomain.com` |
 | **Vaultwarden** | Password manager (Bitwarden compatible). | `https://pass.yourdomain.com` |
-| **Mail Server** | Full stack mail server. Default user: `postmaster@yourdomain.com`. | `https://mail.yourdomain.com` |
+| **Mail Server** | Full stack mail server. | `https://mail.yourdomain.com` |
 | **Uptime Kuma** | Monitoring tool to track uptime of services. | `https://status.yourdomain.com` |
 | **WireGuard** | Modern, fast VPN with web UI (wg-easy). | `https://vpn.yourdomain.com` |
 | **File Browser** | Web-based file manager. | `https://files.yourdomain.com` |
@@ -257,7 +257,7 @@ The script checks your RAM on every run:
 ## ❓ Troubleshooting
 
 **Q: I added a service but the URL doesn't work.**
-A: Ensure you have created the DNS record (CNAME) for the subdomain. Use option `d` in the menu to see required records. Then run option `r` (Sync All) to refresh Nginx and SSL.
+A: Ensure you have created the DNS record (CNAME) for the subdomain. Use option `d` in the menu to see required records. Then run option **`r`** (Sync Infrastructure) to configure **SSL (Let's Encrypt)**.
 
 **Q: How do I access the Database?**
 A: Go to your main dashboard (`https://admin.yourdomain.com`) and click "DB Admin". Login with `root` and the password found in `/root/.auth_details`.
@@ -275,4 +275,4 @@ A: Backups are stored in `/var/backups/cyl_manager`.
 ## 🤝 Contributing
 Feel free to open issues or pull requests to make this script even better!
 
-*v7.0 - Ultimate Edition*
+*v7.1 - Ultimate Edition*

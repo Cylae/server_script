@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-#  CYL.AE SERVER MANAGER V7.0 (Ultimate Edition)
+#  CYL.AE SERVER MANAGER V7.1 (Refactored & Interactive)
 #  The best script EVER for managing your self-hosted services.
 # ==============================================================================
 
@@ -16,9 +16,6 @@ LOG_FILE="/var/log/server_manager.log"
 AUTH_FILE="/root/.auth_details"
 DOCKER_NET="server-net"
 BACKUP_DIR="/var/backups/cyl_manager"
-
-# Versions
-ADMINER_VER="4.8.1"
 
 # Colors
 RED='\033[0;31m'
@@ -112,6 +109,16 @@ get_auth_value() {
     fi
 }
 
+update_auth_value() {
+    local key="$1"
+    local value="$2"
+    if grep -q "^${key}=" "$AUTH_FILE"; then
+        sed -i "s|^${key}=.*|${key}=${value}|" "$AUTH_FILE"
+    else
+        echo "${key}=${value}" >> "$AUTH_FILE"
+    fi
+}
+
 get_or_create_password() {
     local key="$1"
     local saved=$(get_auth_value "$key")
@@ -122,6 +129,55 @@ get_or_create_password() {
         echo "${key}=${new_pass}" >> "$AUTH_FILE"
         echo "$new_pass"
     fi
+}
+
+ask_credential_pair() {
+    local service_name="$1"     # e.g. "Gitea"
+    local default_user="$2"     # e.g. "gitea_admin"
+    local env_var_user="$3"     # Variable name to export for user
+    local env_var_pass="$4"     # Variable name to export for pass
+    local key_suffix="$5"       # Suffix for auth file keys
+
+    echo -e "${YELLOW}>> Configuration for $service_name:${NC}" >&3
+
+    local input_user
+    ask "   Enter Admin Username (Default: $default_user):" input_user
+    if [ -z "$input_user" ]; then input_user="$default_user"; fi
+
+    local input_pass
+    ask "   Enter Admin Password (Press Enter for Auto/Saved):" input_pass
+    if [ -z "$input_pass" ]; then
+         local saved=$(get_auth_value "${key_suffix}_pass")
+         if [ -n "$saved" ]; then
+            input_pass="$saved"
+         else
+            input_pass=$(generate_password)
+         fi
+    fi
+
+    # Save logic
+    update_auth_value "${key_suffix}_user" "$input_user"
+    update_auth_value "${key_suffix}_pass" "$input_pass"
+
+    # Export
+    eval "$env_var_user=\"$input_user\""
+    eval "$env_var_pass=\"$input_pass\""
+
+    echo -e "   -> Configured: $input_user / [HIDDEN]" >&3
+}
+
+wait_for_container() {
+    local container="$1"
+    msg "Waiting for container $container to be ready..."
+    local retries=30
+    while [ $retries -gt 0 ]; do
+        if docker ps | grep -q "$container"; then
+             return 0
+        fi
+        sleep 2
+        ((retries--))
+    done
+    warn "Container $container did not start in time."
 }
 
 # ------------------------------------------------------------------------------
@@ -148,7 +204,6 @@ tune_system() {
     PROFILE=$(cat /etc/cyl_profile 2>/dev/null || echo "HIGH")
 
     # 1. Database Tuning (MariaDB)
-    # Check if MariaDB is installed first
     if [ -d "/etc/mysql/mariadb.conf.d" ]; then
         if [ "$PROFILE" == "LOW" ]; then
             cat <<EOF > /etc/mysql/mariadb.conf.d/99-tuning.cnf
@@ -360,7 +415,23 @@ EOF
     ln -sf "/etc/nginx/sites-available/$sub" "/etc/nginx/sites-enabled/"
 }
 
-# Generic Docker Service Installer
+verify_integrity() {
+     local name=$1
+     msg "Verifying integrity for $name..."
+     if [ -d "/opt/$name" ]; then
+         if ! cd "/opt/$name" && docker compose ps --format json | grep -q '"State":"running"'; then
+            # Try alt check
+            if ! docker compose ps | grep -q "Up"; then
+                 warn "Service $name might not be running correctly. Please check logs."
+            else
+                 success "$name is Running."
+            fi
+         else
+            success "$name is Running."
+         fi
+     fi
+}
+
 deploy_docker_service() {
     local name=$1
     local pretty_name=$2
@@ -376,6 +447,10 @@ deploy_docker_service() {
     cd "/opt/$name" && docker compose up -d
 
     update_nginx "$subdomain" "$port" "proxy"
+
+    wait_for_container "$name"
+    verify_integrity "$name"
+
     success "$pretty_name Installed at https://$subdomain"
 }
 
@@ -386,7 +461,6 @@ remove_docker_service() {
     local port=${4:-}
 
     msg "Removing $pretty_name..."
-
     ask "Do you want to PERMANENTLY DELETE all data for $pretty_name? (y/n):" confirm_delete
 
     if [ -d "/opt/$name" ]; then
@@ -400,9 +474,11 @@ remove_docker_service() {
     fi
 
     rm -f "/etc/nginx/sites-enabled/$subdomain"
+    rm -f "/etc/nginx/sites-available/$subdomain"
     if [ -n "$port" ]; then
         ufw delete allow "$port" >/dev/null 2>&1 || true
     fi
+    systemctl reload nginx
     success "$pretty_name Removed"
 }
 
@@ -414,8 +490,11 @@ manage_gitea() {
     local name="gitea"
     local sub="git.$DOMAIN"
     if [ "$1" == "install" ]; then
-        local pass=$(get_or_create_password "gitea_db_pass")
-        ensure_db "$name" "$name" "$pass"
+        # 1. Credentials
+        local db_pass=$(get_or_create_password "gitea_db_pass")
+        ask_credential_pair "Gitea" "gitea_admin" GITEA_ADMIN GITEA_PASS "gitea"
+
+        ensure_db "$name" "$name" "$db_pass"
         local host_ip=$(hostname -I | awk '{print $1}')
 
         read -r -d '' CONTENT <<EOF
@@ -433,7 +512,7 @@ services:
       - GITEA__database__HOST=$host_ip:3306
       - GITEA__database__NAME=$name
       - GITEA__database__USER=$name
-      - GITEA__database__PASSWD=$pass
+      - GITEA__database__PASSWD=$db_pass
       - GITEA__server__SSH_DOMAIN=$sub
       - GITEA__server__SSH_PORT=2222
       - GITEA__server__ROOT_URL=https://$sub/
@@ -448,6 +527,16 @@ networks:
     external: true
 EOF
         deploy_docker_service "$name" "Gitea" "$sub" "3000" "$CONTENT"
+
+        # Create Admin User via CLI
+        msg "Configuring Gitea Admin..."
+        sleep 5
+        docker exec -u 1000 gitea gitea admin user create --admin --username "$GITEA_ADMIN" --password "$GITEA_PASS" --email "$EMAIL" --must-change-password=false >/dev/null 2>&1 || warn "Admin user creation failed (might already exist)."
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   User: $GITEA_ADMIN" >&3
+        echo -e "   Pass: $GITEA_PASS" >&3
     else
         remove_docker_service "$name" "Gitea" "$sub"
     fi
@@ -457,8 +546,10 @@ manage_nextcloud() {
     local name="nextcloud"
     local sub="cloud.$DOMAIN"
     if [ "$1" == "install" ]; then
-        local pass=$(get_or_create_password "nextcloud_db_pass")
-        ensure_db "$name" "$name" "$pass"
+        local db_pass=$(get_or_create_password "nextcloud_db_pass")
+        ask_credential_pair "Nextcloud" "admin" NEXT_USER NEXT_PASS "nextcloud"
+
+        ensure_db "$name" "$name" "$db_pass"
         local host_ip=$(hostname -I | awk '{print $1}')
 
         read -r -d '' CONTENT <<EOF
@@ -475,11 +566,13 @@ services:
     volumes:
       - ./nextcloud:/var/www/html
     environment:
-      - MYSQL_PASSWORD=$pass
+      - MYSQL_PASSWORD=$db_pass
       - MYSQL_DATABASE=$name
       - MYSQL_USER=$name
       - MYSQL_HOST=$host_ip
       - NEXTCLOUD_TRUSTED_DOMAINS=$sub
+      - NEXTCLOUD_ADMIN_USER=$NEXT_USER
+      - NEXTCLOUD_ADMIN_PASSWORD=$NEXT_PASS
 networks:
   $DOCKER_NET:
     external: true
@@ -490,6 +583,11 @@ EOF
         until docker exec -u www-data nextcloud_app php occ status >/dev/null 2>&1; do sleep 2; done
         docker exec -u www-data nextcloud_app php occ config:system:set trusted_proxies 0 --value="127.0.0.1" >/dev/null 2>&1
         docker exec -u www-data nextcloud_app php occ config:system:set overwriteprotocol --value="https" >/dev/null 2>&1
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   User: $NEXT_USER" >&3
+        echo -e "   Pass: $NEXT_PASS" >&3
     else
         remove_docker_service "$name" "Nextcloud" "$sub"
     fi
@@ -499,6 +597,8 @@ manage_vaultwarden() {
     local name="vaultwarden"
     local sub="pass.$DOMAIN"
     if [ "$1" == "install" ]; then
+        ask_credential_pair "Vaultwarden (Admin Token)" "token" VW_USER VW_TOKEN "vaultwarden"
+
         read -r -d '' CONTENT <<EOF
 version: '3'
 services:
@@ -508,6 +608,7 @@ services:
     restart: always
     environment:
       - SIGNUPS_ALLOWED=true
+      - ADMIN_TOKEN=$VW_TOKEN
     volumes:
       - ./data:/data
     networks:
@@ -519,6 +620,11 @@ networks:
     external: true
 EOF
         deploy_docker_service "$name" "Vaultwarden" "$sub" "8082" "$CONTENT"
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   Admin Token: $VW_TOKEN" >&3
+        echo -e "   (Use this token to access https://$sub/admin)" >&3
     else
         remove_docker_service "$name" "Vaultwarden" "$sub"
     fi
@@ -546,6 +652,10 @@ networks:
     external: true
 EOF
         deploy_docker_service "$name" "Uptime Kuma" "$sub" "3001" "$CONTENT"
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   NOTE: Please create your admin account on the first visit." >&3
     else
         remove_docker_service "$name" "Uptime Kuma" "$sub"
     fi
@@ -555,12 +665,8 @@ manage_wireguard() {
     local name="wireguard"
     local sub="vpn.$DOMAIN"
     if [ "$1" == "install" ]; then
-        ask "Enter WG Password (leave empty for auto/reuse):" WGPASS
-        if [ -n "$WGPASS" ]; then
-             echo "wg_pass=$WGPASS" >> "$AUTH_FILE"
-        else
-             WGPASS=$(get_or_create_password "wg_pass")
-        fi
+        ask_credential_pair "WireGuard" "admin" WG_USER WGPASS "wireguard"
+        # Note: WG-Easy only uses Password. User is ignored but stored for consistency.
 
         local host_ip=$(curl -s https://api.ipify.org)
 
@@ -598,7 +704,10 @@ networks:
 EOF
         deploy_docker_service "$name" "WireGuard" "$sub" "51821" "$CONTENT"
         ufw allow 51820/udp >/dev/null
-        msg "WireGuard Password: $WGPASS"
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   Password: $WGPASS" >&3
     else
         remove_docker_service "$name" "WireGuard" "$sub"
         ufw delete allow 51820/udp >/dev/null 2>&1 || true
@@ -609,6 +718,8 @@ manage_filebrowser() {
     local name="filebrowser"
     local sub="files.$DOMAIN"
     if [ "$1" == "install" ]; then
+        ask_credential_pair "FileBrowser" "admin" FB_USER FB_PASS "filebrowser"
+
         mkdir -p /opt/$name
         touch /opt/$name/filebrowser.db
         echo '{"port": 80, "baseURL": "", "address": "", "log": "stdout", "database": "/database.db", "root": "/srv"}' > /opt/$name/settings.json
@@ -633,7 +744,18 @@ networks:
     external: true
 EOF
         deploy_docker_service "$name" "FileBrowser" "$sub" "8083" "$CONTENT"
-        success "Default login: admin/admin"
+
+        msg "Updating FileBrowser Credentials..."
+        # Wait for container and db init
+        sleep 5
+        # Default is admin/admin. We update it.
+        docker exec filebrowser /filebrowser users update admin --username "$FB_USER" --password "$FB_PASS" >/dev/null 2>&1 || \
+        docker exec filebrowser /filebrowser users add "$FB_USER" "$FB_PASS" --perm.admin >/dev/null 2>&1
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   User: $FB_USER" >&3
+        echo -e "   Pass: $FB_PASS" >&3
     else
         remove_docker_service "$name" "FileBrowser" "$sub"
     fi
@@ -643,12 +765,13 @@ manage_yourls() {
     local name="yourls"
     local sub="x.$DOMAIN"
     if [ "$1" == "install" ]; then
-        local pass=$(get_or_create_password "yourls_pass")
-        ensure_db "$name" "$name" "$pass"
+        local db_pass=$(get_or_create_password "yourls_db_pass")
+        ask_credential_pair "YOURLS" "admin" Y_USER Y_PASS "yourls"
+
+        ensure_db "$name" "$name" "$db_pass"
         local host_ip=$(hostname -I | awk '{print $1}')
         local cookie=$(openssl rand -hex 16)
 
-        # NOTE: Mapping /var/www/html to local 'data' dir to persist plugins/config
         read -r -d '' CONTENT <<EOF
 version: '3'
 services:
@@ -665,18 +788,22 @@ services:
     environment:
       - YOURLS_DB_HOST=$host_ip
       - YOURLS_DB_USER=$name
-      - YOURLS_DB_PASS=$pass
+      - YOURLS_DB_PASS=$db_pass
       - YOURLS_DB_NAME=$name
       - YOURLS_SITE=https://$sub
-      - YOURLS_USER=admin
-      - YOURLS_PASS=$pass
+      - YOURLS_USER=$Y_USER
+      - YOURLS_PASS=$Y_PASS
       - YOURLS_COOKIEKEY=$cookie
 networks:
   $DOCKER_NET:
     external: true
 EOF
         deploy_docker_service "$name" "YOURLS" "$sub" "8084" "$CONTENT"
-        msg "YOURLS Admin Password: $pass"
+
+        msg "Service Access:"
+        echo -e "   URL: https://$sub/admin" >&3
+        echo -e "   User: $Y_USER" >&3
+        echo -e "   Pass: $Y_PASS" >&3
     else
         remove_docker_service "$name" "YOURLS" "$sub"
     fi
@@ -687,10 +814,14 @@ manage_mail() {
     local sub="mail.$DOMAIN"
     if [ "$1" == "install" ]; then
         msg "Installing Mail Server..."
-        mkdir -p /opt/mail
+        ask_credential_pair "Mail Server" "postmaster" MAIL_USER MAIL_PASS "postmaster"
+        # Ensure full email format
+        if [[ "$MAIL_USER" != *"@"* ]]; then
+             MAIL_USER="${MAIL_USER}@$DOMAIN"
+        fi
         
-        # Resource Check
-        local profile=$(cat /etc/cyl_profile)
+        mkdir -p /opt/mail
+        local profile=$(cat /etc/cyl_profile 2>/dev/null)
         local clamav_state=1
         if [ "$profile" == "LOW" ]; then
             clamav_state=0
@@ -746,22 +877,20 @@ EOF
 
         ufw allow 25,587,465,143,993/tcp >/dev/null
         
-        msg "Initializing Mail User..."
+        msg "Initializing Mail User ($MAIL_USER)..."
         until docker exec mailserver setup email list >/dev/null 2>&1; do sleep 2; done
         
-        local pass=$(get_or_create_password "postmaster_pass")
-
-        # Ensure user exists/updated
-        if docker exec mailserver setup email list | grep -q "postmaster"; then
-             docker exec mailserver setup email update postmaster@$DOMAIN "$pass" >/dev/null 2>&1
+        if docker exec mailserver setup email list | grep -q "$MAIL_USER"; then
+             docker exec mailserver setup email update "$MAIL_USER" "$MAIL_PASS" >/dev/null 2>&1
         else
-             docker exec mailserver setup email add postmaster@$DOMAIN "$pass" >/dev/null 2>&1
+             docker exec mailserver setup email add "$MAIL_USER" "$MAIL_PASS" >/dev/null 2>&1
         fi
         docker exec mailserver setup config dkim >/dev/null 2>&1
 
-        msg "Mail Account Credentials:"
-        echo -e "   User: ${CYAN}postmaster@$DOMAIN${NC}" >&3
-        echo -e "   Pass: ${CYAN}$pass${NC}" >&3
+        msg "Service Access:"
+        echo -e "   URL: https://$sub" >&3
+        echo -e "   User: $MAIL_USER" >&3
+        echo -e "   Pass: $MAIL_PASS" >&3
     else
         remove_docker_service "$name" "Mail Server" "$sub"
         ufw delete allow 25,587,465,143,993/tcp >/dev/null 2>&1 || true
@@ -775,10 +904,19 @@ manage_netdata() {
     if [ "$1" == "install" ]; then
         msg "Installing Netdata..."
         mkdir -p "/opt/$name"
-        # Using bind mounts to ensure we can back them up
         mkdir -p "/opt/$name/config" "/opt/$name/lib" "/opt/$name/cache"
 
-        # We run this one manually as it requires many host mounts
+        ask "Do you want to enable Basic Auth for Netdata? (y/n):" enable_auth
+        local nginx_type="proxy"
+        if [[ "$enable_auth" == "y" ]]; then
+             nginx_type="dashboard" # Reusing dashboard type for auth protected proxy
+             # Ensure htpasswd exists
+             if [ ! -f /etc/nginx/.htpasswd ]; then
+                  ask_credential_pair "Netdata (Basic Auth)" "admin" ND_USER ND_PASS "netdata"
+                  htpasswd -b -c /etc/nginx/.htpasswd "$ND_USER" "$ND_PASS"
+             fi
+        fi
+
         docker run -d --name=netdata --pid=host --network=$DOCKER_NET -p 127.0.0.1:19999:19999 \
           -v "/opt/$name/config:/etc/netdata" \
           -v "/opt/$name/lib:/var/lib/netdata" \
@@ -787,16 +925,12 @@ manage_netdata() {
           -v /sys:/host/sys:ro -v /etc/os-release:/host/etc/os-release:ro -v /var/run/docker.sock:/var/run/docker.sock \
           --restart always --cap-add SYS_PTRACE --security-opt apparmor=unconfined netdata/netdata
 
-        update_nginx "$sub" "19999" "proxy"
-        success "Netdata Installed"
+        update_nginx "$sub" "19999" "$nginx_type"
+        success "Netdata Installed at https://$sub"
     elif [ "$1" == "remove" ]; then
         docker stop netdata && docker rm netdata
-
         ask "Do you want to PERMANENTLY DELETE data for Netdata? (y/n):" confirm_delete
-        if [[ "$confirm_delete" == "y" ]]; then
-            rm -rf "/opt/$name"
-        fi
-
+        if [[ "$confirm_delete" == "y" ]]; then rm -rf "/opt/$name"; fi
         rm -f "/etc/nginx/sites-enabled/$sub"
         success "Netdata Removed"
     fi
@@ -808,21 +942,22 @@ manage_portainer() {
 
     if [ "$1" == "install" ]; then
         msg "Installing Portainer..."
+        ask_credential_pair "Portainer" "admin" PORT_USER PORT_PASS "portainer"
+
         mkdir -p "/opt/$name/data"
 
         docker run -d -p 127.0.0.1:9000:9000 --name=portainer --network $DOCKER_NET --restart=always \
-        -v /var/run/docker.sock:/var/run/docker.sock -v "/opt/$name/data:/data" portainer/portainer-ce
+        -v /var/run/docker.sock:/var/run/docker.sock -v "/opt/$name/data:/data" \
+        portainer/portainer-ce --admin-password "$(htpasswd -nb -B -C 10 "$PORT_USER" "$PORT_PASS" | cut -d: -f2)"
 
         update_nginx "$sub" "9000" "proxy"
-        success "Portainer Installed"
+        success "Portainer Installed at https://$sub"
+        echo -e "   User: $PORT_USER" >&3
+        echo -e "   Pass: $PORT_PASS" >&3
     elif [ "$1" == "remove" ]; then
         docker stop portainer && docker rm portainer
-
         ask "Do you want to PERMANENTLY DELETE data for Portainer? (y/n):" confirm_delete
-        if [[ "$confirm_delete" == "y" ]]; then
-            rm -rf "/opt/$name"
-        fi
-
+        if [[ "$confirm_delete" == "y" ]]; then rm -rf "/opt/$name"; fi
         rm -f "/etc/nginx/sites-enabled/$sub"
         success "Portainer Removed"
     fi
@@ -831,6 +966,8 @@ manage_portainer() {
 manage_ftp() {
     if [ "$1" == "install" ]; then
         msg "Installing FTP (vsftpd)..."
+        ask_credential_pair "FTP" "cyluser" FTP_USER FTP_PASS "ftp"
+
         apt-get install -y vsftpd >/dev/null
         cp /etc/vsftpd.conf /etc/vsftpd.conf.bak 2>/dev/null
 
@@ -863,23 +1000,78 @@ EOF
         systemctl restart vsftpd
         
         # Ensure user
-        local ftp_pass=$(get_or_create_password "ftp_pass")
-
-        if ! id "cyluser" &>/dev/null; then
-            useradd -m -d /var/www -s /bin/bash cyluser
-            usermod -a -G www-data cyluser
-            chown -R cyluser:www-data /var/www
-            echo "ftp_user=cyluser" >> $AUTH_FILE
+        if ! id "$FTP_USER" &>/dev/null; then
+            useradd -m -d /var/www -s /bin/bash "$FTP_USER"
+            usermod -a -G www-data "$FTP_USER"
+            chown -R "$FTP_USER":www-data /var/www
         fi
+        echo "$FTP_USER:$FTP_PASS" | chpasswd
 
-        # Always set password to ensure consistency
-        echo "cyluser:$ftp_pass" | chpasswd
-        msg "FTP User: cyluser / $ftp_pass"
         success "FTP Installed"
+        echo -e "   Host: $DOMAIN" >&3
+        echo -e "   User: $FTP_USER" >&3
+        echo -e "   Pass: $FTP_PASS" >&3
     elif [ "$1" == "remove" ]; then
         apt-get remove -y vsftpd >/dev/null
         ufw delete allow 20/tcp >/dev/null 2>&1 || true
         success "FTP Removed"
+    fi
+}
+
+manage_dashboard() {
+    local sub="admin.$DOMAIN"
+    if [ "$1" == "install" ]; then
+        msg "Installing Dashboard..."
+        ask_credential_pair "Dashboard (Admin Panel)" "admin" DB_USER DB_PASS "dashboard"
+
+        mkdir -p /var/www/dashboard
+
+        # Download Adminer
+        if [ ! -f /var/www/dashboard/adminer.php ]; then
+             wget -q -O /var/www/dashboard/adminer.php https://github.com/vrana/adminer/releases/download/v4.8.1/adminer-4.8.1.php
+        fi
+
+        cat <<EOF > /var/www/dashboard/index.php
+<!DOCTYPE html>
+<html>
+<head><title>Cylae Server Manager</title>
+<style>body{font-family:sans-serif;padding:2rem;background:#f0f2f5} a{display:block;padding:10px;background:#fff;margin:5px;text-decoration:none;color:#333;border-radius:5px;} a:hover{background:#e4e6eb}</style>
+</head>
+<body>
+<h1>Server Dashboard</h1>
+<p>Domain: $DOMAIN</p>
+<hr>
+<h3>Installed Services</h3>
+<?php
+\$files = glob('/etc/nginx/sites-enabled/*');
+foreach(\$files as \$file){
+    \$domain = basename(\$file);
+    if(\$domain != 'default' && \$domain != 'admin.$DOMAIN') {
+        echo "<a href='https://\$domain' target='_blank'>\$domain</a>";
+    }
+}
+?>
+<hr>
+<h3>Tools</h3>
+<a href="adminer.php">Database Manager (Adminer)</a>
+</body>
+</html>
+EOF
+        chown -R www-data:www-data /var/www/dashboard
+
+        # Create Auth
+        htpasswd -b -c /etc/nginx/.htpasswd "$DB_USER" "$DB_PASS"
+
+        update_nginx "$sub" "80" "dashboard" "/var/www/dashboard"
+        success "Dashboard Installed at https://$sub"
+        echo -e "   User: $DB_USER" >&3
+        echo -e "   Pass: $DB_PASS" >&3
+        echo -e "   (This credentials also protect other secured areas)" >&3
+    else
+        rm -f "/etc/nginx/sites-enabled/$sub"
+        rm -f "/etc/nginx/sites-available/$sub"
+        systemctl reload nginx
+        success "Dashboard Removed"
     fi
 }
 
@@ -896,7 +1088,6 @@ manage_backup() {
     mysqldump -u root --password="$DB_ROOT_PASS" --all-databases > "$BACKUP_DIR/db_$TIMESTAMP.sql"
     
     # Files
-    # Note: Portainer and Netdata now use bind mounts in /opt/, so they are included.
     tar -czf "$BACKUP_DIR/files_$TIMESTAMP.tar.gz" /opt /var/www /etc/nginx/sites-available /root/.auth_details 2>/dev/null
     
     # Retention (keep last 5)
@@ -920,20 +1111,16 @@ system_update() {
 
 manage_ssh() {
     msg "Hardening SSH Security..."
-    
     if [ ! -f /root/.ssh/authorized_keys ] || [ ! -s /root/.ssh/authorized_keys ]; then
         warn "NO SSH KEYS FOUND!"
         echo "You must add your public key to /root/.ssh/authorized_keys before disabling passwords."
         ask "Abort? (y/n):" confirm
         if [[ "$confirm" != "n" ]]; then return; fi
     fi
-    
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
-    
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     sed -i 's/PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-
     ask "Change SSH Port? (current: 22) [y/N]:" change_port
     if [[ "$change_port" =~ ^[Yy]$ ]]; then
         ask "Enter new SSH Port (e.g., 2222):" SSH_PORT
@@ -941,15 +1128,10 @@ manage_ssh() {
             sed -i "s/#Port 22/Port $SSH_PORT/" /etc/ssh/sshd_config
             sed -i "s/Port 22/Port $SSH_PORT/" /etc/ssh/sshd_config
             ufw allow "$SSH_PORT/tcp" >/dev/null
-            if [ "$SSH_PORT" != "22" ]; then
-                ufw delete allow 22/tcp >/dev/null 2>&1 || true
-            fi
+            if [ "$SSH_PORT" != "22" ]; then ufw delete allow 22/tcp >/dev/null 2>&1 || true; fi
             msg "SSH Port changed to $SSH_PORT."
-        else
-            warn "Invalid port."
         fi
     fi
-    
     systemctl restart sshd
     success "SSH Hardened"
 }
@@ -960,10 +1142,8 @@ setup_autoupdate() {
     cp "$(dirname "$0")/auto_update.sh" /usr/local/bin/server_autoupdate.sh
     chmod +x /usr/local/bin/server_manager.sh
     chmod +x /usr/local/bin/server_autoupdate.sh
-    
     CRON_CMD="0 4 * * * /usr/local/bin/server_autoupdate.sh"
     (crontab -l 2>/dev/null | grep -v "server_autoupdate.sh"; echo "$CRON_CMD") | crontab -
-    
     success "Auto-Update Scheduled (Daily @ 04:00)"
 }
 
@@ -976,7 +1156,6 @@ show_dns_records() {
     echo -e "A     | @                    | $ip" >&3
     echo -e "CNAME | www                  | $DOMAIN" >&3
     echo -e "CNAME | admin                | $DOMAIN" >&3
-
     [ -d "/opt/gitea" ] && echo -e "CNAME | git                  | $DOMAIN" >&3
     [ -d "/opt/nextcloud" ] && echo -e "CNAME | cloud                | $DOMAIN" >&3
     [ -d "/opt/mail" ] && echo -e "CNAME | mail                 | $DOMAIN" >&3
@@ -987,10 +1166,6 @@ show_dns_records() {
     [ -d "/opt/filebrowser" ] && echo -e "CNAME | files                | $DOMAIN" >&3
     docker ps | grep -q portainer && echo -e "CNAME | portainer            | $DOMAIN" >&3
     docker ps | grep -q netdata && echo -e "CNAME | netdata              | $DOMAIN" >&3
-
-    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
-    echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)" >&3
-    echo -e "TXT   | @                    | v=spf1 mx ~all" >&3
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
     ask "Press Enter to continue..." dummy
 }
@@ -1000,110 +1175,85 @@ show_credentials() {
     msg "SAVED CREDENTIALS"
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
 
-    # 1. Database Root
+    # Helper to print
+    print_cred() {
+        local name="$1"
+        local suffix="$2"
+        local user=$(get_auth_value "${suffix}_user")
+        local pass=$(get_auth_value "${suffix}_pass")
+        if [ -n "$pass" ]; then
+             if [ -z "$user" ]; then echo -e "${CYAN}$name${NC} : $pass" >&3
+             else echo -e "${CYAN}$name${NC} : $user / $pass" >&3; fi
+        fi
+    }
+
     if grep -q "mysql_root_password" $AUTH_FILE; then
-        local p=$(get_auth_value "mysql_root_password")
-        echo -e "${CYAN}DB (root)${NC}       : $p" >&3
+        echo -e "${CYAN}DB (Root)${NC}       : $(get_auth_value "mysql_root_password")" >&3
     fi
 
-    # 2. Dashboard
-    if grep -q "dashboard_user" $AUTH_FILE; then
-        local u=$(get_auth_value "dashboard_user")
-        local p=$(get_auth_value "dashboard_pass")
-        echo -e "${CYAN}Dashboard${NC}       : $u / $p" >&3
-    fi
+    print_cred "Dashboard" "dashboard"
+    print_cred "Gitea" "gitea"
+    print_cred "Nextcloud" "nextcloud"
+    print_cred "Vaultwarden" "vaultwarden"
+    print_cred "WireGuard" "wireguard"
+    print_cred "FileBrowser" "filebrowser"
+    print_cred "YOURLS" "yourls"
+    print_cred "Mail" "postmaster"
+    print_cred "Portainer" "portainer"
+    print_cred "Netdata" "netdata"
+    print_cred "FTP" "ftp"
 
-    # 3. Mail
-    if grep -q "postmaster_pass" $AUTH_FILE; then
-        local p=$(get_auth_value "postmaster_pass")
-        echo -e "${CYAN}Mail (postmaster)${NC}: postmaster@$DOMAIN / $p" >&3
-    fi
-
-    # 4. WireGuard
-    if grep -q "wg_pass" $AUTH_FILE; then
-        local p=$(get_auth_value "wg_pass")
-        echo -e "${CYAN}WireGuard${NC}       : $p" >&3
-    fi
-    
-    # 5. YOURLS
-    if grep -q "yourls_pass" $AUTH_FILE; then
-        local p=$(get_auth_value "yourls_pass")
-        echo -e "${CYAN}YOURLS (admin)${NC}  : $p" >&3
-    fi
-    
-    # 6. FTP
-    if grep -q "ftp_user" $AUTH_FILE; then
-        local u=$(get_auth_value "ftp_user")
-        local p=$(get_auth_value "ftp_pass")
-        echo -e "${CYAN}FTP${NC}             : $u / $p" >&3
-    fi
-    
-    # 7. FileBrowser (Fixed default)
-    if [ -d "/opt/filebrowser" ]; then
-        echo -e "${CYAN}FileBrowser${NC}     : admin / admin (Default)" >&3
-    fi
-    
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
     echo -e "Credentials file: $AUTH_FILE" >&3
     ask "Press Enter to continue..." dummy
 }
 
-show_credentials() {
+sync_infrastructure() {
+    msg "Syncing Infrastructure..."
+    systemctl reload nginx
+
+    if command -v certbot >/dev/null; then
+         msg "Configuring Let's Encrypt SSL..."
+         for site in /etc/nginx/sites-enabled/*; do
+             local domain=$(basename "$site")
+             if [[ "$domain" == *"$DOMAIN" ]] && [[ "$domain" != "default" ]]; then
+                  # Only run if not already valid? Certbot handles expiration.
+                  certbot --nginx -d "$domain" --non-interactive --agree-tos -m "$EMAIL" --redirect --expand >/dev/null 2>&1 || warn "SSL failed for $domain (DNS propogation?)"
+             fi
+         done
+    else
+        warn "Certbot not found."
+    fi
+    success "Infrastructure Synced"
+}
+
+show_menu() {
     clear >&3
-    msg "SAVED CREDENTIALS"
-    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
-
-    # 1. Database Root
-    if grep -q "mysql_root_password" $AUTH_FILE; then
-        local p=$(grep "mysql_root_password" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        echo -e "${CYAN}DB (root)${NC}       : $p" >&3
-    fi
-
-    # 2. Dashboard
-    if grep -q "dashboard_user" $AUTH_FILE; then
-        local u=$(grep "dashboard_user" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        local p=$(grep "dashboard_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        echo -e "${CYAN}Dashboard${NC}       : $u / $p" >&3
-    fi
-
-    # 3. Mail
-    if grep -q "postmaster_pass" $AUTH_FILE; then
-        local p=$(grep "postmaster_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        echo -e "${CYAN}Mail (postmaster)${NC}: postmaster@$DOMAIN / $p" >&3
-    fi
-
-    # 4. WireGuard
-    if grep -q "wg_pass" $AUTH_FILE; then
-        local p=$(grep "wg_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        echo -e "${CYAN}WireGuard${NC}       : $p" >&3
-    fi
-
-    # 5. YOURLS
-    if grep -q "yourls_pass" $AUTH_FILE; then
-        local p=$(grep "yourls_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        echo -e "${CYAN}YOURLS (admin)${NC}  : $p" >&3
-    fi
-
-    # 6. FTP
-    if grep -q "ftp_user" $AUTH_FILE; then
-        local u=$(grep "ftp_user" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        local p=$(grep "ftp_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
-        echo -e "${CYAN}FTP${NC}             : $u / $p" >&3
-    fi
-
-    # 7. FileBrowser (Fixed default)
-    if [ -d "/opt/filebrowser" ]; then
-        echo -e "${CYAN}FileBrowser${NC}     : admin / admin (Default)" >&3
-    fi
-
-    # 8. Gitea/Nextcloud/Others (DB passwords usually)
-    # We don't store app user passwords for Gitea/Nextcloud usually, as they are set in the UI or auto-generated for DB only.
-    # But if we did generate an initial admin pass, we should show it.
-    # Currently manage_gitea/nextcloud only generate DB passwords.
-
-    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
-    echo -e "Credentials file: $AUTH_FILE" >&3
-    ask "Press Enter to continue..." dummy
+    echo -e "${PURPLE}=================================================================${NC}" >&3
+    echo -e "${PURPLE}  CYL.AE SERVER MANAGER - MENU${NC}" >&3
+    echo -e "${PURPLE}=================================================================${NC}" >&3
+    echo -e "1) Manage Gitea" >&3
+    echo -e "2) Manage Nextcloud" >&3
+    echo -e "3) Manage Portainer" >&3
+    echo -e "4) Manage Netdata" >&3
+    echo -e "5) Manage Mail Server" >&3
+    echo -e "6) Manage YOURLS" >&3
+    echo -e "7) Manage FTP" >&3
+    echo -e "8) Manage Vaultwarden" >&3
+    echo -e "9) Manage Uptime Kuma" >&3
+    echo -e "10) Manage WireGuard" >&3
+    echo -e "11) Manage FileBrowser" >&3
+    echo -e "12) Manage Dashboard (Admin Panel)" >&3
+    echo -e "-----------------------------------" >&3
+    echo -e "s) Update System" >&3
+    echo -e "b) Backup" >&3
+    echo -e "r) Sync Infrastructure (SSL/Nginx)" >&3
+    echo -e "t) Tune System" >&3
+    echo -e "d) DNS Records" >&3
+    echo -e "c) Show Credentials" >&3
+    echo -e "h) Hardening (SSH)" >&3
+    echo -e "0) Exit" >&3
+    echo -e "-----------------------------------" >&3
 }
 
 # ------------------------------------------------------------------------------
@@ -1131,6 +1281,7 @@ while true; do
         9) [ -d "/opt/uptimekuma" ] && manage_uptimekuma "remove" || manage_uptimekuma "install" ;;
         10) [ -d "/opt/wireguard" ] && manage_wireguard "remove" || manage_wireguard "install" ;;
         11) [ -d "/opt/filebrowser" ] && manage_filebrowser "remove" || manage_filebrowser "install" ;;
+        12) [ -f "/etc/nginx/sites-enabled/admin.$DOMAIN" ] && manage_dashboard "remove" || manage_dashboard "install" ;;
 
         s) system_update ;;
         b) manage_backup ;;
@@ -1144,7 +1295,7 @@ while true; do
     esac
     
     # Auto-sync logic for services
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -le 11 ] && [ "$choice" -ge 1 ]; then
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -le 12 ] && [ "$choice" -ge 1 ]; then
         ask "Apply changes now (Update SSL/Nginx)? (y/n):" confirm
         if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
     else
