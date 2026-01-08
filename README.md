@@ -2,8 +2,138 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Stable-success.svg)
 
+> **La solution d'auto-hébergement "Clé en main" ultime.**
+> *Édition Universelle | Auto-Optimisation | Modulaire | Sécurisé par défaut*
+
+[🇫🇷 Français](#-pourquoi-ce-script) | [🇬🇧 English](#english)
+
+---
+
+## 🌟 Pourquoi ce script ?
+
+Vous avez un VPS tout frais (Debian/Ubuntu) et vous voulez héberger vos propres services (Nextcloud, Gitea, Bitwarden/Vaultwarden, VPN...).
+Normalement, vous passeriez des heures à configurer Nginx, installer Docker, sécuriser SSH, créer des bases de données et gérer les certificats SSL.
+
+**Cylae Server Manager** fait tout cela pour vous en **quelques minutes**.
+
+Il est conçu pour être **Le Meilleur Script JAMAIS conçu** :
+*   **Intelligent** : Détecte votre matériel (RAM) et optimise la config MySQL/PHP en conséquence.
+*   **Modulaire** : Installez/Supprimez des services proprement sans laisser de résidus.
+*   **Sécurisé** : Durcit SSH, configure le Pare-feu (UFW), et configure Nginx avec des en-têtes de sécurité.
+*   **Automatisé** : Se met à jour, met à jour votre système et vos conteneurs docker chaque nuit.
+*   **Unifié** : Fournit un tableau de bord magnifique pour accéder à tous vos services.
+
+---
+
+## 🛠️ Installation
+
+**Prérequis :**
+*   Un serveur frais **Debian 11/12** (Recommandé) ou **Ubuntu 20.04/22.04**.
+*   Accès Root.
+*   Un nom de domaine pointant vers l'IP de votre serveur.
+
+### Démarrage Rapide
+
+1.  **Cloner le dépôt :**
+    ```bash
+    git clone https://github.com/your-username/cylae-server-manager.git /opt/cylae-manager
+    cd /opt/cylae-manager
+    ```
+
+2.  **Lancer le script :**
+    ```bash
+    chmod +x install.sh
+    ./install.sh
+    ```
+
+3.  **Suivre l'assistant :**
+    *   Entrez votre nom de domaine.
+    *   Sélectionnez les services à installer depuis le menu.
+
+---
+
+## 📦 Catalogue de Services
+
+Tous les services sont déployés via **Docker** pour une isolation et une stabilité maximales, servis derrière **Nginx** avec **SSL Let's Encrypt** automatique.
+
+| Service | Description | URL |
+| :--- | :--- | :--- |
+| **Gitea** | Hébergement Git léger (alternative à Github). | `https://git.votre-domaine.com` |
+| **Nextcloud** | Hébergement & partage de fichiers (alternative à Google Drive). | `https://cloud.votre-domaine.com` |
+| **Vaultwarden** | Gestionnaire de mots de passe (compatible Bitwarden). | `https://pass.votre-domaine.com` |
+| **Serveur Mail** | Serveur mail complet (Postfix, Dovecot, SpamAssassin). | `https://mail.votre-domaine.com` |
+| **Uptime Kuma** | Outil de surveillance pour suivre la disponibilité des services. | `https://status.votre-domaine.com` |
+| **WireGuard** | VPN moderne et rapide avec interface web (wg-easy). | `https://vpn.votre-domaine.com` |
+| **File Browser** | Gestionnaire de fichiers web. | `https://files.votre-domaine.com` |
+| **YOURLS** | Réducteur d'URL. | `https://x.votre-domaine.com` |
+| **Portainer** | Interface graphique pour gérer les conteneurs Docker. | `https://portainer.votre-domaine.com` |
+| **Netdata** | Surveillance des performances en temps réel. | `https://netdata.votre-domaine.com` |
+
+> **Note :** Les bases de données sont gérées via une instance MariaDB centralisée (bare-metal) pour la performance, accessible via **Adminer** sur le tableau de bord.
+
+---
+
+## ⚙️ Fonctionnalités Avancées
+
+### 🧠 Auto-Optimisation Intelligente
+Le script vérifie votre RAM à chaque exécution :
+*   **Profil Bas (< 4Go)** : Optimise pour la stabilité. Réduit les buffers de base de données et les workers PHP.
+*   **Profil Haut (>= 4Go)** : Optimise pour la vitesse. Augmente la taille des caches et les limites de connexion.
+
+### 🛡️ Sécurité
+*   **Durcissement SSH** : Option pour désactiver la connexion par mot de passe et changer le port SSH.
+*   **Pare-feu** : UFW est configuré pour refuser tout le trafic entrant sauf SSH, HTTP/S, et les ports de services spécifiques.
+*   **Isolation** : Les conteneurs Docker tournent dans un réseau dédié.
+*   **Mises à jour** :
+    *   Mises à jour Système Quotidiennes (`apt-get upgrade`)
+    *   Mises à jour Docker Quotidiennes (`Watchtower`)
+    *   Auto-Mises à jour Quotidiennes (`git pull`)
+
+### 📂 Structure des Dossiers
+*   **Config** : `/etc/cyl_manager.conf`
+*   **Logs** : `/var/log/server_manager.log`
+*   **Identifiants** : `/root/.auth_details` (Contient les mots de passe générés)
+*   **Données de Service** : `/opt/<service_name>`
+*   **Sauvegardes** : `/var/backups/cyl_manager`
+
+---
+
+## ❓ Dépannage
+
+**Q : J'ai ajouté un service mais l'URL ne fonctionne pas.**
+R : Assurez-vous d'avoir créé l'enregistrement DNS (CNAME) pour le sous-domaine. Utilisez l'option `d` dans le menu pour voir les enregistrements requis. Puis lancez l'option `r` (Sync All) pour rafraîchir Nginx et SSL.
+
+**Q : Comment accéder à la Base de Données ?**
+R : Allez sur votre tableau de bord principal (`https://admin.votre-domaine.com`) et cliquez sur "DB Admin". Connectez-vous avec `root` et le mot de passe trouvé dans `/root/.auth_details`.
+
+**Q : Le script a échoué pendant l'installation.**
+R : Vérifiez les logs dans `/var/log/server_manager.log` pour des messages d'erreur détaillés.
+
+**Q : Comment restaurer une sauvegarde ?**
+R : Les sauvegardes sont stockées dans `/var/backups/cyl_manager`.
+*   **Base de données** : `mysql < db_backup.sql`
+*   **Fichiers** : Extrayez l'archive vers la racine : `tar -xzf files_backup.tar.gz -C /`
+
+---
+
+## 🤝 Contribuer
+N'hésitez pas à ouvrir des issues ou des pull requests pour rendre ce script encore meilleur !
+
+*v7.0 - Édition Ultime*
+
+---
+---
+
+<br>
+
+<div id="english"></div>
+
+# 🚀 Cylae Server Manager (v7.0)
+
 > **The Ultimate "Turnkey" Self-Hosting Solution.**
 > *Universal Edition | Auto-Tuning | Modular | Secure by Default*
+
+[🇫🇷 Français](#-pourquoi-ce-script) | [🇬🇧 English](#english)
 
 ---
 

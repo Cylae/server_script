@@ -577,7 +577,6 @@ networks:
 EOF
         deploy_docker_service "$name" "WireGuard" "$sub" "51821" "$CONTENT"
         ufw allow 51820/udp >/dev/null
-        success "Credentials saved to $AUTH_FILE"
     else
         remove_docker_service "$name" "WireGuard" "$sub"
         ufw delete allow 51820/udp >/dev/null 2>&1 || true
@@ -656,7 +655,6 @@ networks:
 EOF
         deploy_docker_service "$name" "YOURLS" "$sub" "8084" "$CONTENT"
         echo "yourls_pass=$pass" >> $AUTH_FILE
-        success "Credentials saved to $AUTH_FILE"
     else
         remove_docker_service "$name" "YOURLS" "$sub"
     fi
@@ -734,9 +732,7 @@ EOF
             docker exec mailserver setup email add postmaster@$DOMAIN "$pass"
             docker exec mailserver setup config dkim
             echo "postmaster_pass=$pass" >> $AUTH_FILE
-            msg "Created default admin: postmaster@$DOMAIN"
         fi
-        success "Credentials saved to $AUTH_FILE"
     else
         remove_docker_service "$name" "Mail Server" "$sub"
         ufw delete allow 25,587,465,143,993/tcp >/dev/null 2>&1 || true
@@ -966,18 +962,6 @@ show_dns_records() {
     ask "Press Enter to continue..." dummy
 }
 
-show_credentials() {
-    msg "Retrieving Credentials..."
-    if [ -f "$AUTH_FILE" ]; then
-        echo -e "${YELLOW}=== CREDENTIALS ($AUTH_FILE) ===${NC}" >&3
-        cat "$AUTH_FILE" >&3
-        echo -e "${YELLOW}========================================${NC}" >&3
-    else
-        warn "No credentials file found at $AUTH_FILE"
-    fi
-    ask "Press Enter to continue..." dummy
-}
-
 # ------------------------------------------------------------------------------
 # 7. SYNC & UI
 # ------------------------------------------------------------------------------
@@ -1103,7 +1087,6 @@ show_menu() {
     echo -e "r. SYNC ALL (SSL & Dashboard)" >&3
     echo -e "t. RE-TUNE SYSTEM" >&3
     echo -e "d. SHOW DNS RECORDS" >&3
-    echo -e "c. SHOW CREDENTIALS" >&3
     echo -e "h. HARDEN SSH" >&3
     echo -e "0. Exit" >&3
     echo -e "" >&3
@@ -1140,7 +1123,6 @@ while true; do
         r) sync_infrastructure ;;
         t) tune_system ;;
         d) show_dns_records ;;
-        c) show_credentials ;;
         h) manage_ssh ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;
