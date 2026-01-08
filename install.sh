@@ -539,8 +539,9 @@ manage_wireguard() {
         if [ -z "$WGPASS" ]; then
             WGPASS=$(generate_password)
             msg "Generated WG Password: $WGPASS"
-            echo "wg_pass=$WGPASS" >> $AUTH_FILE
         fi
+        # Ensure pass is saved (append, relying on tail -n 1 in show_credentials)
+        echo "wg_pass=$WGPASS" >> $AUTH_FILE
         local host_ip=$(curl -s https://api.ipify.org)
 
         read -r -d '' CONTENT <<EOF
@@ -577,6 +578,7 @@ networks:
 EOF
         deploy_docker_service "$name" "WireGuard" "$sub" "51821" "$CONTENT"
         ufw allow 51820/udp >/dev/null
+        msg "WireGuard Password: $WGPASS"
     else
         remove_docker_service "$name" "WireGuard" "$sub"
         ufw delete allow 51820/udp >/dev/null 2>&1 || true
@@ -655,6 +657,7 @@ networks:
 EOF
         deploy_docker_service "$name" "YOURLS" "$sub" "8084" "$CONTENT"
         echo "yourls_pass=$pass" >> $AUTH_FILE
+        msg "YOURLS Admin Password: $pass"
     else
         remove_docker_service "$name" "YOURLS" "$sub"
     fi
@@ -732,6 +735,11 @@ EOF
             docker exec mailserver setup email add postmaster@$DOMAIN "$pass"
             docker exec mailserver setup config dkim
             echo "postmaster_pass=$pass" >> $AUTH_FILE
+
+            msg "Mail Account Created:"
+            echo -e "   User: ${CYAN}postmaster@$DOMAIN${NC}" >&3
+            echo -e "   Pass: ${CYAN}$pass${NC}" >&3
+            echo -e "   (Saved to $AUTH_FILE)" >&3
         fi
     else
         remove_docker_service "$name" "Mail Server" "$sub"
@@ -1087,9 +1095,68 @@ show_menu() {
     echo -e "r. SYNC ALL (SSL & Dashboard)" >&3
     echo -e "t. RE-TUNE SYSTEM" >&3
     echo -e "d. SHOW DNS RECORDS" >&3
+    echo -e "c. SHOW CREDENTIALS" >&3
     echo -e "h. HARDEN SSH" >&3
     echo -e "0. Exit" >&3
     echo -e "" >&3
+}
+
+show_credentials() {
+    clear >&3
+    msg "SAVED CREDENTIALS"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+
+    # 1. Database Root
+    if grep -q "mysql_root_password" $AUTH_FILE; then
+        local p=$(grep "mysql_root_password" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}DB (root)${NC}       : $p" >&3
+    fi
+
+    # 2. Dashboard
+    if grep -q "dashboard_user" $AUTH_FILE; then
+        local u=$(grep "dashboard_user" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        local p=$(grep "dashboard_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}Dashboard${NC}       : $u / $p" >&3
+    fi
+
+    # 3. Mail
+    if grep -q "postmaster_pass" $AUTH_FILE; then
+        local p=$(grep "postmaster_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}Mail (postmaster)${NC}: postmaster@$DOMAIN / $p" >&3
+    fi
+
+    # 4. WireGuard
+    if grep -q "wg_pass" $AUTH_FILE; then
+        local p=$(grep "wg_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}WireGuard${NC}       : $p" >&3
+    fi
+
+    # 5. YOURLS
+    if grep -q "yourls_pass" $AUTH_FILE; then
+        local p=$(grep "yourls_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}YOURLS (admin)${NC}  : $p" >&3
+    fi
+
+    # 6. FTP
+    if grep -q "ftp_user" $AUTH_FILE; then
+        local u=$(grep "ftp_user" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        local p=$(grep "ftp_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}FTP${NC}             : $u / $p" >&3
+    fi
+
+    # 7. FileBrowser (Fixed default)
+    if [ -d "/opt/filebrowser" ]; then
+        echo -e "${CYAN}FileBrowser${NC}     : admin / admin (Default)" >&3
+    fi
+
+    # 8. Gitea/Nextcloud/Others (DB passwords usually)
+    # We don't store app user passwords for Gitea/Nextcloud usually, as they are set in the UI or auto-generated for DB only.
+    # But if we did generate an initial admin pass, we should show it.
+    # Currently manage_gitea/nextcloud only generate DB passwords.
+
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "Credentials file: $AUTH_FILE" >&3
+    ask "Press Enter to continue..." dummy
 }
 
 # ------------------------------------------------------------------------------
@@ -1123,6 +1190,7 @@ while true; do
         r) sync_infrastructure ;;
         t) tune_system ;;
         d) show_dns_records ;;
+        c) show_credentials ;;
         h) manage_ssh ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;
