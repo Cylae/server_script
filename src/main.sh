@@ -1,0 +1,181 @@
+#!/bin/bash
+
+# ==============================================================================
+# MAIN APPLICATION LOGIC
+# ==============================================================================
+
+# Source all libraries
+# Assuming we are running from the root directory or src/..
+# But since this is main.sh, we expect it to be sourced by install.sh in root.
+# So relative paths should be from root.
+
+# If we are running this file directly, we need to handle paths.
+# But the plan is to have a root install.sh that sources everything.
+
+source src/lib/core.sh
+source src/lib/config.sh
+source src/lib/security.sh
+source src/lib/docker.sh
+source src/lib/database.sh
+source src/lib/proxy.sh
+source src/lib/utils.sh
+source src/lib/install_system.sh
+
+# Source Services
+source src/services/gitea.sh
+source src/services/nextcloud.sh
+source src/services/vaultwarden.sh
+source src/services/uptimekuma.sh
+source src/services/wireguard.sh
+source src/services/filebrowser.sh
+source src/services/yourls.sh
+source src/services/mail.sh
+source src/services/netdata.sh
+source src/services/portainer.sh
+source src/services/ftp.sh
+
+show_dns_records() {
+    local ip=$(curl -s https://api.ipify.org)
+    msg "REQUIRED DNS RECORDS FOR $DOMAIN"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "TYPE  | HOST                 | VALUE" >&3
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "A     | @                    | $ip" >&3
+    echo -e "CNAME | www                  | $DOMAIN" >&3
+    echo -e "CNAME | admin                | $DOMAIN" >&3
+
+    [ -d "/opt/gitea" ] && echo -e "CNAME | git                  | $DOMAIN" >&3
+    [ -d "/opt/nextcloud" ] && echo -e "CNAME | cloud                | $DOMAIN" >&3
+    [ -d "/opt/mail" ] && echo -e "CNAME | mail                 | $DOMAIN" >&3
+    [ -d "/opt/yourls" ] && echo -e "CNAME | x                    | $DOMAIN" >&3
+    [ -d "/opt/vaultwarden" ] && echo -e "CNAME | pass                 | $DOMAIN" >&3
+    [ -d "/opt/uptimekuma" ] && echo -e "CNAME | status               | $DOMAIN" >&3
+    [ -d "/opt/wireguard" ] && echo -e "CNAME | vpn                  | $DOMAIN" >&3
+    [ -d "/opt/filebrowser" ] && echo -e "CNAME | files                | $DOMAIN" >&3
+    docker ps | grep -q portainer && echo -e "CNAME | portainer            | $DOMAIN" >&3
+    docker ps | grep -q netdata && echo -e "CNAME | netdata              | $DOMAIN" >&3
+
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)" >&3
+    echo -e "TXT   | @                    | v=spf1 mx ~all" >&3
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    ask "Press Enter to continue..." dummy
+}
+
+show_credentials() {
+    clear >&3
+    msg "SAVED CREDENTIALS"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+
+    # We read directly from AUTH_FILE
+    if [ -f "$AUTH_FILE" ]; then
+        # Mask passwords? No, the user wants to see them.
+        # Maybe we should categorize them.
+
+        echo -e "${CYAN}--- Database ---${NC}" >&3
+        grep "mysql_root_password" $AUTH_FILE | while read -r line; do
+             echo "DB Root: ${line#*=}" >&3
+        done
+        grep "_db_pass" $AUTH_FILE | while read -r line; do
+             local svc=$(echo "$line" | cut -d_ -f1)
+             echo "$svc DB: ${line#*=}" >&3
+        done
+
+        echo -e "\n${CYAN}--- Services ---${NC}" >&3
+        grep -v "mysql_root_password" $AUTH_FILE | grep -v "_db_pass" | while read -r line; do
+             echo "${line%%=*}: ${line#*=}" >&3
+        done
+    else
+        echo "No credentials found." >&3
+    fi
+
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "Credentials file: $AUTH_FILE" >&3
+    ask "Press Enter to continue..." dummy
+}
+
+show_menu() {
+    clear >&3
+    echo -e "${PURPLE}=================================================================${NC}" >&3
+    echo -e "${PURPLE}  CYL.AE SERVER MANAGER (SECURE EDITION)${NC}" >&3
+    echo -e "${PURPLE}=================================================================${NC}" >&3
+    echo -e "Domain: ${CYAN}$DOMAIN${NC} | IP: ${CYAN}$(hostname -I | awk '{print $1}')${NC}" >&3
+    echo -e "-----------------------------------------------------------------" >&3
+
+    # Status Check Helper
+    p_status() {
+        if [ -d "/opt/$1" ]; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+    }
+    d_status() {
+        if docker ps | grep -q "$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+    }
+
+    echo -e " 1. Manage Gitea           [$(p_status gitea)]" >&3
+    echo -e " 2. Manage Nextcloud       [$(p_status nextcloud)]" >&3
+    echo -e " 3. Manage Portainer       [$(d_status portainer)]" >&3
+    echo -e " 4. Manage Netdata         [$(d_status netdata)]" >&3
+    echo -e " 5. Manage Mail Server     [$(p_status mail)]" >&3
+    echo -e " 6. Manage YOURLS          [$(p_status yourls)]" >&3
+    echo -e " 7. Manage FTP             [$(if command -v vsftpd >/dev/null; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi)]" >&3
+    echo -e " 8. Manage Vaultwarden     [$(p_status vaultwarden)]" >&3
+    echo -e " 9. Manage Uptime Kuma     [$(p_status uptimekuma)]" >&3
+    echo -e "10. Manage WireGuard       [$(p_status wireguard)]" >&3
+    echo -e "11. Manage FileBrowser     [$(p_status filebrowser)]" >&3
+    echo -e "-----------------------------------------------------------------" >&3
+    echo -e " s. System Update" >&3
+    echo -e " b. Backup Data" >&3
+    echo -e " r. Refresh Infrastructure (Nginx/SSL)" >&3
+    echo -e " t. Tune System (Profile)" >&3
+    echo -e " d. DNS Records Info" >&3
+    echo -e " c. Show Credentials" >&3
+    echo -e " h. Hardening & SSH" >&3
+    echo -e " 0. Exit" >&3
+    echo -e "-----------------------------------------------------------------" >&3
+}
+
+run_main() {
+    # Initial Checks
+    check_root
+    check_os
+    load_config
+    init_system
+
+    while true; do
+        show_menu
+        ask "Select >" choice
+
+        case $choice in
+            1) [ -d "/opt/gitea" ] && manage_gitea "remove" || manage_gitea "install" ;;
+            2) [ -d "/opt/nextcloud" ] && manage_nextcloud "remove" || manage_nextcloud "install" ;;
+            3) docker ps | grep -q portainer && manage_portainer "remove" || manage_portainer "install" ;;
+            4) docker ps | grep -q netdata && manage_netdata "remove" || manage_netdata "install" ;;
+            5) [ -d "/opt/mail" ] && manage_mail "remove" || manage_mail "install" ;;
+            6) [ -d "/opt/yourls" ] && manage_yourls "remove" || manage_yourls "install" ;;
+            7) command -v vsftpd &>/dev/null && manage_ftp "remove" || manage_ftp "install" ;;
+            8) [ -d "/opt/vaultwarden" ] && manage_vaultwarden "remove" || manage_vaultwarden "install" ;;
+            9) [ -d "/opt/uptimekuma" ] && manage_uptimekuma "remove" || manage_uptimekuma "install" ;;
+            10) [ -d "/opt/wireguard" ] && manage_wireguard "remove" || manage_wireguard "install" ;;
+            11) [ -d "/opt/filebrowser" ] && manage_filebrowser "remove" || manage_filebrowser "install" ;;
+
+            s) system_update ;;
+            b) manage_backup ;;
+            r) sync_infrastructure ;;
+            t) tune_system ;;
+            d) show_dns_records ;;
+            c) show_credentials ;;
+            h) change_ssh_port ;;
+            0) echo "Bye!" >&3; exit 0 ;;
+            *) echo "Invalid option" >&3 ;;
+        esac
+
+        # Auto-sync logic for services
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -le 11 ] && [ "$choice" -ge 1 ]; then
+            ask "Apply changes now (Update SSL/Nginx)? (y/n):" confirm
+            if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
+        else
+            if [ "$choice" != "0" ]; then
+                ask "Press Enter to continue..." dummy
+            fi
+        fi
+    done
+}
