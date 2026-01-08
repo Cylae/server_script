@@ -14,7 +14,11 @@ init_db_password() {
         else
              DB_ROOT_PASS=$(generate_password)
              save_credential "mysql_root_password" "$DB_ROOT_PASS"
-             mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASS'; FLUSH PRIVILEGES;" || true
+             # Securely execute SQL using heredoc to avoid leaking password in process list
+             mysql <<EOF || true
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASS';
+FLUSH PRIVILEGES;
+EOF
         fi
     fi
     export DB_ROOT_PASS
@@ -25,6 +29,26 @@ ensure_db() {
     local db=$1
     local user=$2
     local pass=$3
+
+    # Create secure config for root auth to avoid password in process list
+    local temp_cnf=$(mktemp)
+    chmod 600 "$temp_cnf"
+    cat <<EOF > "$temp_cnf"
+[client]
+user=root
+password=$DB_ROOT_PASS
+EOF
+
     # Use ALTER USER to ensure password consistency on reinstall
-    mysql -u root --password="$DB_ROOT_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$db\`; CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass'; GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%'; FLUSH PRIVILEGES; ALTER USER '$user'@'%' IDENTIFIED BY '$pass';"
+    # Execute SQL via heredoc to hide query args from ps
+    mysql --defaults-extra-file="$temp_cnf" <<EOF
+CREATE DATABASE IF NOT EXISTS \`$db\`;
+CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass';
+GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%';
+FLUSH PRIVILEGES;
+ALTER USER '$user'@'%' IDENTIFIED BY '$pass';
+EOF
+
+    # Cleanup
+    rm -f "$temp_cnf"
 }
