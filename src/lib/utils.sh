@@ -97,7 +97,8 @@ system_update() {
 
     msg "Updating Docker Images..."
     if docker ps >/dev/null 2>&1; then
-        docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | xargs -L1 docker pull 2>/dev/null || true
+        # Parallelize docker pulls (4 concurrent processes)
+        docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | xargs -L1 -P 4 docker pull 2>/dev/null || true
         docker image prune -f >/dev/null
     fi
     success "System Updated"
