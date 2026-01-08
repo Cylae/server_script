@@ -24,6 +24,12 @@ Une fois les services installés, vous pouvez retrouver **tous les mots de passe
 
 *Note : Le fichier brut est stocké dans `/root/.auth_details` (accessible uniquement en root).*
 
+### 🔄 Réinstallation et Réparation
+Le script est **idempotent** : vous pouvez le relancer autant de fois que nécessaire (par exemple, pour mettre à jour une configuration ou réparer un service).
+*   Il détectera les services existants.
+*   Il **préservera vos mots de passe** (stockés dans `.auth_details`).
+*   Il mettra à jour les conteneurs et les configurations sans perte de données.
+
 Il est conçu pour être **Le Meilleur Script JAMAIS conçu** :
 *   **Intelligent** : Détecte votre matériel (RAM) et optimise la config MySQL/PHP en conséquence.
 *   **Modulaire** : Installez/Supprimez des services proprement sans laisser de résidus.
@@ -159,6 +165,12 @@ Once services are installed, you can retrieve **all generated passwords** via th
 3. The script will display passwords for Database, Mail (postmaster), WireGuard, etc.
 
 *Note: The raw file is stored in `/root/.auth_details` (root access only).*
+
+### 🔄 Reinstall & Repair
+The script is **idempotent**: you can run it as many times as needed (e.g., to update configuration or repair a service).
+*   It detects existing services.
+*   It **preserves your passwords** (stored in `.auth_details`).
+*   It updates containers and configurations without data loss.
 
 It is designed to be **The Best Script EVER**:
 *   **Intelligent**: Detects your hardware (RAM) and tunes MySQL/PHP config accordingly.
