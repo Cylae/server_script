@@ -1048,6 +1048,64 @@ show_credentials() {
     ask "Press Enter to continue..." dummy
 }
 
+show_credentials() {
+    clear >&3
+    msg "SAVED CREDENTIALS"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+
+    # 1. Database Root
+    if grep -q "mysql_root_password" $AUTH_FILE; then
+        local p=$(grep "mysql_root_password" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}DB (root)${NC}       : $p" >&3
+    fi
+
+    # 2. Dashboard
+    if grep -q "dashboard_user" $AUTH_FILE; then
+        local u=$(grep "dashboard_user" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        local p=$(grep "dashboard_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}Dashboard${NC}       : $u / $p" >&3
+    fi
+
+    # 3. Mail
+    if grep -q "postmaster_pass" $AUTH_FILE; then
+        local p=$(grep "postmaster_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}Mail (postmaster)${NC}: postmaster@$DOMAIN / $p" >&3
+    fi
+
+    # 4. WireGuard
+    if grep -q "wg_pass" $AUTH_FILE; then
+        local p=$(grep "wg_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}WireGuard${NC}       : $p" >&3
+    fi
+
+    # 5. YOURLS
+    if grep -q "yourls_pass" $AUTH_FILE; then
+        local p=$(grep "yourls_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}YOURLS (admin)${NC}  : $p" >&3
+    fi
+
+    # 6. FTP
+    if grep -q "ftp_user" $AUTH_FILE; then
+        local u=$(grep "ftp_user" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        local p=$(grep "ftp_pass" $AUTH_FILE | cut -d= -f2- | tail -n 1)
+        echo -e "${CYAN}FTP${NC}             : $u / $p" >&3
+    fi
+
+    # 7. FileBrowser (Fixed default)
+    if [ -d "/opt/filebrowser" ]; then
+        echo -e "${CYAN}FileBrowser${NC}     : admin / admin (Default)" >&3
+    fi
+
+    # 8. Gitea/Nextcloud/Others (DB passwords usually)
+    # We don't store app user passwords for Gitea/Nextcloud usually, as they are set in the UI or auto-generated for DB only.
+    # But if we did generate an initial admin pass, we should show it.
+    # Currently manage_gitea/nextcloud only generate DB passwords.
+
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "Credentials file: $AUTH_FILE" >&3
+    ask "Press Enter to continue..." dummy
+}
+
 # ------------------------------------------------------------------------------
 # 8. ENTRY POINT
 # ------------------------------------------------------------------------------
