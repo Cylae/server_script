@@ -105,6 +105,25 @@ generate_password() {
     openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16
 }
 
+get_auth_value() {
+    local key="$1"
+    if [ -f "$AUTH_FILE" ]; then
+        grep "^${key}=" "$AUTH_FILE" | cut -d= -f2- | tail -n 1
+    fi
+}
+
+get_or_create_password() {
+    local key="$1"
+    local saved=$(get_auth_value "$key")
+    if [ -n "$saved" ]; then
+        echo "$saved"
+    else
+        local new_pass=$(generate_password)
+        echo "${key}=${new_pass}" >> "$AUTH_FILE"
+        echo "$new_pass"
+    fi
+}
+
 # ------------------------------------------------------------------------------
 # 3. SYSTEM INFRASTRUCTURE
 # ------------------------------------------------------------------------------
@@ -254,7 +273,7 @@ init_system() {
 
 init_db_password() {
     if grep -q "mysql_root_password" $AUTH_FILE; then
-        DB_ROOT_PASS=$(grep "mysql_root_password" $AUTH_FILE | cut -d= -f2)
+        DB_ROOT_PASS=$(get_auth_value "mysql_root_password")
     else
         if [ -f /root/.mariadb_auth ]; then
              DB_ROOT_PASS=$(grep mysql_root_password /root/.mariadb_auth | cut -d= -f2)
@@ -272,7 +291,8 @@ ensure_db() {
     local db=$1
     local user=$2
     local pass=$3
-    mysql -u root --password="$DB_ROOT_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$db\`; CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass'; GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%'; FLUSH PRIVILEGES;"
+    # Use ALTER USER to ensure password consistency on reinstall
+    mysql -u root --password="$DB_ROOT_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$db\`; CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass'; GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%'; FLUSH PRIVILEGES; ALTER USER '$user'@'%' IDENTIFIED BY '$pass';"
 }
 
 # ------------------------------------------------------------------------------
@@ -394,7 +414,7 @@ manage_gitea() {
     local name="gitea"
     local sub="git.$DOMAIN"
     if [ "$1" == "install" ]; then
-        local pass=$(generate_password)
+        local pass=$(get_or_create_password "gitea_db_pass")
         ensure_db "$name" "$name" "$pass"
         local host_ip=$(hostname -I | awk '{print $1}')
 
@@ -437,7 +457,7 @@ manage_nextcloud() {
     local name="nextcloud"
     local sub="cloud.$DOMAIN"
     if [ "$1" == "install" ]; then
-        local pass=$(generate_password)
+        local pass=$(get_or_create_password "nextcloud_db_pass")
         ensure_db "$name" "$name" "$pass"
         local host_ip=$(hostname -I | awk '{print $1}')
 
@@ -535,12 +555,13 @@ manage_wireguard() {
     local name="wireguard"
     local sub="vpn.$DOMAIN"
     if [ "$1" == "install" ]; then
-        ask "Enter WG Password (leave empty for auto):" WGPASS
-        if [ -z "$WGPASS" ]; then
-            WGPASS=$(generate_password)
-            msg "Generated WG Password: $WGPASS"
-            echo "wg_pass=$WGPASS" >> $AUTH_FILE
+        ask "Enter WG Password (leave empty for auto/reuse):" WGPASS
+        if [ -n "$WGPASS" ]; then
+             echo "wg_pass=$WGPASS" >> "$AUTH_FILE"
+        else
+             WGPASS=$(get_or_create_password "wg_pass")
         fi
+
         local host_ip=$(curl -s https://api.ipify.org)
 
         read -r -d '' CONTENT <<EOF
@@ -577,6 +598,7 @@ networks:
 EOF
         deploy_docker_service "$name" "WireGuard" "$sub" "51821" "$CONTENT"
         ufw allow 51820/udp >/dev/null
+        msg "WireGuard Password: $WGPASS"
     else
         remove_docker_service "$name" "WireGuard" "$sub"
         ufw delete allow 51820/udp >/dev/null 2>&1 || true
@@ -621,7 +643,7 @@ manage_yourls() {
     local name="yourls"
     local sub="x.$DOMAIN"
     if [ "$1" == "install" ]; then
-        local pass=$(generate_password)
+        local pass=$(get_or_create_password "yourls_pass")
         ensure_db "$name" "$name" "$pass"
         local host_ip=$(hostname -I | awk '{print $1}')
         local cookie=$(openssl rand -hex 16)
@@ -654,7 +676,7 @@ networks:
     external: true
 EOF
         deploy_docker_service "$name" "YOURLS" "$sub" "8084" "$CONTENT"
-        echo "yourls_pass=$pass" >> $AUTH_FILE
+        msg "YOURLS Admin Password: $pass"
     else
         remove_docker_service "$name" "YOURLS" "$sub"
     fi
@@ -727,12 +749,19 @@ EOF
         msg "Initializing Mail User..."
         until docker exec mailserver setup email list >/dev/null 2>&1; do sleep 2; done
         
-        if ! docker exec mailserver setup email list | grep -q "postmaster"; then
-            local pass=$(generate_password)
-            docker exec mailserver setup email add postmaster@$DOMAIN "$pass"
-            docker exec mailserver setup config dkim
-            echo "postmaster_pass=$pass" >> $AUTH_FILE
+        local pass=$(get_or_create_password "postmaster_pass")
+
+        # Ensure user exists/updated
+        if docker exec mailserver setup email list | grep -q "postmaster"; then
+             docker exec mailserver setup email update postmaster@$DOMAIN "$pass" >/dev/null 2>&1
+        else
+             docker exec mailserver setup email add postmaster@$DOMAIN "$pass" >/dev/null 2>&1
         fi
+        docker exec mailserver setup config dkim >/dev/null 2>&1
+
+        msg "Mail Account Credentials:"
+        echo -e "   User: ${CYAN}postmaster@$DOMAIN${NC}" >&3
+        echo -e "   Pass: ${CYAN}$pass${NC}" >&3
     else
         remove_docker_service "$name" "Mail Server" "$sub"
         ufw delete allow 25,587,465,143,993/tcp >/dev/null 2>&1 || true
@@ -833,15 +862,19 @@ EOF
         ufw allow 40000:50000/tcp >/dev/null
         systemctl restart vsftpd
         
+        # Ensure user
+        local ftp_pass=$(get_or_create_password "ftp_pass")
+
         if ! id "cyluser" &>/dev/null; then
-            local ftp_pass=$(generate_password)
             useradd -m -d /var/www -s /bin/bash cyluser
-            echo "cyluser:$ftp_pass" | chpasswd
             usermod -a -G www-data cyluser
             chown -R cyluser:www-data /var/www
             echo "ftp_user=cyluser" >> $AUTH_FILE
-            echo "ftp_pass=$ftp_pass" >> $AUTH_FILE
         fi
+
+        # Always set password to ensure consistency
+        echo "cyluser:$ftp_pass" | chpasswd
+        msg "FTP User: cyluser / $ftp_pass"
         success "FTP Installed"
     elif [ "$1" == "remove" ]; then
         apt-get remove -y vsftpd >/dev/null
@@ -962,134 +995,57 @@ show_dns_records() {
     ask "Press Enter to continue..." dummy
 }
 
-# ------------------------------------------------------------------------------
-# 7. SYNC & UI
-# ------------------------------------------------------------------------------
-
-sync_infrastructure() {
-    msg "Syncing Dashboard & SSL..."
-    mkdir -p /var/www/dashboard
-    if ! grep -q "dashboard_pass" $AUTH_FILE; then
-        PASS=$(generate_password)
-        echo "dashboard_user=admin" >> $AUTH_FILE
-        echo "dashboard_pass=$PASS" >> $AUTH_FILE
-        htpasswd -bc /etc/nginx/.htpasswd admin "$PASS"
-    fi
-    
-    # Generate Links
-    local LINKS="<a href='/adminer.php' class='card' target='_blank'>DB Admin</a>"
-    [ -d "/opt/gitea" ] && LINKS+="<a href='https://git.$DOMAIN' class='card'>Gitea</a>"
-    [ -d "/opt/nextcloud" ] && LINKS+="<a href='https://cloud.$DOMAIN' class='card'>Nextcloud</a>"
-    [ -d "/opt/mail" ] && LINKS+="<a href='https://mail.$DOMAIN' class='card'>Webmail</a>"
-    [ -d "/opt/yourls" ] && LINKS+="<a href='https://x.$DOMAIN' class='card'>Shortener</a>"
-    [ -d "/opt/vaultwarden" ] && LINKS+="<a href='https://pass.$DOMAIN' class='card'>Vaultwarden</a>"
-    [ -d "/opt/uptimekuma" ] && LINKS+="<a href='https://status.$DOMAIN' class='card'>Status</a>"
-    [ -d "/opt/wireguard" ] && LINKS+="<a href='https://vpn.$DOMAIN' class='card'>VPN</a>"
-    [ -d "/opt/filebrowser" ] && LINKS+="<a href='https://files.$DOMAIN' class='card'>Files</a>"
-    docker ps | grep -q portainer && LINKS+="<a href='https://portainer.$DOMAIN' class='card'>Portainer</a>"
-    docker ps | grep -q netdata && LINKS+="<a href='https://netdata.$DOMAIN' class='card'>Monitoring</a>"
-
-    # Dashboard HTML
-    cat <<EOF > /var/www/dashboard/index.php
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin $DOMAIN</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root { --primary: #00d2ff; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; }
-        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-image: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%); }
-        h1 { font-weight: 700; font-size: 2.5rem; margin-bottom: 10px; background: linear-gradient(45deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        p { color: #94a3b8; margin-bottom: 40px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; width: 90%; max-width: 1000px; }
-        .card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); padding: 30px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); text-decoration: none; color: var(--text); font-weight: 500; transition: all 0.3s ease; text-align: center; display: flex; align-items: center; justify-content: center; flex-direction: column; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 210, 255, 0.15); color: var(--primary); }
-    </style>
-</head>
-<body>
-    <h1>Server Dashboard</h1>
-    <p>System Profile: $(cat /etc/cyl_profile) | <a href='/adminer.php' style='color:var(--primary)'>DB Admin</a></p>
-    <div class='grid'>$LINKS</div>
-</body>
-</html>
-EOF
-    # Download Adminer
-    if [ ! -f /var/www/dashboard/adminer.php ]; then
-         wget -q "https://github.com/vrana/adminer/releases/download/v$ADMINER_VER/adminer-$ADMINER_VER.php" -O /var/www/dashboard/adminer.php
-    fi
-    chown -R www-data:www-data /var/www/dashboard
-    
-    update_nginx "admin.$DOMAIN" "0" "dashboard" "/var/www/dashboard"
-    
-    # Landing Page
-    mkdir -p /var/www/landing
-    echo "<!DOCTYPE html><html><head><title>Welcome to $DOMAIN</title><style>body{background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif}h1{font-weight:300;letter-spacing:5px}</style></head><body><h1>$DOMAIN</h1></body></html>" > /var/www/landing/index.html
-    chown -R www-data:www-data /var/www/landing
-    update_nginx "$DOMAIN" "0" "php" "/var/www/landing"
-
-    nginx -t && systemctl reload nginx
-    
-    # Certbot Expansion
-    local DOMAINS="-d $DOMAIN -d admin.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/git.$DOMAIN ] && DOMAINS+=" -d git.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/cloud.$DOMAIN ] && DOMAINS+=" -d cloud.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/mail.$DOMAIN ] && DOMAINS+=" -d mail.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/x.$DOMAIN ] && DOMAINS+=" -d x.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/pass.$DOMAIN ] && DOMAINS+=" -d pass.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/status.$DOMAIN ] && DOMAINS+=" -d status.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/vpn.$DOMAIN ] && DOMAINS+=" -d vpn.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/files.$DOMAIN ] && DOMAINS+=" -d files.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/portainer.$DOMAIN ] && DOMAINS+=" -d portainer.$DOMAIN"
-    [ -f /etc/nginx/sites-enabled/netdata.$DOMAIN ] && DOMAINS+=" -d netdata.$DOMAIN"
-    
-    echo "Updating SSL..."
-    certbot --nginx $DOMAINS --non-interactive --agree-tos -m "$EMAIL" --redirect --expand
-    
-    success "Infrastructure Synced."
-}
-
-show_menu() {
+show_credentials() {
     clear >&3
-    PROFILE=$(cat /etc/cyl_profile 2>/dev/null || echo "DETECTING...")
-    
-    # Health Stats
-    LOAD=$(uptime | awk -F'load average:' '{ print $2 }' | cut -d, -f1 | xargs)
-    DISK=$(df -h / | awk 'NR==2 {print $5}')
-    RAM=$(free -m | awk '/Mem:/ {printf "%.0f%%", $3/$2*100}')
-    
-    echo -e "${PURPLE}=== CYL.AE MANAGER V7.0 - $DOMAIN [$PROFILE] ===${NC}" >&3
-    echo -e "${BLUE}Health: Load: $LOAD | Disk: $DISK | RAM: $RAM${NC}" >&3
-    echo -e "-----------------------------" >&3
-    
-    # Helper for status color
-    is_active() {
-        if [ "$1" == "dir" ]; then [ -d "$2" ] && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}"; fi
-        if [ "$1" == "docker" ]; then docker ps | grep -q "$2" && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}"; fi
-        if [ "$1" == "cmd" ]; then command -v "$2" &>/dev/null && echo -e "${GREEN}ON${NC}" || echo -e "${RED}OFF${NC}"; fi
-    }
+    msg "SAVED CREDENTIALS"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
 
-    echo -e "1. Gitea       [$(is_active dir /opt/gitea)]" >&3
-    echo -e "2. Nextcloud   [$(is_active dir /opt/nextcloud)]" >&3
-    echo -e "3. Portainer   [$(is_active docker portainer)]" >&3
-    echo -e "4. Netdata     [$(is_active docker netdata)]" >&3
-    echo -e "5. Mail Server [$(is_active dir /opt/mail)]" >&3
-    echo -e "6. YOURLS      [$(is_active dir /opt/yourls)]" >&3
-    echo -e "7. FTP Server  [$(is_active cmd vsftpd)]" >&3
-    echo -e "8. Vaultwarden [$(is_active dir /opt/vaultwarden)]" >&3
-    echo -e "9. Uptime Kuma [$(is_active dir /opt/uptimekuma)]" >&3
-    echo -e "10. WireGuard  [$(is_active dir /opt/wireguard)]" >&3
-    echo -e "11. FileBrowse [$(is_active dir /opt/filebrowser)]" >&3
-    echo -e "-----------------------------" >&3
-    echo -e "s. SYSTEM UPDATE" >&3
-    echo -e "b. BACKUP NOW" >&3
-    echo -e "r. SYNC ALL (SSL & Dashboard)" >&3
-    echo -e "t. RE-TUNE SYSTEM" >&3
-    echo -e "d. SHOW DNS RECORDS" >&3
-    echo -e "h. HARDEN SSH" >&3
-    echo -e "0. Exit" >&3
-    echo -e "" >&3
+    # 1. Database Root
+    if grep -q "mysql_root_password" $AUTH_FILE; then
+        local p=$(get_auth_value "mysql_root_password")
+        echo -e "${CYAN}DB (root)${NC}       : $p" >&3
+    fi
+
+    # 2. Dashboard
+    if grep -q "dashboard_user" $AUTH_FILE; then
+        local u=$(get_auth_value "dashboard_user")
+        local p=$(get_auth_value "dashboard_pass")
+        echo -e "${CYAN}Dashboard${NC}       : $u / $p" >&3
+    fi
+
+    # 3. Mail
+    if grep -q "postmaster_pass" $AUTH_FILE; then
+        local p=$(get_auth_value "postmaster_pass")
+        echo -e "${CYAN}Mail (postmaster)${NC}: postmaster@$DOMAIN / $p" >&3
+    fi
+
+    # 4. WireGuard
+    if grep -q "wg_pass" $AUTH_FILE; then
+        local p=$(get_auth_value "wg_pass")
+        echo -e "${CYAN}WireGuard${NC}       : $p" >&3
+    fi
+    
+    # 5. YOURLS
+    if grep -q "yourls_pass" $AUTH_FILE; then
+        local p=$(get_auth_value "yourls_pass")
+        echo -e "${CYAN}YOURLS (admin)${NC}  : $p" >&3
+    fi
+    
+    # 6. FTP
+    if grep -q "ftp_user" $AUTH_FILE; then
+        local u=$(get_auth_value "ftp_user")
+        local p=$(get_auth_value "ftp_pass")
+        echo -e "${CYAN}FTP${NC}             : $u / $p" >&3
+    fi
+    
+    # 7. FileBrowser (Fixed default)
+    if [ -d "/opt/filebrowser" ]; then
+        echo -e "${CYAN}FileBrowser${NC}     : admin / admin (Default)" >&3
+    fi
+    
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "Credentials file: $AUTH_FILE" >&3
+    ask "Press Enter to continue..." dummy
 }
 
 # ------------------------------------------------------------------------------
@@ -1123,6 +1079,7 @@ while true; do
         r) sync_infrastructure ;;
         t) tune_system ;;
         d) show_dns_records ;;
+        c) show_credentials ;;
         h) manage_ssh ;;
         0) echo "Bye!" >&3; exit 0 ;;
         *) echo "Invalid option" >&3 ;;

@@ -16,6 +16,20 @@ Normalement, vous passeriez des heures à configurer Nginx, installer Docker, s�
 
 **Cylae Server Manager** fait tout cela pour vous en **quelques minutes**.
 
+### 🔐 Accès et Identifiants
+Une fois les services installés, vous pouvez retrouver **tous les mots de passe générés** via le menu du script.
+1. Lancez le script : `./install.sh`
+2. Choisissez l'option **`c`** (SHOW CREDENTIALS).
+3. Le script affichera les mots de passe pour la Base de données, le Mail (postmaster), WireGuard, etc.
+
+*Note : Le fichier brut est stocké dans `/root/.auth_details` (accessible uniquement en root).*
+
+### 🔄 Réinstallation et Réparation
+Le script est **idempotent** : vous pouvez le relancer autant de fois que nécessaire (par exemple, pour mettre à jour une configuration ou réparer un service).
+*   Il détectera les services existants.
+*   Il **préservera vos mots de passe** (stockés dans `.auth_details`).
+*   Il mettra à jour les conteneurs et les configurations sans perte de données.
+
 Il est conçu pour être **Le Meilleur Script JAMAIS conçu** :
 *   **Intelligent** : Détecte votre matériel (RAM) et optimise la config MySQL/PHP en conséquence.
 *   **Modulaire** : Installez/Supprimez des services proprement sans laisser de résidus.
@@ -61,7 +75,7 @@ Tous les services sont déployés via **Docker** pour une isolation et une stabi
 | **Gitea** | Hébergement Git léger (alternative à Github). | `https://git.votre-domaine.com` |
 | **Nextcloud** | Hébergement & partage de fichiers (alternative à Google Drive). | `https://cloud.votre-domaine.com` |
 | **Vaultwarden** | Gestionnaire de mots de passe (compatible Bitwarden). | `https://pass.votre-domaine.com` |
-| **Serveur Mail** | Serveur mail complet (Postfix, Dovecot, SpamAssassin). | `https://mail.votre-domaine.com` |
+| **Serveur Mail** | Serveur mail complet. Utilisateur par défaut : `postmaster@votre-domaine.com`. | `https://mail.votre-domaine.com` |
 | **Uptime Kuma** | Outil de surveillance pour suivre la disponibilité des services. | `https://status.votre-domaine.com` |
 | **WireGuard** | VPN moderne et rapide avec interface web (wg-easy). | `https://vpn.votre-domaine.com` |
 | **File Browser** | Gestionnaire de fichiers web. | `https://files.votre-domaine.com` |
@@ -144,6 +158,20 @@ Normally, you would spend hours configuring Nginx, setting up Docker, securing S
 
 **Cylae Server Manager** does it all for you in **minutes**.
 
+### 🔐 Access and Credentials
+Once services are installed, you can retrieve **all generated passwords** via the script menu.
+1. Run the script: `./install.sh`
+2. Choose option **`c`** (SHOW CREDENTIALS).
+3. The script will display passwords for Database, Mail (postmaster), WireGuard, etc.
+
+*Note: The raw file is stored in `/root/.auth_details` (root access only).*
+
+### 🔄 Reinstall & Repair
+The script is **idempotent**: you can run it as many times as needed (e.g., to update configuration or repair a service).
+*   It detects existing services.
+*   It **preserves your passwords** (stored in `.auth_details`).
+*   It updates containers and configurations without data loss.
+
 It is designed to be **The Best Script EVER**:
 *   **Intelligent**: Detects your hardware (RAM) and tunes MySQL/PHP config accordingly.
 *   **Modular**: Install/Remove services cleanly without leaving junk behind.
@@ -189,7 +217,7 @@ All services are deployed via **Docker** for maximum isolation and stability, se
 | **Gitea** | Lightweight Git hosting (Github alternative). | `https://git.yourdomain.com` |
 | **Nextcloud** | File hosting & sharing (Google Drive alternative). | `https://cloud.yourdomain.com` |
 | **Vaultwarden** | Password manager (Bitwarden compatible). | `https://pass.yourdomain.com` |
-| **Mail Server** | Full stack mail server (Postfix, Dovecot, SpamAssassin). | `https://mail.yourdomain.com` |
+| **Mail Server** | Full stack mail server. Default user: `postmaster@yourdomain.com`. | `https://mail.yourdomain.com` |
 | **Uptime Kuma** | Monitoring tool to track uptime of services. | `https://status.yourdomain.com` |
 | **WireGuard** | Modern, fast VPN with web UI (wg-easy). | `https://vpn.yourdomain.com` |
 | **File Browser** | Web-based file manager. | `https://files.yourdomain.com` |
