@@ -33,6 +33,7 @@ source src/services/mail.sh
 source src/services/netdata.sh
 source src/services/portainer.sh
 source src/services/ftp.sh
+source src/services/glpi.sh
 
 show_dns_records() {
     local ip=$(curl -s https://api.ipify.org)
@@ -54,6 +55,7 @@ show_dns_records() {
     [ -d "/opt/filebrowser" ] && echo -e "CNAME | files                | $DOMAIN" >&3
     docker ps | grep -q portainer && echo -e "CNAME | portainer            | $DOMAIN" >&3
     docker ps | grep -q netdata && echo -e "CNAME | netdata              | $DOMAIN" >&3
+    [ -d "/opt/glpi" ] && echo -e "CNAME | support              | $DOMAIN" >&3
 
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
     echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)" >&3
@@ -121,6 +123,7 @@ show_menu() {
     echo -e " 9. Manage Uptime Kuma     [$(p_status uptimekuma)]" >&3
     echo -e "10. Manage WireGuard       [$(p_status wireguard)]" >&3
     echo -e "11. Manage FileBrowser     [$(p_status filebrowser)]" >&3
+    echo -e "12. Manage GLPI (Ticket)   [$(p_status glpi)]" >&3
     echo -e "-----------------------------------------------------------------" >&3
     echo -e " s. System Update" >&3
     echo -e " b. Backup Data" >&3
@@ -156,6 +159,7 @@ run_main() {
             9) [ -d "/opt/uptimekuma" ] && manage_uptimekuma "remove" || manage_uptimekuma "install" ;;
             10) [ -d "/opt/wireguard" ] && manage_wireguard "remove" || manage_wireguard "install" ;;
             11) [ -d "/opt/filebrowser" ] && manage_filebrowser "remove" || manage_filebrowser "install" ;;
+            12) [ -d "/opt/glpi" ] && manage_glpi "remove" || manage_glpi "install" ;;
 
             s) system_update ;;
             b) manage_backup ;;
@@ -169,7 +173,7 @@ run_main() {
         esac
 
         # Auto-sync logic for services
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -le 11 ] && [ "$choice" -ge 1 ]; then
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -le 12 ] && [ "$choice" -ge 1 ]; then
             ask "Apply changes now (Update SSL/Nginx)? (y/n):" confirm
             if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
         else

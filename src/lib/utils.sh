@@ -41,8 +41,29 @@ detect_profile() {
 }
 
 tune_system() {
-    msg "Applying System Tuning..."
+    msg "Applying System Tuning (Sheldon Cooper Mode)..."
     PROFILE=$(cat /etc/cyl_profile 2>/dev/null || echo "HIGH")
+
+    # 0. Kernel & TCP Tuning
+    # Optimize for high concurrency and low latency
+    # We use a dedicated file for idempotency
+    cat <<EOF > /etc/sysctl.d/99-cylae-tuning.conf
+# Network Tuning
+net.core.somaxconn = 4096
+net.core.netdev_max_backlog = 16384
+net.ipv4.tcp_max_syn_backlog = 8192
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_fin_timeout = 30
+net.ipv4.tcp_keepalive_time = 300
+net.ipv4.tcp_keepalive_probes = 5
+net.ipv4.tcp_keepalive_intvl = 15
+
+# Memory Tuning
+vm.swappiness = 10
+vm.vfs_cache_pressure = 50
+EOF
+    sysctl --system >/dev/null
 
     # 1. Database Tuning (MariaDB)
     # Check if MariaDB is installed first
@@ -83,6 +104,13 @@ EOF
             # Common
             sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 512M/' "$PHP_INI"
             sed -i 's/^post_max_size = .*/post_max_size = 512M/' "$PHP_INI"
+
+            # Opcache Tuning
+            sed -i 's/;opcache.enable=1/opcache.enable=1/' "$PHP_INI"
+            sed -i 's/;opcache.memory_consumption=.*/opcache.memory_consumption=128/' "$PHP_INI"
+            sed -i 's/;opcache.interned_strings_buffer=.*/opcache.interned_strings_buffer=8/' "$PHP_INI"
+            sed -i 's/;opcache.max_accelerated_files=.*/opcache.max_accelerated_files=10000/' "$PHP_INI"
+            sed -i 's/;opcache.validate_timestamps=.*/opcache.validate_timestamps=0/' "$PHP_INI"
 
             systemctl restart "php$PHP_VER-fpm" || warn "Failed to restart PHP-FPM"
         fi

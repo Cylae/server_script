@@ -24,6 +24,14 @@ manage_nextcloud() {
         read -r -d '' CONTENT <<EOF
 version: '2'
 services:
+  redis:
+    image: redis:alpine
+    container_name: nextcloud_redis
+    networks:
+      - $DOCKER_NET
+    restart: always
+    command: redis-server --requirepass $pass
+
   app:
     image: nextcloud
     container_name: nextcloud_app
@@ -32,6 +40,8 @@ services:
       - $DOCKER_NET
     ports:
       - 127.0.0.1:8080:80
+    depends_on:
+      - redis
     volumes:
       - ./nextcloud:/var/www/html
     environment:
@@ -39,6 +49,8 @@ services:
       - MYSQL_DATABASE=$name
       - MYSQL_USER=$name
       - MYSQL_HOST=$host_ip
+      - REDIS_HOST=nextcloud_redis
+      - REDIS_HOST_PASSWORD=$pass
       - NEXTCLOUD_TRUSTED_DOMAINS=$sub
 networks:
   $DOCKER_NET:
