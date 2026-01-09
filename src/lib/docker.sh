@@ -26,7 +26,7 @@ check_port_conflict() {
     local name=$2
 
     # Check if port is in use
-    if ss -tuln | grep -q ":$port "; then
+    if ss -tuln | grep -E ":$port($|\s)"; then
         # Check if it's already used by the container we are trying to deploy (restart case)
         # But usually we are checking host ports.
         # If we are redeploying the SAME service, it might be occupying the port.

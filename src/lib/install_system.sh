@@ -6,9 +6,6 @@
 # ==============================================================================
 
 init_system() {
-    if [ -f "/root/.server_installed" ]; then
-        return
-    fi
     msg "Initializing System Infrastructure..."
 
     export DEBIAN_FRONTEND=noninteractive

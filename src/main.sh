@@ -99,7 +99,7 @@ show_menu() {
     echo -e "${PURPLE}=================================================================${NC}" >&3
     echo -e "${PURPLE}  CYL.AE SERVER MANAGER (SECURE EDITION)${NC}" >&3
     echo -e "${PURPLE}=================================================================${NC}" >&3
-    echo -e "Domain: ${CYAN}$DOMAIN${NC} | IP: ${CYAN}$(hostname -I | awk '{print $1}')${NC}" >&3
+    echo -e "Domain: ${CYAN}$DOMAIN${NC} | IP: ${CYAN}$(ip -4 route get 1 | awk '{print $7}')${NC}" >&3
     echo -e "-----------------------------------------------------------------" >&3
 
     # Status Check Helper
