@@ -11,12 +11,33 @@ update_nginx() {
     local type=$3 # proxy or php
     local root=${4:-}
 
-    # Security Headers
+    # Security & Performance Headers (Sheldon Approved)
     local SEC_HEADERS='
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    '
+
+    # Optimization Directives
+    local OPT_CONFIG='
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    keepalive_timeout 65;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:MozSSL:10m;
+    ssl_session_tickets off;
+
+    # OCSP Stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 5s;
     '
 
     rm -f "/etc/nginx/sites-enabled/default"
@@ -24,9 +45,18 @@ update_nginx() {
     cat <<EOF > "/etc/nginx/sites-available/$sub"
 server {
     listen 80;
+    listen [::]:80;
     server_name $sub;
+
+    # HTTP/2 is enabled by Certbot usually in listen 443, but we prepare the block.
+    # Note: We are writing the HTTP block here. The SSL block is created by Certbot later.
+    # However, to be optimal, we should enforce HSTS on HTTP to redirect.
+
     client_max_body_size 10G;
+    client_body_buffer_size 512k;
+
     $SEC_HEADERS
+    $OPT_CONFIG
 EOF
 
     if [ "$type" == "proxy" ]; then

@@ -19,7 +19,7 @@ manage_yourls() {
         fi
 
         ensure_db "$name" "$name" "$pass"
-        local host_ip=$(hostname -I | awk '{print $1}')
+        local host_ip=$(docker network inspect $DOCKER_NET | jq -r '.[0].IPAM.Config[0].Gateway')
         local cookie=$(openssl rand -hex 16)
 
         # NOTE: Mapping /var/www/html to local 'data' dir to persist plugins/config
