@@ -1,4 +1,4 @@
-# 🚀 Cylae Server Manager (v7.0)
+# 🚀 Cylae Server Manager (v8.0)
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Stable-success.svg)
 
@@ -82,6 +82,7 @@ Tous les services sont déployés via **Docker** pour une isolation et une stabi
 | **YOURLS** | Réducteur d'URL. | `https://x.votre-domaine.com` |
 | **Portainer** | Interface graphique pour gérer les conteneurs Docker. | `https://portainer.votre-domaine.com` |
 | **Netdata** | Surveillance des performances en temps réel. | `https://netdata.votre-domaine.com` |
+| **FTP** | Serveur FTP haute performance (vsftpd). | `ftp://ftp.votre-domaine.com` |
 
 > **Note :** Les bases de données sont gérées via une instance MariaDB centralisée (bare-metal) pour la performance, accessible via **Adminer** sur le tableau de bord.
 
@@ -133,7 +134,7 @@ R : Les sauvegardes sont stockées dans `/var/backups/cyl_manager`.
 ## 🤝 Contribuer
 N'hésitez pas à ouvrir des issues ou des pull requests pour rendre ce script encore meilleur !
 
-*v7.0 - Édition Ultime*
+*v8.0 - Édition Ultime*
 
 ---
 ---
@@ -142,7 +143,7 @@ N'hésitez pas à ouvrir des issues ou des pull requests pour rendre ce script e
 
 <div id="english"></div>
 
-# 🚀 Cylae Server Manager (v7.0)
+# 🚀 Cylae Server Manager (v8.0)
 
 > **The Ultimate "Turnkey" Self-Hosting Solution.**
 > *Universal Edition | Auto-Tuning | Modular | Secure by Default*
@@ -224,6 +225,7 @@ All services are deployed via **Docker** for maximum isolation and stability, se
 | **YOURLS** | URL Shortener. | `https://x.yourdomain.com` |
 | **Portainer** | GUI for managing Docker containers. | `https://portainer.yourdomain.com` |
 | **Netdata** | Real-time performance monitoring. | `https://netdata.yourdomain.com` |
+| **FTP** | High performance FTP Server (vsftpd). | `ftp://ftp.yourdomain.com` |
 
 > **Note:** Databases are managed via a centralized MariaDB instance (bare-metal) for performance, accessible via **Adminer** on the dashboard.
 
@@ -275,4 +277,4 @@ A: Backups are stored in `/var/backups/cyl_manager`.
 ## 🤝 Contributing
 Feel free to open issues or pull requests to make this script even better!
 
-*v7.0 - Ultimate Edition*
+*v8.0 - Ultimate Edition*

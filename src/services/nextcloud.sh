@@ -19,7 +19,7 @@ manage_nextcloud() {
         fi
 
         ensure_db "$name" "$name" "$pass"
-        local host_ip=$(hostname -I | awk '{print $1}')
+        local host_ip=$(docker network inspect $DOCKER_NET | jq -r '.[0].IPAM.Config[0].Gateway')
 
         read -r -d '' CONTENT <<EOF
 version: '2'
