@@ -22,7 +22,7 @@ manage_gitea() {
         ensure_db "$name" "$name" "$pass"
         local host_ip=$(ip -4 route get 1 | awk '{print $7}')
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: "3"
 services:
   server:
@@ -51,6 +51,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "Gitea" "$sub" "3000" "$CONTENT"
 
         msg "Gitea Database Credentials:"

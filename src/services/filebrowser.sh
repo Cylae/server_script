@@ -10,7 +10,7 @@ manage_filebrowser() {
         touch /opt/$name/filebrowser.db
         echo '{"port": 80, "baseURL": "", "address": "", "log": "stdout", "database": "/database.db", "root": "/srv"}' > /opt/$name/settings.json
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '3'
 services:
   filebrowser:
@@ -29,6 +29,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "FileBrowser" "$sub" "8083" "$CONTENT"
         success "Default login: admin/admin"
     else
