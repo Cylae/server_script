@@ -1,207 +1,95 @@
-<div id="english">
+# Cylae Server Manager
 
-# Cylae Server Manager (Secure Edition)
+A production-grade, modular, and secure server management suite for Debian/Ubuntu systems. Easily deploy and manage self-hosted services using Docker.
 
-**Cylae Server Manager** is a production-grade, modular, and secure deployment suite for self-hosted services. It simplifies the installation, management, and maintenance of popular applications using Docker, Nginx, and automated scripting.
+## 🚀 Features
 
-## Features
+*   **Modular Architecture:** Core logic separated from service definitions.
+*   **Docker-Native:** All services run in isolated Docker containers.
+*   **Secure by Default:**
+    *   Hardened SSH and Firewall (UFW).
+    *   Fail2Ban pre-configured.
+    *   Automatic SSL (Let's Encrypt) via Certbot.
+    *   Nginx with HSTS and HTTP/2.
+*   **Performance Tuned:** Smart system tuning based on available RAM (Kernel, TCP, MariaDB, PHP).
+*   **Centralized Management:** Unified dashboard and CLI tool.
 
-- **Modular Architecture:** Core logic separated from service definitions for easy maintenance.
-- **Security First:**
-  - Automated Firewall (UFW) configuration.
-  - Fail2Ban integration for SSH.
-  - Hardened SSH configuration (Root login disabled, Key-based auth preferred).
-  - Secure credential management (generated or user-provided).
-- **Automated Infrastructure:**
-  - Docker & Docker Compose (V2) installation.
-  - Nginx Reverse Proxy with automated Let's Encrypt SSL.
-  - Centralized MariaDB database with performance tuning.
-  - Redis for caching (Nextcloud).
-- **Smart Optimization:**
-  - Auto-detects system resources (Low vs. High profile).
-  - Tunes Kernel (BBR, TCP stack), Database, and PHP settings.
-- **Backups:** Automated backup of data, databases, and configuration.
-- **Auto-Update:** Self-updating mechanism for the manager script.
+## 📋 Prerequisites
 
-## Service Catalog
+*   **OS:** Debian 11/12 or Ubuntu 20.04/22.04/24.04 (LTS recommended).
+*   **User:** Root privileges (must run as `root`).
+*   **Ports:** 80, 443, 22 (and service specific ports) must be open.
+*   **Domain:** A valid domain name pointing to your server IP.
 
-| Service | Description | URL |
-| :--- | :--- | :--- |
-| **FileBrowser** | Web-based file manager | `files.$DOMAIN` |
-| **FTP** | vsftpd server | `ftp://$DOMAIN` |
-| **Gitea** | Git hosting service | `git.$DOMAIN` |
-| **GLPI** | IT Asset Management & Ticketing | `support.$DOMAIN` |
-| **Mail Server** | Full stack mail server | `mail.$DOMAIN` |
-| **Netdata** | Real-time performance monitoring | `netdata.$DOMAIN` |
-| **Nextcloud** | File storage and collaboration | `cloud.$DOMAIN` |
-| **Portainer** | Docker management UI | `portainer.$DOMAIN` |
-| **Uptime Kuma** | Monitoring tool | `status.$DOMAIN` |
-| **Vaultwarden** | Bitwarden compatible password manager | `pass.$DOMAIN` |
-| **WireGuard** | VPN Server (via WG-Easy) | `vpn.$DOMAIN` |
-| **YOURLS** | URL Shortener | `x.$DOMAIN` |
+## 🛠️ Installation
 
-## Installation
+1.  **Switch to Root**
+    ```bash
+    sudo -i
+    ```
 
-### Prerequisites
-- **OS:** Debian 11/12 (Recommended) or Ubuntu 20.04/22.04.
-- **User:** Root access is required.
-- **Domain:** A valid domain name pointing to your server IP.
-- **Dependencies:** `git` and `ca-certificates`.
+2.  **Install Dependencies**
+    ```bash
+    apt update && apt install -y git ca-certificates
+    ```
 
-### Quick Start
-Start from a fresh installation:
-```bash
-# 1. Install required packages
-apt update && apt install -y git ca-certificates
+3.  **Clone the Repository**
+    ```bash
+    cd /opt/
+    git clone https://github.com/Cylae/server_script.git cylae-manager
+    cd cylae-manager
+    ```
 
-# 2. Clone the repository
-git clone https://github.com/Cylae/server_script.git cylae-manager
-cd cylae-manager
+4.  **Run the Installer**
+    ```bash
+    chmod +x install.sh
+    ./install.sh
+    ```
 
-# 3. Make executable and run
-chmod +x install.sh
-./install.sh
-```
+## 🎮 Usage
 
-Follow the on-screen instructions to configure your domain and email.
+Once installed, the manager provides an interactive menu. You can access it anytime by running the script again or using the installed alias (if applicable, or just run `./install.sh`).
 
-## Maintenance & Updates
+**Menu Options:**
+*   **1-12:** Manage specific services (Install/Remove).
+*   **s:** System Update (OS + Docker Images).
+*   **b:** Backup Data (Database dumps + File archives).
+*   **r:** Refresh Infrastructure (Regenerate Nginx configs & SSL).
+*   **t:** Tune System (Re-apply performance profiles).
+*   **c:** Show Credentials (View saved passwords).
+*   **h:** Hardening & SSH (Change SSH port, verify security).
 
-- **Auto-Update:** The system automatically checks for updates (script, OS, and containers) daily at 04:00.
-- **Manual Update:**
-  ```bash
-  cd cylae-manager
-  git pull
-  ./install.sh
-  ```
+## 📦 Supported Services
 
-## Usage
+*   **Gitea** (Git Service)
+*   **Nextcloud** (Cloud Storage)
+*   **Portainer** (Docker Management)
+*   **Netdata** (Monitoring)
+*   **Mail Server** (Postfix/Dovecot stack)
+*   **YOURLS** (URL Shortener)
+*   **FTP** (vsftpd)
+*   **Vaultwarden** (Password Manager)
+*   **Uptime Kuma** (Uptime Monitoring)
+*   **WireGuard** (VPN)
+*   **FileBrowser** (Web File Manager)
+*   **GLPI** (IT Asset Management)
 
-Run the manager anytime using:
-```bash
-./install.sh
-# OR if installed globally
-server_manager.sh
-```
+## ❓ Troubleshooting
 
-### Menu Options
-- **Manage Services:** Install/Remove individual services.
-- **System Update:** Updates OS packages and Docker images.
-- **Backup Data:** Creates a backup in `/var/backups/cyl_manager`.
-- **Refresh Infrastructure:** Regenerates Nginx configs and SSL certificates.
-- **Tune System:** Re-applies system optimizations.
-- **DNS Records Info:** Displays required DNS records.
-- **Show Credentials:** Displays saved passwords.
-- **Hardening:** Manage SSH port and security settings.
+### The script fails immediately
+*   Check the log file: `/var/log/server_manager.log`
+*   Ensure you are running as **root**.
+*   Ensure you have internet connectivity.
 
-## Troubleshooting
+### "Command not found" errors
+*   Ensure you ran the `apt install` step for git and ca-certificates.
+*   The script attempts to install other dependencies (jq, curl, etc.) automatically.
 
-- **Logs:** Check `/var/log/server_manager.log` for detailed execution logs.
-- **Credentials:** If you forgot a password, use the "Show Credentials" option in the menu or check `/root/.auth_details`.
-- **Port Conflicts:** The script checks for port conflicts. If a service fails to start, ensure the port is free using `ss -tuln`.
+### Service not accessible
+*   Verify DNS records using option `d` in the menu.
+*   Run `r` (Refresh Infrastructure) to ensure Nginx and SSL are correctly configured.
+*   Check firewall status: `ufw status`.
 
-</div>
-
-<div id="français">
-
-# Gestionnaire de Serveur Cylae (Édition Sécurisée)
-
-**Cylae Server Manager** est une suite de déploiement modulaire, sécurisée et prête pour la production pour les services auto-hébergés. Elle simplifie l'installation, la gestion et la maintenance d'applications populaires utilisant Docker, Nginx et des scripts automatisés.
-
-## Fonctionnalités
-
-- **Architecture Modulaire :** Logique centrale séparée des définitions de services pour une maintenance facile.
-- **Sécurité Avant Tout :**
-  - Configuration automatisée du pare-feu (UFW).
-  - Intégration Fail2Ban pour SSH.
-  - Configuration SSH durcie (Connexion Root désactivée, Auth par clé préférée).
-  - Gestion sécurisée des identifiants (générés ou fournis par l'utilisateur).
-- **Infrastructure Automatisée :**
-  - Installation de Docker & Docker Compose (V2).
-  - Proxy Inverse Nginx avec SSL Let's Encrypt automatisé.
-  - Base de données MariaDB centralisée avec optimisation des performances.
-  - Redis pour le cache (Nextcloud).
-- **Optimisation Intelligente :**
-  - Détection automatique des ressources système (Profil Bas vs Haut).
-  - Optimisation du Noyau (BBR, pile TCP), Base de données et PHP.
-- **Sauvegardes :** Sauvegarde automatisée des données, bases de données et configurations.
-- **Mise à jour Auto :** Mécanisme de mise à jour automatique pour le script de gestion.
-
-## Catalogue de Services
-
-| Service | Description | URL |
-| :--- | :--- | :--- |
-| **FileBrowser** | Gestionnaire de fichiers Web | `files.$DOMAIN` |
-| **FTP** | Serveur vsftpd | `ftp://$DOMAIN` |
-| **Gitea** | Service d'hébergement Git | `git.$DOMAIN` |
-| **GLPI** | Gestion de Parc Informatique & Tickets | `support.$DOMAIN` |
-| **Mail Server** | Serveur mail complet | `mail.$DOMAIN` |
-| **Netdata** | Surveillance des performances en temps réel | `netdata.$DOMAIN` |
-| **Nextcloud** | Stockage de fichiers et collaboration | `cloud.$DOMAIN` |
-| **Portainer** | Interface de gestion Docker | `portainer.$DOMAIN` |
-| **Uptime Kuma** | Outil de surveillance | `status.$DOMAIN` |
-| **Vaultwarden** | Gestionnaire de mots de passe compatible Bitwarden | `pass.$DOMAIN` |
-| **WireGuard** | Serveur VPN (via WG-Easy) | `vpn.$DOMAIN` |
-| **YOURLS** | Raccourcisseur d'URL | `x.$DOMAIN` |
-
-## Installation
-
-### Prérequis
-- **OS :** Debian 11/12 (Recommandé) ou Ubuntu 20.04/22.04.
-- **Utilisateur :** L'accès Root est requis.
-- **Domaine :** Un nom de domaine valide pointant vers l'IP de votre serveur.
-- **Dépendances :** `git` et `ca-certificates`.
-
-### Démarrage Rapide
-À partir d'une installation vierge :
-```bash
-# 1. Installer les paquets requis
-apt update && apt install -y git ca-certificates
-
-# 2. Cloner le dépôt
-git clone https://github.com/Cylae/server_script.git cylae-manager
-cd cylae-manager
-
-# 3. Rendre exécutable et lancer
-chmod +x install.sh
-./install.sh
-```
-
-Suivez les instructions à l'écran pour configurer votre domaine et email.
-
-## Maintenance & Mises à jour
-
-- **Mise à jour Auto :** Le système vérifie automatiquement les mises à jour (script, OS et conteneurs) tous les jours à 04:00.
-- **Mise à jour Manuelle :**
-  ```bash
-  cd cylae-manager
-  git pull
-  ./install.sh
-  ```
-
-## Utilisation
-
-Lancez le gestionnaire à tout moment avec :
-```bash
-./install.sh
-# OU si installé globalement
-server_manager.sh
-```
-
-### Options du Menu
-- **Gérer les Services :** Installer/Supprimer des services individuels.
-- **Mise à jour Système :** Met à jour les paquets OS et les images Docker.
-- **Sauvegarde Données :** Crée une sauvegarde dans `/var/backups/cyl_manager`.
-- **Rafraîchir Infrastructure :** Régénère les configs Nginx et certificats SSL.
-- **Optimiser Système :** Ré-applique les optimisations système.
-- **Info Enregistrements DNS :** Affiche les enregistrements DNS requis.
-- **Afficher Identifiants :** Affiche les mots de passe enregistrés.
-- **Durcissement :** Gérer le port SSH et les paramètres de sécurité.
-
-## Dépannage
-
-- **Logs :** Vérifiez `/var/log/server_manager.log` pour des logs d'exécution détaillés.
-- **Identifiants :** Si vous avez oublié un mot de passe, utilisez l'option "Afficher Identifiants" dans le menu ou vérifiez `/root/.auth_details`.
-- **Conflits de Port :** Le script vérifie les conflits de port. Si un service ne démarre pas, assurez-vous que le port est libre avec `ss -tuln`.
-
-</div>
+### Database Connection Errors
+*   Use option `c` (Show Credentials) to verify the generated passwords match what is configured in the service.
+*   Ensure the `server-net` docker network exists.

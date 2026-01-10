@@ -33,7 +33,8 @@ ensure_db() {
     chmod 600 "$temp_cnf"
 
     # Ensure cleanup happens even if mysql fails
-    trap 'rm -f "$temp_cnf"' EXIT
+    # NOTE: We use RETURN trap to avoid clobbering global EXIT trap
+    trap 'rm -f "$temp_cnf"' RETURN
 
     cat <<EOF > "$temp_cnf"
 [client]
@@ -45,5 +46,4 @@ EOF
     # Use ALTER USER to ensure password consistency on reinstall
     mysql --defaults-extra-file="$temp_cnf" -e "CREATE DATABASE IF NOT EXISTS \`$db\`; CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass'; GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%'; FLUSH PRIVILEGES; ALTER USER '$user'@'%' IDENTIFIED BY '$pass';"
     rm -f "$temp_cnf"
-    trap - EXIT
 }
