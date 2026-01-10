@@ -24,7 +24,7 @@ manage_yourls() {
         local cookie=$(openssl rand -hex 16)
 
         # NOTE: Mapping /var/www/html to local 'data' dir to persist plugins/config
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '3'
 services:
   yourls:
@@ -50,6 +50,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "YOURLS" "$sub" "8084" "$CONTENT"
         msg "YOURLS Admin Password: $pass"
     else

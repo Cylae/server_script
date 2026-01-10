@@ -19,7 +19,7 @@ manage_wireguard() {
 
         local host_ip=$(curl -s https://api.ipify.org)
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: "3.8"
 services:
   wg-easy:
@@ -51,6 +51,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "WireGuard" "$sub" "51821" "$CONTENT"
         ufw allow 51820/udp >/dev/null
         msg "WireGuard Password: $WGPASS"
