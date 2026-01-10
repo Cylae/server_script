@@ -14,7 +14,7 @@ init_system() {
     # 1. Basics
     if ! command -v jq &> /dev/null; then
         msg "Installing Basic Dependencies..."
-        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 >/dev/null
+        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin >/dev/null
     fi
 
     # 2. Swap & BBR
