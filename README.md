@@ -46,15 +46,34 @@
 - **OS:** Debian 11/12 (Recommended) or Ubuntu 20.04/22.04.
 - **User:** Root access is required.
 - **Domain:** A valid domain name pointing to your server IP.
+- **Dependencies:** `git` and `ca-certificates`.
 
 ### Quick Start
+Start from a fresh installation:
 ```bash
+# 1. Install required packages
+apt update && apt install -y git ca-certificates
+
+# 2. Clone the repository
 git clone https://github.com/your-repo/cylae-manager.git
 cd cylae-manager
+
+# 3. Make executable and run
+chmod +x install.sh
 ./install.sh
 ```
 
 Follow the on-screen instructions to configure your domain and email.
+
+## Maintenance & Updates
+
+- **Auto-Update:** The system automatically checks for updates (script, OS, and containers) daily at 04:00.
+- **Manual Update:**
+  ```bash
+  cd cylae-manager
+  git pull
+  ./install.sh
+  ```
 
 ## Usage
 
@@ -131,15 +150,34 @@ server_manager.sh
 - **OS :** Debian 11/12 (Recommandé) ou Ubuntu 20.04/22.04.
 - **Utilisateur :** L'accès Root est requis.
 - **Domaine :** Un nom de domaine valide pointant vers l'IP de votre serveur.
+- **Dépendances :** `git` et `ca-certificates`.
 
 ### Démarrage Rapide
+À partir d'une installation vierge :
 ```bash
+# 1. Installer les paquets requis
+apt update && apt install -y git ca-certificates
+
+# 2. Cloner le dépôt
 git clone https://github.com/votre-repo/cylae-manager.git
 cd cylae-manager
+
+# 3. Rendre exécutable et lancer
+chmod +x install.sh
 ./install.sh
 ```
 
 Suivez les instructions à l'écran pour configurer votre domaine et email.
+
+## Maintenance & Mises à jour
+
+- **Mise à jour Auto :** Le système vérifie automatiquement les mises à jour (script, OS et conteneurs) tous les jours à 04:00.
+- **Mise à jour Manuelle :**
+  ```bash
+  cd cylae-manager
+  git pull
+  ./install.sh
+  ```
 
 ## Utilisation
 
