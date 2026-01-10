@@ -7,7 +7,7 @@ manage_uptimekuma() {
     if [ "$1" == "install" ]; then
         msg "Installing Uptime Kuma..."
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '3'
 services:
   uptime-kuma:
@@ -24,6 +24,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "Uptime Kuma" "$sub" "3001" "$CONTENT"
     else
         remove_docker_service "$name" "Uptime Kuma" "$sub"

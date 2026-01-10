@@ -22,7 +22,7 @@ manage_nextcloud() {
         ensure_db "$name" "$name" "$pass"
         local host_ip=$(docker network inspect $DOCKER_NET | jq -r '.[0].IPAM.Config[0].Gateway')
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '2'
 services:
   redis:
@@ -57,6 +57,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "Nextcloud" "$sub" "8080" "$CONTENT"
 
         msg "Waiting for Nextcloud to initialize..."

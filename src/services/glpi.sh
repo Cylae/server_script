@@ -23,7 +23,7 @@ manage_glpi() {
         local host_ip=$(docker network inspect $DOCKER_NET | jq -r '.[0].IPAM.Config[0].Gateway')
 
         # We use diouxx/glpi for simplicity
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '3'
 services:
   glpi:
@@ -47,6 +47,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "GLPI" "$sub" "8082" "$CONTENT"
 
         msg "GLPI Default Credentials:"

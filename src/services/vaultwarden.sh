@@ -8,7 +8,7 @@ manage_vaultwarden() {
         msg "Installing Vaultwarden..."
         # Vaultwarden doesn't use external DB in this config, so no password prompt needed for DB.
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '3'
 services:
   vaultwarden:
@@ -27,6 +27,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "Vaultwarden" "$sub" "8082" "$CONTENT"
     else
         remove_docker_service "$name" "Vaultwarden" "$sub"

@@ -16,7 +16,7 @@ manage_mail() {
             msg "Low RAM detected: Disabling ClamAV."
         fi
 
-        read -r -d '' CONTENT <<EOF
+        CONTENT=$(cat <<EOF
 version: '3'
 services:
   mailserver:
@@ -61,6 +61,7 @@ networks:
   $DOCKER_NET:
     external: true
 EOF
+)
         deploy_docker_service "$name" "Mail Server" "$sub" "8081" "$CONTENT"
 
         ufw allow 25,587,465,143,993/tcp >/dev/null
