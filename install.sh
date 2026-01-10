@@ -52,7 +52,7 @@ trap cleanup EXIT
 
 # 4. Disk Space Check
 check_disk_space() {
-    local required_mb=5120 # 5GB
+    local required_mb=2048 # 2GB
     # Check root partition available space in MB
     local available_mb
     if command -v df >/dev/null 2>&1; then
