@@ -126,7 +126,8 @@ system_update() {
 
     msg "Updating Docker Images..."
     if docker ps >/dev/null 2>&1; then
-        docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | xargs -L1 docker pull 2>/dev/null || true
+        # Bolt: Parallelize image pulls to speed up updates
+        docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | xargs -P 4 -n 1 docker pull 2>/dev/null || true
         docker image prune -f >/dev/null
     fi
     success "System Updated"
