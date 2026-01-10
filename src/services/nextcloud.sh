@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 manage_nextcloud() {
     local name="nextcloud"
