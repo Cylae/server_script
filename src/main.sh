@@ -138,9 +138,6 @@ show_menu() {
 }
 
 run_main() {
-    # Safety for FD 3
-    exec 3>&1
-
     # Initial Checks
     check_root
     check_os
