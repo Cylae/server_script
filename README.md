@@ -55,6 +55,9 @@ Before you begin, ensure you have:
 | **Mail Server** | Full stack email (Postfix/Dovecot) | `mail.example.com` |
 | **FileBrowser** | Web-based file manager | `files.example.com` |
 | **GLPI** | IT Asset Management | `support.example.com` |
+| **Netdata** | Real-time performance monitoring | `netdata.example.com` |
+| **YOURLS** | URL Shortener | `x.example.com` |
+| **FTP** | File Transfer Protocol (vsftpd) | `ftp://example.com` |
 
 ---
 
@@ -209,6 +212,9 @@ Avant de commencer, assurez-vous d'avoir :
 | **Mail Server** | Serveur mail complet (Postfix/Dovecot) | `mail.exemple.com` |
 | **FileBrowser** | Gestionnaire de fichiers web | `files.exemple.com` |
 | **GLPI** | Gestion de Parc Informatique (ITAM) | `support.exemple.com` |
+| **Netdata** | Monitoring en temps réel | `netdata.exemple.com` |
+| **YOURLS** | Réducteur d'URL | `x.exemple.com` |
+| **FTP** | Protocole de transfert de fichiers (vsftpd) | `ftp://exemple.com` |
 
 ---
 
