@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 manage_glpi() {
     local name="glpi"

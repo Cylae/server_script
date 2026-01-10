@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 manage_vaultwarden() {
     local name="vaultwarden"

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 manage_mail() {
     local name="mail"

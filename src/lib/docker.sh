@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ==============================================================================
 # DOCKER MODULE
@@ -27,7 +28,8 @@ check_port_conflict() {
 
     # Check if port is in use
     # We escape the dollar sign for end-of-line anchor to prevent bash subshell expansion
-    if ss -tuln | grep -E ":$port(\$|\s)"; then
+    # grep returns 1 if not found, so we protect it with if to prevent set -e failure
+    if ss -tuln | grep -E ":$port(\$|\s)" >/dev/null 2>&1; then
         # Check if it's already used by the container we are trying to deploy (restart case)
         # But usually we are checking host ports.
         # If we are redeploying the SAME service, it might be occupying the port.
