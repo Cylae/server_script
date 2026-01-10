@@ -51,6 +51,10 @@ networks:
     external: true
 EOF
         deploy_docker_service "$name" "Gitea" "$sub" "3000" "$CONTENT"
+
+        msg "Gitea Database Credentials:"
+        echo -e "   User: ${CYAN}$name${NC}" >&3
+        echo -e "   Pass: ${CYAN}$pass${NC}" >&3
     else
         remove_docker_service "$name" "Gitea" "$sub"
     fi

@@ -26,9 +26,25 @@ init_system() {
         echo '/swapfile none swap sw 0 0' >> /etc/fstab
     fi
 
-    if ! grep -q "tcp_bbr" /etc/sysctl.conf; then
-        echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+    if ! grep -q "CYLAE OPTIMIZED NETWORK STACK" /etc/sysctl.conf; then
+        cat <<EOF >> /etc/sysctl.conf
+# ------------------------------------------------------------------------------
+# CYLAE OPTIMIZED NETWORK STACK
+# ------------------------------------------------------------------------------
+# BBR Congestion Control
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+
+# TCP Stack Tuning
+net.ipv4.tcp_fastopen=3
+net.ipv4.tcp_slow_start_after_idle=0
+net.ipv4.tcp_tw_reuse=1
+net.ipv4.tcp_max_syn_backlog=8192
+net.core.somaxconn=8192
+net.core.netdev_max_backlog=16384
+fs.file-max=100000
+# ------------------------------------------------------------------------------
+EOF
         sysctl -p >/dev/null
     fi
 
