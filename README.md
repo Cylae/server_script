@@ -146,7 +146,7 @@ N'hésitez pas à ouvrir des issues ou des pull requests pour rendre ce script e
 
 ## 🌟 Why this script?
 
-You have a fresh VPS (Debian/Ubuntu) and you want to host your own services (Nextcloud, Gitea, Bitwarden/Vaultwarden, VPN...).
+You have a fresh VPS (Debian/Ubuntu) and you want to host your own services (Nextcloud, Gitea, Bitwarden/Vaultwarden, GLPI, VPN...).
 Normally, you would spend hours configuring Nginx, installing Docker, securing SSH, creating databases, and managing SSL certificates. And even then, it wouldn't be *perfect*.
 
 **Cylae Server Manager** does it all for you in **minutes**, with a level of precision that would make Sheldon Cooper proud.
@@ -161,8 +161,11 @@ Once services are installed, you can retrieve **all generated passwords** via th
 
 ### ⚡ Hyper-Optimized Performance
 This isn't just a script; it's a finely tuned instrument.
-*   **Kernel Tuning:** TCP Fast Open, BBR Congestion Control, and optimized backlog settings for maximum throughput.
-*   **Nginx Turbo:** HTTP/2 enabled, Brotli/Gzip compression optimized, OCSP Stapling, and strict HSTS security headers.
+*   **Advanced Kernel Tuning:**
+    *   **BBR Congestion Control:** Enabled for maximum throughput and reduced latency.
+    *   **TCP Stack Optimization:** Tuned `somaxconn`, `tcp_max_syn_backlog`, and `tcp_fastopen` for handling thousands of concurrent connections.
+    *   **File Descriptors:** Increased system limits to prevent bottlenecks under load.
+*   **Nginx Turbo:** HTTP/2 enabled, Brotli/Gzip (Level 6) compression, OCSP Stapling, and strict HSTS security headers.
 *   **Nextcloud Speed:** Automatically configures **Redis** for transactional locking and caching. It flows like a superfluid.
 *   **PHP Opcache:** Tuned for production workloads with zero-timestamp validation for speed.
 
@@ -208,6 +211,7 @@ All services are deployed via **Docker** for maximum isolation and stability, se
 | Service | Description | URL |
 | :--- | :--- | :--- |
 | **Gitea** | Lightweight Git hosting (Github alternative). | `https://git.yourdomain.com` |
+| **GLPI** | IT Asset Management & Ticketing System (ITSM). | `https://support.yourdomain.com` |
 | **Nextcloud** | File hosting & sharing (Google Drive alternative). | `https://cloud.yourdomain.com` |
 | **Vaultwarden** | Password manager (Bitwarden compatible). | `https://pass.yourdomain.com` |
 | **Mail Server** | Full stack mail server. Default user: `postmaster@yourdomain.com`. | `https://mail.yourdomain.com` |
@@ -218,7 +222,6 @@ All services are deployed via **Docker** for maximum isolation and stability, se
 | **Portainer** | GUI for managing Docker containers. | `https://portainer.yourdomain.com` |
 | **Netdata** | Real-time performance monitoring. | `https://netdata.yourdomain.com` |
 | **FTP** | High performance FTP Server (vsftpd). | `ftp://ftp.yourdomain.com` |
-| **GLPI** | IT Asset Management & Ticketing System. | `https://support.yourdomain.com` |
 
 > **Note:** Databases are managed via a centralized MariaDB instance (bare-metal) for performance, accessible via **Adminer** on the dashboard.
 
@@ -267,7 +270,7 @@ A: Go to your main dashboard (`https://admin.yourdomain.com`) and click "DB Admi
 
 ## 🌟 Pourquoi ce script ?
 
-Vous avez un VPS tout frais (Debian/Ubuntu) et vous voulez héberger vos propres services (Nextcloud, Gitea, Bitwarden/Vaultwarden, VPN...).
+Vous avez un VPS tout frais (Debian/Ubuntu) et vous voulez héberger vos propres services (Nextcloud, Gitea, Bitwarden/Vaultwarden, GLPI, VPN...).
 Normalement, vous passeriez des heures à configurer Nginx, installer Docker, sécuriser SSH, créer des bases de données et gérer les certificats SSL. Et même là, ce ne serait pas *parfait*.
 
 **Cylae Server Manager** fait tout cela pour vous en **quelques minutes**, avec un niveau de précision qui rendrait Sheldon Cooper fier.
@@ -282,8 +285,11 @@ Une fois les services installés, vous pouvez retrouver **tous les mots de passe
 
 ### ⚡ Performance Hyper-Optimisée
 Ce n'est pas juste un script ; c'est un instrument finement réglé.
-*   **Kernel Tuning :** TCP Fast Open, BBR Congestion Control, et réglages "backlog" optimisés pour un débit maximal.
-*   **Nginx Turbo :** HTTP/2 activé, compression Brotli/Gzip optimisée, OCSP Stapling, et en-têtes de sécurité HSTS stricts.
+*   **Kernel Tuning Avancé :**
+    *   **BBR Congestion Control :** Activé pour un débit maximal et une latence réduite.
+    *   **Optimisation Pile TCP :** Réglage de `somaxconn`, `tcp_max_syn_backlog`, et `tcp_fastopen` pour gérer des milliers de connexions simultanées.
+    *   **Descripteurs de Fichiers :** Limites système augmentées pour éviter les goulots d'étranglement.
+*   **Nginx Turbo :** HTTP/2 activé, compression Brotli/Gzip (Niveau 6), OCSP Stapling, et en-têtes de sécurité HSTS stricts.
 *   **Nextcloud Speed :** Configure automatiquement **Redis** pour le verrouillage transactionnel et le cache. Ça coule comme un superfluide.
 *   **PHP Opcache :** Réglé pour des charges de production avec validation d'horodatage désactivée pour la vitesse.
 
@@ -329,6 +335,7 @@ Tous les services sont déployés via **Docker** pour une isolation et une stabi
 | Service | Description | URL |
 | :--- | :--- | :--- |
 | **Gitea** | Hébergement Git léger (alternative à Github). | `https://git.votre-domaine.com` |
+| **GLPI** | Système de tickets et gestion de parc informatique (ITSM). | `https://support.votre-domaine.com` |
 | **Nextcloud** | Hébergement & partage de fichiers (alternative à Google Drive). | `https://cloud.votre-domaine.com` |
 | **Vaultwarden** | Gestionnaire de mots de passe (compatible Bitwarden). | `https://pass.votre-domaine.com` |
 | **Serveur Mail** | Serveur mail complet. Utilisateur par défaut : `postmaster@votre-domaine.com`. | `https://mail.votre-domaine.com` |
@@ -339,7 +346,6 @@ Tous les services sont déployés via **Docker** pour une isolation et une stabi
 | **Portainer** | Interface graphique pour gérer les conteneurs Docker. | `https://portainer.votre-domaine.com` |
 | **Netdata** | Surveillance des performances en temps réel. | `https://netdata.votre-domaine.com` |
 | **FTP** | Serveur FTP haute performance (vsftpd). | `ftp://ftp.votre-domaine.com` |
-| **GLPI** | Système de tickets et gestion de parc informatique. | `https://support.votre-domaine.com` |
 
 > **Note :** Les bases de données sont gérées via une instance MariaDB centralisée (bare-metal) pour la performance, accessible via **Adminer** sur le tableau de bord.
 
