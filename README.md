@@ -161,8 +161,11 @@ Once services are installed, you can retrieve **all generated passwords** via th
 
 ### ⚡ Hyper-Optimized Performance
 This isn't just a script; it's a finely tuned instrument.
-*   **Kernel Tuning:** TCP Fast Open, BBR Congestion Control, and optimized backlog settings for maximum throughput.
-*   **Nginx Turbo:** HTTP/2 enabled, Brotli/Gzip compression optimized, OCSP Stapling, and strict HSTS security headers.
+*   **Advanced Kernel Tuning:**
+    *   **BBR Congestion Control:** Enabled for maximum throughput and reduced latency.
+    *   **TCP Stack Optimization:** Tuned `somaxconn`, `tcp_max_syn_backlog`, and `tcp_fastopen` for handling thousands of concurrent connections.
+    *   **File Descriptors:** Increased system limits to prevent bottlenecks under load.
+*   **Nginx Turbo:** HTTP/2 enabled, Brotli/Gzip (Level 6) compression, OCSP Stapling, and strict HSTS security headers.
 *   **Nextcloud Speed:** Automatically configures **Redis** for transactional locking and caching. It flows like a superfluid.
 *   **PHP Opcache:** Tuned for production workloads with zero-timestamp validation for speed.
 
@@ -282,8 +285,11 @@ Une fois les services installés, vous pouvez retrouver **tous les mots de passe
 
 ### ⚡ Performance Hyper-Optimisée
 Ce n'est pas juste un script ; c'est un instrument finement réglé.
-*   **Kernel Tuning :** TCP Fast Open, BBR Congestion Control, et réglages "backlog" optimisés pour un débit maximal.
-*   **Nginx Turbo :** HTTP/2 activé, compression Brotli/Gzip optimisée, OCSP Stapling, et en-têtes de sécurité HSTS stricts.
+*   **Kernel Tuning Avancé :**
+    *   **BBR Congestion Control :** Activé pour un débit maximal et une latence réduite.
+    *   **Optimisation Pile TCP :** Réglage de `somaxconn`, `tcp_max_syn_backlog`, et `tcp_fastopen` pour gérer des milliers de connexions simultanées.
+    *   **Descripteurs de Fichiers :** Limites système augmentées pour éviter les goulots d'étranglement.
+*   **Nginx Turbo :** HTTP/2 activé, compression Brotli/Gzip (Niveau 6), OCSP Stapling, et en-têtes de sécurité HSTS stricts.
 *   **Nextcloud Speed :** Configure automatiquement **Redis** pour le verrouillage transactionnel et le cache. Ça coule comme un superfluide.
 *   **PHP Opcache :** Réglé pour des charges de production avec validation d'horodatage désactivée pour la vitesse.
 

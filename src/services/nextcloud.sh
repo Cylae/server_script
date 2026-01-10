@@ -70,6 +70,10 @@ EOF
         done
         docker exec -u www-data nextcloud_app php occ config:system:set trusted_proxies 0 --value="127.0.0.1" >/dev/null 2>&1
         docker exec -u www-data nextcloud_app php occ config:system:set overwriteprotocol --value="https" >/dev/null 2>&1
+
+        msg "Nextcloud Database Credentials:"
+        echo -e "   User: ${CYAN}$name${NC}" >&3
+        echo -e "   Pass: ${CYAN}$pass${NC}" >&3
     else
         remove_docker_service "$name" "Nextcloud" "$sub"
     fi
