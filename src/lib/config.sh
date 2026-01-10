@@ -17,7 +17,7 @@ load_config() {
 
     # Interactive Setup if missing domain
     if [ -z "${DOMAIN:-}" ]; then
-        clear >&3
+        clear >&3 || true
         echo -e "${PURPLE}=================================================================${NC}" >&3
         echo -e "${PURPLE}  CYL.AE SERVER MANAGER - INITIAL SETUP${NC}" >&3
         echo -e "${PURPLE}=================================================================${NC}" >&3

@@ -66,7 +66,7 @@ show_dns_records() {
 }
 
 show_credentials() {
-    clear >&3
+    clear >&3 || true
     msg "SAVED CREDENTIALS"
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
 
@@ -98,7 +98,7 @@ show_credentials() {
 }
 
 show_menu() {
-    clear >&3
+    clear >&3 || true
     echo -e "${PURPLE}=================================================================${NC}" >&3
     echo -e "${PURPLE}  CYL.AE SERVER MANAGER (SECURE EDITION)${NC}" >&3
     echo -e "${PURPLE}=================================================================${NC}" >&3
