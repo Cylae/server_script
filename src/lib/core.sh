@@ -60,7 +60,9 @@ ask() {
 }
 
 check_root() {
-    [[ $EUID -ne 0 ]] && fatal "This script must be run as root."
+    if [[ $EUID -ne 0 ]]; then
+        fatal "This script must be run as root."
+    fi
 }
 
 check_os() {
