@@ -20,7 +20,7 @@ manage_gitea() {
         fi
 
         ensure_db "$name" "$name" "$pass"
-        local host_ip=$(hostname -I | awk '{print $1}')
+        local host_ip=$(ip -4 route get 1 | awk '{print $7}')
 
         read -r -d '' CONTENT <<EOF
 version: "3"
