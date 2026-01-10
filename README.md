@@ -55,7 +55,7 @@ Start from a fresh installation:
 apt update && apt install -y git ca-certificates
 
 # 2. Clone the repository
-git clone https://github.com/your-repo/cylae-manager.git
+git clone https://github.com/Cylae/server_script.git cylae-manager
 cd cylae-manager
 
 # 3. Make executable and run
@@ -159,7 +159,7 @@ server_manager.sh
 apt update && apt install -y git ca-certificates
 
 # 2. Cloner le dépôt
-git clone https://github.com/votre-repo/cylae-manager.git
+git clone https://github.com/Cylae/server_script.git cylae-manager
 cd cylae-manager
 
 # 3. Rendre exécutable et lancer
