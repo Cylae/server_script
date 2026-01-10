@@ -65,9 +65,8 @@ check_root() {
 
 check_os() {
     if [ -f /etc/os-release ]; then
-        # Source in a subshell or ensure variables are defaulted
-        local ID=""
-        eval $(cat /etc/os-release | grep "^ID=")
+        # Use grep and cut to avoid dangerous eval and potential pipefail issues
+        local ID=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"') || true
         if [[ "${ID:-}" != "debian" && "${ID:-}" != "ubuntu" ]]; then
              warn "Detected OS: ${ID:-unknown}. This script is optimized for Debian/Ubuntu."
              ask "Continue anyway? (y/n):" confirm

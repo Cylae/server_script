@@ -7,7 +7,7 @@ set -euo pipefail
 # ==============================================================================
 
 CONFIG_FILE="/etc/cyl_manager.conf"
-AUTH_FILE="/root/.auth_details"
+AUTH_FILE="${AUTH_FILE:-/root/.auth_details}"
 BACKUP_DIR="/var/backups/cyl_manager"
 
 load_config() {
@@ -77,7 +77,11 @@ save_credential() {
         chmod 600 "$AUTH_FILE"
     fi
 
-    # Append new credential
+    # Update or Append credential
+    # We remove the old line first to avoid sed delimiter issues with special chars in value
+    if grep -q "^${key}=" "$AUTH_FILE"; then
+        sed -i "/^${key}=/d" "$AUTH_FILE"
+    fi
     echo "${key}=${value}" >> "$AUTH_FILE"
 }
 
