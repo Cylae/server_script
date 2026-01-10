@@ -17,6 +17,20 @@ cd "$INSTALL_DIR"
 LOG_FILE="/var/log/server_manager.log"
 exec 3>&1 1>>"$LOG_FILE" 2>&1
 
+# Error handling
+cleanup() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo -e "\n\033[0;31m✖ Script failed with exit code $exit_code.\033[0m" >&3
+        echo -e "\033[0;33mLast 15 lines of $LOG_FILE:\033[0m" >&3
+        echo "--------------------------------------------------" >&3
+        tail -n 15 "$LOG_FILE" >&3
+        echo "--------------------------------------------------" >&3
+        echo -e "\nPlease check the log file for more details." >&3
+    fi
+}
+trap cleanup EXIT
+
 # Source the main application logic
 if [ -f "src/main.sh" ]; then
     source src/main.sh

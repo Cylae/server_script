@@ -30,15 +30,9 @@ update_nginx() {
     gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
 
     keepalive_timeout 65;
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:MozSSL:10m;
-    ssl_session_tickets off;
 
-    # OCSP Stapling
-    ssl_stapling on;
-    ssl_stapling_verify on;
-    resolver 1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 valid=300s;
-    resolver_timeout 5s;
+    # SSL optimizations are handled by Certbot (options-ssl-nginx.conf)
+    # We avoid defining them here to prevent conflicts.
     '
 
     rm -f "/etc/nginx/sites-enabled/default"
