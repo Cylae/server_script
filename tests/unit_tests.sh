@@ -4,15 +4,39 @@
 # Mock environment
 AUTH_FILE="./test_auth_file"
 touch "$AUTH_FILE"
+
+# Mock Docker Network check for docker.sh
+docker() {
+    if [ "$1" == "network" ]; then
+        return 0
+    fi
+    # Mock for port check
+    if [ "$1" == "ps" ]; then
+        echo ""
+        return 0
+    fi
+}
+
+# Source libraries
+# Note: Some sourcing might fail if dependencies aren't met, but we mock what we need.
+# We source utils/config/core first.
 source src/lib/core.sh
 source src/lib/config.sh
 source src/lib/utils.sh
+# We need docker.sh for check_port_conflict
+source src/lib/docker.sh
 
 # Mock logging
 log() { echo "LOG: $1"; }
 msg() { echo "MSG: $1"; }
 warn() { echo "WARN: $1"; }
 error() { echo "ERROR: $1"; }
+ask() {
+    echo "ASK: $1"
+    # Auto-answer "n" to confirmation to simulate "Abort"
+    eval "$2='n'"
+}
+fatal() { echo "FATAL: $1"; return 1; }
 
 FAILED=0
 
@@ -55,15 +79,50 @@ else
     FAILED=1
 fi
 
-# Test Duplicate handling (Expectation: should handle it, but currently it appends)
+# Test Duplicate handling (Expectation: should handle it)
 echo "Test 5: save_credential (duplicate)"
 save_credential "test_key" "new_value"
-# Check if get_auth_value returns the NEW value (tail -n 1)
+# Check if get_auth_value returns the NEW value
 RET=$(get_auth_value "test_key")
 if [ "$RET" == "new_value" ]; then
     echo "PASS: Retrieved updated credential"
 else
     echo "FAIL: Did not retrieve updated credential. Got '$RET'"
+    FAILED=1
+fi
+
+# Test 6: check_port_conflict
+echo "Test 6: check_port_conflict"
+
+# Mock 'ss' command
+ss() {
+    echo "LISTEN 0 128 *:8080 *:* users:((\"java\",pid=123,fd=10))"
+}
+
+# Run check_port_conflict for port 8080 (Mocked to be in use)
+# We expect it to call 'ask' then 'fatal' because our mock 'ask' returns 'n'
+OUTPUT=$(check_port_conflict "8080" "TestService") || true
+
+if echo "$OUTPUT" | grep -q "FATAL: Aborting installation"; then
+    echo "PASS: Detected port conflict and aborted"
+else
+    echo "FAIL: Did not detect port conflict or abort correctly"
+    echo "Output: $OUTPUT"
+    FAILED=1
+fi
+
+# Mock 'ss' to return empty (No conflict)
+ss() {
+    echo ""
+}
+
+# Run check_port_conflict for port 9090 (Free)
+OUTPUT=$(check_port_conflict "9090" "TestService") || true
+if [ -z "$OUTPUT" ]; then
+    echo "PASS: No conflict detected for free port"
+else
+    echo "FAIL: False positive on free port"
+    echo "Output: $OUTPUT"
     FAILED=1
 fi
 
