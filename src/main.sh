@@ -46,17 +46,17 @@ show_dns_records() {
     echo -e "CNAME | www                  | $DOMAIN" >&3
     echo -e "CNAME | admin                | $DOMAIN" >&3
 
-    [ -d "/opt/gitea" ] && echo -e "CNAME | git                  | $DOMAIN" >&3
-    [ -d "/opt/nextcloud" ] && echo -e "CNAME | cloud                | $DOMAIN" >&3
-    [ -d "/opt/mail" ] && echo -e "CNAME | mail                 | $DOMAIN" >&3
-    [ -d "/opt/yourls" ] && echo -e "CNAME | x                    | $DOMAIN" >&3
-    [ -d "/opt/vaultwarden" ] && echo -e "CNAME | pass                 | $DOMAIN" >&3
-    [ -d "/opt/uptimekuma" ] && echo -e "CNAME | status               | $DOMAIN" >&3
-    [ -d "/opt/wireguard" ] && echo -e "CNAME | vpn                  | $DOMAIN" >&3
-    [ -d "/opt/filebrowser" ] && echo -e "CNAME | files                | $DOMAIN" >&3
-    docker ps --format '{{.Names}}' | grep -q "^portainer" && echo -e "CNAME | portainer            | $DOMAIN" >&3
-    docker ps --format '{{.Names}}' | grep -q "^netdata" && echo -e "CNAME | netdata              | $DOMAIN" >&3
-    [ -d "/opt/glpi" ] && echo -e "CNAME | support              | $DOMAIN" >&3
+    if [ -d "/opt/gitea" ]; then echo -e "CNAME | git                  | $DOMAIN" >&3; fi
+    if [ -d "/opt/nextcloud" ]; then echo -e "CNAME | cloud                | $DOMAIN" >&3; fi
+    if [ -d "/opt/mail" ]; then echo -e "CNAME | mail                 | $DOMAIN" >&3; fi
+    if [ -d "/opt/yourls" ]; then echo -e "CNAME | x                    | $DOMAIN" >&3; fi
+    if [ -d "/opt/vaultwarden" ]; then echo -e "CNAME | pass                 | $DOMAIN" >&3; fi
+    if [ -d "/opt/uptimekuma" ]; then echo -e "CNAME | status               | $DOMAIN" >&3; fi
+    if [ -d "/opt/wireguard" ]; then echo -e "CNAME | vpn                  | $DOMAIN" >&3; fi
+    if [ -d "/opt/filebrowser" ]; then echo -e "CNAME | files                | $DOMAIN" >&3; fi
+    if docker ps --format '{{.Names}}' | grep -q "^portainer"; then echo -e "CNAME | portainer            | $DOMAIN" >&3; fi
+    if docker ps --format '{{.Names}}' | grep -q "^netdata"; then echo -e "CNAME | netdata              | $DOMAIN" >&3; fi
+    if [ -d "/opt/glpi" ]; then echo -e "CNAME | support              | $DOMAIN" >&3; fi
 
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
     echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)" >&3
