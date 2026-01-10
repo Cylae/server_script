@@ -152,5 +152,159 @@ Backups include the database and configuration files.
 
 ---
 
-**Author:** Cylae Team
-**License:** MIT
+# Cylae Server Manager (CSM) [Français]
+
+![Version](https://img.shields.io/badge/Version-8.1-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
+
+Une solution professionnelle "clé en main" pour déployer une infrastructure auto-hébergée sur Debian ou Ubuntu. Conçue pour une stabilité absolue, une sécurité renforcée et une facilité d'utilisation.
+
+## 🚀 Démarrage Rapide (La Commande Unique)
+
+Copiez et collez cette commande dans votre terminal. Elle s'occupe de tout :
+
+```bash
+sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://github.com/Cylae/server_script.git cylae-manager && cd cylae-manager && sudo chmod +x install.sh && sudo ./install.sh
+```
+
+---
+
+## 📋 Prérequis
+
+Avant de commencer, assurez-vous d'avoir :
+
+1.  **Un Serveur Frais :**
+    *   **OS :** Debian 11/12 ou Ubuntu 20.04/22.04/24.04.
+    *   **Architecture :** x86_64 / amd64.
+    *   **Matériel :**
+        *   Minimum : 1 vCPU, 2 Go RAM (Mode Profil Bas)
+        *   Recommandé : 2 vCPU, 4 Go RAM (Mode Haute Performance)
+2.  **Nom de Domaine :** Vous devez posséder un domaine (ex: `exemple.com`) pointant vers l'IP publique de votre serveur.
+3.  **Accès Root :** Vous devez avoir les privilèges `root` ou `sudo`.
+4.  **Ports Ouverts :** Assurez-vous que les ports `80` (HTTP) et `443` (HTTPS) sont ouverts dans le pare-feu de votre fournisseur.
+
+---
+
+## 🛠 Fonctionnalités
+
+*   **Conception Modulaire :** Installez uniquement ce dont vous avez besoin.
+*   **Docker-Natif :** Tous les services fonctionnent dans des conteneurs isolés.
+*   **Sécurisé par Défaut :**
+    *   SSL Automatique (Let's Encrypt).
+    *   Pare-feu (UFW) & Fail2Ban configurés dès le départ.
+    *   Durcissement du noyau et optimisation de la pile réseau (BBR activé).
+*   **Gestion Centralisée :**
+    *   Tableau de bord unique.
+    *   Base de données unifiée (MariaDB).
+    *   Sauvegardes et Mises à jour automatisées.
+
+### Services Supportés
+| Service | Description | URL |
+| :--- | :--- | :--- |
+| **Nextcloud** | Stockage cloud & collaboration | `cloud.exemple.com` |
+| **Gitea** | Service Git (Alternative à Github) | `git.exemple.com` |
+| **Vaultwarden** | Gestionnaire de mots de passe (Bitwarden) | `pass.exemple.com` |
+| **Portainer** | Gestion de conteneurs Docker | `portainer.exemple.com` |
+| **Uptime Kuma** | Monitoring & Page de statut | `status.exemple.com` |
+| **WireGuard** | VPN Moderne | `vpn.exemple.com` |
+| **Mail Server** | Serveur mail complet (Postfix/Dovecot) | `mail.exemple.com` |
+| **FileBrowser** | Gestionnaire de fichiers web | `files.exemple.com` |
+| **GLPI** | Gestion de Parc Informatique (ITAM) | `support.exemple.com` |
+
+---
+
+## 📖 Guide d'Installation Étape par Étape
+
+Si vous préférez exécuter les commandes manuellement :
+
+### 1. Mettre à jour et Installer Git
+```bash
+sudo apt update
+sudo apt install -y git
+```
+
+### 2. Cloner le Dépôt
+Nous recommandons l'installation dans `/opt/cylae-manager`.
+```bash
+cd /opt
+sudo git clone https://github.com/Cylae/server_script.git cylae-manager
+```
+
+### 3. Lancer l'Installateur
+```bash
+cd cylae-manager
+sudo chmod +x install.sh
+sudo ./install.sh
+```
+
+### 4. Suivre l'Assistant
+Le script vous demandera :
+*   **Nom de Domaine :** Entrez votre domaine (ex: `exemple.com`).
+*   **Profil :** Il détecte automatiquement la RAM et suggère un profil (Bas/Haut).
+
+---
+
+## ⚙️ Configuration & Maintenance
+
+### Gérer les Services
+Lancez le script à tout moment pour accéder au menu principal :
+```bash
+sudo /usr/local/bin/server_manager.sh
+```
+Ou simplement :
+```bash
+cd /opt/cylae-manager && ./install.sh
+```
+
+### Identifiants
+Les mots de passe sont générés automatiquement et stockés de manière sécurisée.
+*   **Voir les Identifiants :** Sélectionnez l'option `c. Show Credentials` dans le menu.
+*   **Emplacement du Fichier :** `/root/.auth_details` (Root uniquement).
+
+### Sauvegardes
+Les sauvegardes incluent la base de données et les fichiers de configuration.
+*   **Emplacement :** `/var/backups/cyl_manager/`
+*   **Sauvegarde Manuelle :** Sélectionnez l'option `b. Backup Data`.
+
+### Mises à Jour
+*   **Mise à jour Système :** Sélectionnez l'option `s. System Update` (Met à jour l'OS, les images Docker et le script).
+*   **Mise à jour Auto :** Le système se met à jour automatiquement chaque nuit à 04:00 AM.
+
+---
+
+## ❓ Dépannage Approfondi
+
+### "The script fails immediately with exit code 1"
+*   **Cause :** Généralement des erreurs de permission ou des dépendances manquantes.
+*   **Solution :** Assurez-vous de lancer avec `sudo`. La dernière version gère cela automatiquement. Vérifiez les logs dans `/var/log/server_manager.log`.
+
+### "Port 80/443 already in use"
+*   **Cause :** Un autre serveur web (ex: Apache par défaut) est en cours d'exécution.
+*   **Solution :** Le script tente de corriger cela, mais vous pouvez lancer manuellement : `sudo apt remove apache2 -y`.
+
+### "SSL Certificate Generation Failed"
+*   **Cause :** Le DNS ne s'est pas propagé ou le Pare-feu bloque.
+*   **Solution :**
+    1.  Vérifiez que votre domaine pointe vers l'IP du serveur : `ping exemple.com`
+    2.  Assurez-vous que le port 80 est ouvert.
+    3.  Lancez l'option `r. Refresh Infrastructure` pour réessayer.
+
+### "Docker service not starting"
+*   **Cause :** Conflit de port ou erreur de configuration.
+*   **Solution :** Vérifiez les logs du conteneur : `docker logs <nom_du_conteneur>`.
+
+---
+
+## 🏗 Architecture
+
+*   **Cœur :** Scripts Bash dans `src/lib/`.
+*   **Services :** Scripts modulaires dans `src/services/`.
+*   **État :**
+    *   Config : `/etc/cyl_manager.conf`
+    *   Auth : `/root/.auth_details`
+    *   Données : `/opt/<nom_du_service>`
+*   **Proxy :** Nginx agit comme un reverse proxy, gérant la terminaison SSL et le routage vers les conteneurs Docker.
+
+---
+
+**Auteur :** Équipe Cylae
+**Licence :** MIT
