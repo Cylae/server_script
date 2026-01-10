@@ -15,7 +15,8 @@ manage_portainer() {
         update_nginx "$sub" "9000" "proxy"
         success "Portainer Installed"
     elif [ "$1" == "remove" ]; then
-        docker stop portainer && docker rm portainer
+        docker stop portainer || true
+        docker rm portainer || true
 
         ask "Do you want to PERMANENTLY DELETE data for Portainer? (y/n):" confirm_delete
         if [[ "$confirm_delete" == "y" ]]; then
