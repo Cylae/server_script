@@ -42,6 +42,13 @@ The script is **idempotent**: you can run it as many times as needed.
 *   It **preserves your passwords** (stored in `.auth_details`).
 *   It updates containers and configurations without data loss.
 
+It is designed to be **The Best Script EVER made**:
+*   **Intelligent**: Detects your hardware (RAM) and optimizes MySQL/PHP config accordingly.
+*   **Modular**: Install/Remove services cleanly without leaving residue.
+*   **Secure**: Hardens SSH, configures Firewall (UFW), and sets up Nginx with security headers.
+*   **Automated**: Updates itself, your system, and your docker containers every night.
+*   **Unified**: Provides a beautiful dashboard to access all your services.
+
 ---
 
 ## 🛠️ Installation
@@ -96,11 +103,19 @@ All services are deployed via **Docker** for maximum isolation and stability, se
 
 ## ⚙️ Advanced Features
 
+### 🧠 Smart Auto-Optimization
+The script checks your RAM on every run:
+*   **Low Profile (< 4GB)**: Optimized for stability. Reduces database buffers and PHP workers.
+*   **High Profile (>= 4GB)**: Optimized for speed. Increases cache sizes and connection limits.
+
 ### 🛡️ Security
 *   **SSH Hardening**: Option to disable password login and change SSH port.
 *   **Firewall**: UFW is configured to deny all incoming traffic except SSH, HTTP/S, and specific service ports.
 *   **Isolation**: Docker containers run in a dedicated network.
-*   **Updates**: Daily System Updates, Docker Updates (Watchtower), and Self-Updates.
+*   **Updates**:
+    *   Daily System Updates (`apt-get upgrade`)
+    *   Daily Docker Updates (`Watchtower`)
+    *   Daily Self-Updates (`git pull`)
 
 ### 📂 Directory Structure
 *   **Config**: `/etc/cyl_manager.conf`
@@ -118,6 +133,19 @@ A: Ensure you have created the DNS record (CNAME) for the subdomain. Use option 
 
 **Q: How do I access the Database?**
 A: Go to your main dashboard (`https://admin.yourdomain.com`) and click "DB Admin". Login with `root` and the password found in `/root/.auth_details`.
+
+**Q: The script failed during installation.**
+A: Check the logs in `/var/log/server_manager.log` for detailed error messages.
+
+**Q: How do I restore a backup?**
+A: Backups are stored in `/var/backups/cyl_manager`.
+*   **Database**: `mysql < db_backup.sql`
+*   **Files**: Extract the archive to root: `tar -xzf files_backup.tar.gz -C /`
+
+---
+
+## 🤝 Contribute
+Feel free to open issues or pull requests to make this script even better!
 
 ---
 ---
