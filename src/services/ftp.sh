@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 manage_ftp() {
     if [ "$1" == "install" ]; then

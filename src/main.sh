@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ==============================================================================
 # MAIN APPLICATION LOGIC
@@ -53,8 +54,8 @@ show_dns_records() {
     [ -d "/opt/uptimekuma" ] && echo -e "CNAME | status               | $DOMAIN" >&3
     [ -d "/opt/wireguard" ] && echo -e "CNAME | vpn                  | $DOMAIN" >&3
     [ -d "/opt/filebrowser" ] && echo -e "CNAME | files                | $DOMAIN" >&3
-    docker ps | grep -q portainer && echo -e "CNAME | portainer            | $DOMAIN" >&3
-    docker ps | grep -q netdata && echo -e "CNAME | netdata              | $DOMAIN" >&3
+    docker ps --format '{{.Names}}' | grep -q "^portainer" && echo -e "CNAME | portainer            | $DOMAIN" >&3
+    docker ps --format '{{.Names}}' | grep -q "^netdata" && echo -e "CNAME | netdata              | $DOMAIN" >&3
     [ -d "/opt/glpi" ] && echo -e "CNAME | support              | $DOMAIN" >&3
 
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
@@ -109,7 +110,7 @@ show_menu() {
         if [ -d "/opt/$1" ]; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
     }
     d_status() {
-        if docker ps | grep -q "$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+        if docker ps --format '{{.Names}}' | grep -q "^$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
     }
 
     echo -e " 1. Manage Gitea           [$(p_status gitea)]" >&3
@@ -153,8 +154,8 @@ run_main() {
         case $choice in
             1) [ -d "/opt/gitea" ] && manage_gitea "remove" || manage_gitea "install" ;;
             2) [ -d "/opt/nextcloud" ] && manage_nextcloud "remove" || manage_nextcloud "install" ;;
-            3) docker ps | grep -q portainer && manage_portainer "remove" || manage_portainer "install" ;;
-            4) docker ps | grep -q netdata && manage_netdata "remove" || manage_netdata "install" ;;
+            3) docker ps --format '{{.Names}}' | grep -q "^portainer" && manage_portainer "remove" || manage_portainer "install" ;;
+            4) docker ps --format '{{.Names}}' | grep -q "^netdata" && manage_netdata "remove" || manage_netdata "install" ;;
             5) [ -d "/opt/mail" ] && manage_mail "remove" || manage_mail "install" ;;
             6) [ -d "/opt/yourls" ] && manage_yourls "remove" || manage_yourls "install" ;;
             7) command -v vsftpd &>/dev/null && manage_ftp "remove" || manage_ftp "install" ;;

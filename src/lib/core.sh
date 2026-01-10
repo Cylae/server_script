@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ==============================================================================
 # CORE MODULE
@@ -64,9 +65,11 @@ check_root() {
 
 check_os() {
     if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        if [[ "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
-             warn "Detected OS: $ID. This script is optimized for Debian/Ubuntu."
+        # Source in a subshell or ensure variables are defaulted
+        local ID=""
+        eval $(cat /etc/os-release | grep "^ID=")
+        if [[ "${ID:-}" != "debian" && "${ID:-}" != "ubuntu" ]]; then
+             warn "Detected OS: ${ID:-unknown}. This script is optimized for Debian/Ubuntu."
              ask "Continue anyway? (y/n):" confirm
              if [[ "$confirm" != "y" ]]; then exit 1; fi
         fi

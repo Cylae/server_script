@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ==============================================================================
 # PROXY MODULE
@@ -110,7 +111,8 @@ sync_infrastructure() {
         # Ensure it is a file
         [ -f "$conf" ] || continue
 
-        local d=$(grep "server_name" "$conf" 2>/dev/null | awk '{print $2}' | tr -d ';' || true)
+        local d
+        d=$(grep "server_name" "$conf" 2>/dev/null | awk '{print $2}' | tr -d ';' || true)
         if [ -n "$d" ] && [ "$d" != "_" ]; then
             domains="$domains -d $d"
         fi

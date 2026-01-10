@@ -3,7 +3,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Bash](https://img.shields.io/badge/language-Bash-4EAA25.svg) ![Docker](https://img.shields.io/badge/container-Docker-2496ED.svg) ![Status](https://img.shields.io/badge/status-Optimized-success.svg)
 
 > **The Ultimate "Turnkey" Self-Hosting Solution.**
-> *Bazinga! It's Optimized. | Universal Edition | Auto-Tuning | Modular | Secure by Default*
+> *Bazinga! It's Optimized. | Universal Edition | Auto-Tuning | Modular | Secure by Default | Strict Mode Enabled*
 
 [🇬🇧 English](#english) | [🇫🇷 Français](#français)
 > **La solution d'auto-hébergement "Clé en main" ultime.**
@@ -262,7 +262,7 @@ A: Go to your main dashboard (`https://admin.yourdomain.com`) and click "DB Admi
 # 🚀 Cylae Server Manager (v8.1 - Édition Optimisée)
 
 > **La solution d'auto-hébergement "Clé en main" ultime.**
-> *Bazinga ! C'est optimisé. | Édition Universelle | Auto-Optimisation | Modulaire | Sécurisé par défaut*
+> *Bazinga ! C'est optimisé. | Édition Universelle | Auto-Optimisation | Modulaire | Sécurisé par défaut | Mode Strict Activé*
 
 [🇬🇧 English](#english) | [🇫🇷 Français](#français)
 
