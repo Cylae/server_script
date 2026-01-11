@@ -77,7 +77,9 @@ remove_docker_service() {
     ask "Do you want to PERMANENTLY DELETE all data for $pretty_name? (y/n):" confirm_delete
 
     if [ -d "/opt/$name" ]; then
-        cd "/opt/$name" && docker compose down
+        if [ -f "/opt/$name/docker-compose.yml" ]; then
+            cd "/opt/$name" && docker compose down
+        fi
         if [[ "$confirm_delete" == "y" ]]; then
             cd / && rm -rf "/opt/$name"
             warn "Data directory /opt/$name deleted."
