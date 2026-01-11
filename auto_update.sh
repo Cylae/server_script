@@ -49,10 +49,6 @@ if [ -f "$CONFIG_FILE" ]; then
             if git -C "$INSTALL_DIR" pull -q; then
                  log "[SELF] Git pull successful."
                  # Update binaries
-                 if [ -f "$INSTALL_DIR/install.sh" ]; then
-                    cp "$INSTALL_DIR/install.sh" /usr/local/bin/server_manager.sh
-                    chmod +x /usr/local/bin/server_manager.sh
-                 fi
                  if [ -f "$INSTALL_DIR/auto_update.sh" ]; then
                     cp "$INSTALL_DIR/auto_update.sh" /usr/local/bin/server_autoupdate.sh
                     chmod +x /usr/local/bin/server_autoupdate.sh

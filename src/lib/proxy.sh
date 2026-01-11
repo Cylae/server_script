@@ -48,7 +48,7 @@ server {
     # Note: We are writing the HTTP block here. The SSL block is created by Certbot later.
     # However, to be optimal, we should enforce HSTS on HTTP to redirect.
 
-    client_max_body_size 10G;
+    client_max_body_size $(if [[ "$sub" == *"cloud"* ]]; then echo "10G"; else echo "512M"; fi);
     client_body_buffer_size 512k;
 
     $SEC_HEADERS

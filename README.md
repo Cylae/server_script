@@ -118,6 +118,10 @@ Backups include the database and configuration files.
 *   **System Update:** Select option `s. System Update` (Updates OS, Docker images, and the script).
 *   **Auto-Update:** The system updates itself nightly at 04:00 AM.
 
+### 8.1 Changelog
+*   **Fixed:** Critical bug in auto-update process that could break the global wrapper script.
+*   **Optimized:** Nginx proxy configuration now uses dynamic body size limits (10G for Cloud, 512M for others) to improve security and resource usage.
+
 ---
 
 ## ❓ Deep Troubleshooting
