@@ -6,24 +6,45 @@ manage_portainer() {
     local sub="portainer.$DOMAIN"
 
     if [ "$1" == "install" ]; then
-        msg "Installing Portainer..."
-        mkdir -p "/opt/$name/data"
-
-        docker run -d -p 127.0.0.1:9000:9000 --name=portainer --network $DOCKER_NET --restart=always \
-        -v /var/run/docker.sock:/var/run/docker.sock -v "/opt/$name/data:/data" portainer/portainer-ce
-
-        update_nginx "$sub" "9000" "proxy"
-        success "Portainer Installed"
-    elif [ "$1" == "remove" ]; then
-        docker stop portainer || true
-        docker rm portainer || true
-
-        ask "Do you want to PERMANENTLY DELETE data for Portainer? (y/n):" confirm_delete
-        if [[ "$confirm_delete" == "y" ]]; then
-            rm -rf "/opt/$name"
+        # Migrate legacy container if it exists and isn't managed by compose
+        if docker ps -a --format '{{.Names}}' | grep -q "^portainer$"; then
+             if ! docker inspect portainer | grep -q "com.docker.compose.project"; then
+                 msg "Migrating legacy Portainer container to Docker Compose..."
+                 docker stop portainer >/dev/null 2>&1 || true
+                 docker rm portainer >/dev/null 2>&1 || true
+             fi
         fi
 
-        rm -f "/etc/nginx/sites-enabled/$sub"
-        success "Portainer Removed"
+        CONTENT=$(cat <<EOF
+version: '2'
+services:
+  portainer:
+    image: portainer/portainer-ce
+    container_name: portainer
+    restart: always
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/data
+    networks:
+      - $DOCKER_NET
+networks:
+  $DOCKER_NET:
+    external: true
+EOF
+)
+        deploy_docker_service "$name" "Portainer" "$sub" "9000" "$CONTENT"
+
+    elif [ "$1" == "remove" ]; then
+        # Handle legacy container removal
+        if docker ps -a --format '{{.Names}}' | grep -q "^portainer$"; then
+             if ! docker inspect portainer | grep -q "com.docker.compose.project"; then
+                  docker stop portainer >/dev/null 2>&1 || true
+                  docker rm portainer >/dev/null 2>&1 || true
+             fi
+        fi
+
+        remove_docker_service "$name" "Portainer" "$sub" "9000"
     fi
 }
