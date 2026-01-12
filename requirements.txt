@@ -1,0 +1,4 @@
+distro
+requests
+python-dotenv
+pytest
