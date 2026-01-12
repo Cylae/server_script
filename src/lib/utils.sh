@@ -38,6 +38,11 @@ detect_profile() {
     if [ "$TOTAL_RAM" -lt 3800 ]; then
         PROFILE="LOW"
         msg "Profile selected: LOW RESOURCE (Optimization for stability)"
+        # Install ZRAM for low profile
+        if ! command -v zramctl >/dev/null; then
+            msg "Installing ZRAM for memory compression..."
+            apt-get install -y zram-tools >/dev/null
+        fi
         echo "LOW" > "$profile_file"
     else
         PROFILE="HIGH"
@@ -176,4 +181,29 @@ EOF
     else
         warn "auto_update.sh not found, skipping cron setup."
     fi
+}
+
+setup_watchdog() {
+    msg "Configuring Self-Healing Watchdog..."
+    cat <<'EOF' > /usr/local/bin/cyl_watchdog.sh
+#!/bin/bash
+# Check critical services
+if ! systemctl is-active --quiet nginx; then
+    echo "$(date): Nginx down. Restarting..." >> /var/log/cyl_watchdog.log
+    systemctl restart nginx
+fi
+
+if ! systemctl is-active --quiet mariadb; then
+    echo "$(date): MariaDB down. Restarting..." >> /var/log/cyl_watchdog.log
+    systemctl restart mariadb
+fi
+
+# Clean zombie Docker processes if any
+# (Optional advanced logic could go here)
+EOF
+    chmod +x /usr/local/bin/cyl_watchdog.sh
+
+    CRON_JOB="0 * * * * /usr/local/bin/cyl_watchdog.sh"
+    (crontab -l 2>/dev/null | grep -v "cyl_watchdog.sh" || true; echo "$CRON_JOB") | crontab -
+    success "Watchdog Enabled (Hourly)"
 }

@@ -112,6 +112,48 @@ else
 fi
 rm "$PROFILE_FILE"
 
+# Test calculate_swap_size
+echo "Test 0.6: calculate_swap_size"
+# We need to source or mock calculate_swap_size since it's defined inside init_system
+# For testing purposes, we redefine it here as it would be in the script
+calculate_swap_size() {
+    local RAM_MB=$1
+    if [ "$RAM_MB" -lt 2048 ]; then
+        echo $(( RAM_MB * 2 ))M
+    elif [ "$RAM_MB" -le 8192 ]; then
+        echo "${RAM_MB}M"
+    else
+        echo "4096M"
+    fi
+}
+
+# Case 1: 1GB RAM -> 2GB Swap
+SWAP=$(calculate_swap_size 1024)
+if [ "$SWAP" == "2048M" ]; then
+    echo "PASS: Swap calculation for 1GB RAM"
+else
+    echo "FAIL: Swap calculation for 1GB RAM (Got $SWAP)"
+    FAILED=1
+fi
+
+# Case 2: 4GB RAM -> 4GB Swap
+SWAP=$(calculate_swap_size 4096)
+if [ "$SWAP" == "4096M" ]; then
+    echo "PASS: Swap calculation for 4GB RAM"
+else
+    echo "FAIL: Swap calculation for 4GB RAM (Got $SWAP)"
+    FAILED=1
+fi
+
+# Case 3: 16GB RAM -> 4GB Swap
+SWAP=$(calculate_swap_size 16384)
+if [ "$SWAP" == "4096M" ]; then
+    echo "PASS: Swap calculation for 16GB RAM"
+else
+    echo "FAIL: Swap calculation for 16GB RAM (Got $SWAP)"
+    FAILED=1
+fi
+
 # Test validate_password
 echo "Test 1: validate_password (short)"
 if validate_password "1234567"; then

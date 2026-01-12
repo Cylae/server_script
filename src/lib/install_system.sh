@@ -34,13 +34,35 @@ init_system() {
     # 1. Basics
     if ! command -v jq &> /dev/null; then
         msg "Installing Basic Dependencies..."
-        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz >/dev/null
+        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz unattended-upgrades >/dev/null
+
+        # Configure Unattended Upgrades
+        echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades
+        echo 'APT::Periodic::Unattended-Upgrade "1";' >> /etc/apt/apt.conf.d/20auto-upgrades
     fi
 
     # 2. Swap & BBR
     if [ ! -f /swapfile ]; then
-        msg "Creating Swap File..."
-        fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1G count=2
+        msg "Creating Swap File (Smart Size)..."
+
+        calculate_swap_size() {
+            local RAM_MB=$(free -m | awk '/Mem:/ {print $2}')
+            if [ "$RAM_MB" -lt 2048 ]; then
+                # < 2GB RAM: 2x RAM
+                echo $(( RAM_MB * 2 ))M
+            elif [ "$RAM_MB" -le 8192 ]; then
+                # 2GB - 8GB RAM: 1x RAM
+                echo "${RAM_MB}M"
+            else
+                # > 8GB RAM: Cap at 4GB
+                echo "4096M"
+            fi
+        }
+
+        SWAP_SIZE=$(calculate_swap_size)
+        msg "Allocating Swap: $SWAP_SIZE"
+
+        fallocate -l $SWAP_SIZE /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${SWAP_SIZE%M}
         chmod 600 /swapfile
         mkswap /swapfile
         swapon /swapfile
@@ -85,6 +107,7 @@ EOF
 
     detect_profile
     tune_system
+    setup_watchdog
 
     # 6. Firewall & Security (Phase 1)
     # We call security module functions here
