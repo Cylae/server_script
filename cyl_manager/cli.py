@@ -1,7 +1,10 @@
 import sys
 import os
 from .core import system, config, security
-from .services import portainer, media
+from .services import (
+    portainer, media, media_arr, downloaders,
+    cloud, web, monitoring, network, database
+)
 
 def setup_wizard():
     print("\n--- Initial Setup ---")
@@ -25,13 +28,33 @@ def setup_wizard():
 
 def show_menu():
     print("\n--- Cylae Server Manager (Python Edition) ---")
-    print("1. Install Core Dependencies (Docker)")
-    print("2. Install Portainer")
+    print("1. Install Core Dependencies")
+    print("2. Setup Wizard")
+    print("\n--- Media Stack ---")
     print("3. Install Plex")
-    print("4. Uninstall Portainer")
-    print("5. Uninstall Plex")
-    print("6. Run Setup Wizard")
-    print("0. Exit")
+    print("4. Install Sonarr")
+    print("5. Install Radarr")
+    print("6. Install Prowlarr")
+    print("7. Install Jackett")
+    print("8. Install Overseerr")
+    print("9. Install Tautulli")
+    print("10. Install qBittorrent")
+    print("\n--- Cloud & Web ---")
+    print("11. Install Nextcloud")
+    print("12. Install FileBrowser")
+    print("13. Install Vaultwarden")
+    print("14. Install Gitea")
+    print("15. Install GLPI")
+    print("16. Install YourLS")
+    print("\n--- System & Network ---")
+    print("17. Install Portainer")
+    print("18. Install Netdata")
+    print("19. Install Uptime Kuma")
+    print("20. Install WireGuard")
+    print("21. Install FTP")
+    print("22. Install Mail Server")
+    print("23. Install MariaDB (Standalone)")
+    print("\n0. Exit")
     return input("Select an option: ")
 
 def main():
@@ -41,31 +64,59 @@ def main():
     if not config.get_auth_value("DOMAIN"):
         print("First time run detected.")
         setup_wizard()
+        # Auto install dependencies on first run
+        from .core import docker_manager
+        print("Checking core dependencies...")
+        docker_manager.ensure_installed()
 
-    # Initialize services
-    srv_portainer = portainer.PortainerService()
-    srv_plex = media.PlexService()
+    # Service Registry
+    services = {
+        "3": media.PlexService(),
+        "4": media_arr.SonarrService(),
+        "5": media_arr.RadarrService(),
+        "6": media_arr.ProwlarrService(),
+        "7": media_arr.JackettService(),
+        "8": media_arr.OverseerrService(),
+        "9": media_arr.TautulliService(),
+        "10": downloaders.QBittorrentService(),
+        "11": cloud.NextcloudService(),
+        "12": cloud.FileBrowserService(),
+        "13": cloud.VaultwardenService(),
+        "14": web.GiteaService(),
+        "15": web.GLPIService(),
+        "16": web.YourLSService(),
+        "17": portainer.PortainerService(),
+        "18": monitoring.NetdataService(),
+        "19": monitoring.UptimeKumaService(),
+        "20": network.WireGuardService(),
+        "21": network.FTPService(),
+        "22": network.MailService(),
+        "23": database.MariaDBService()
+    }
+
+    from .core import docker_manager # Import here to use in loop
 
     while True:
         try:
             choice = show_menu()
 
-            if choice == "1":
-                from .core import docker_manager
+            if choice == "0":
+                sys.exit(0)
+            elif choice == "1":
                 docker_manager.ensure_installed()
                 print("Docker checked/installed.")
             elif choice == "2":
-                srv_portainer.install()
-            elif choice == "3":
-                srv_plex.install()
-            elif choice == "4":
-                srv_portainer.uninstall()
-            elif choice == "5":
-                srv_plex.uninstall()
-            elif choice == "6":
                 setup_wizard()
-            elif choice == "0":
-                sys.exit(0)
+            elif choice in services:
+                # Dependency check before install
+                docker_manager.ensure_installed()
+
+                srv = services[choice]
+                action = input(f"1. Install {srv.display_name}\n2. Uninstall {srv.display_name}\nSelect: ")
+                if action == "1":
+                    srv.install()
+                elif action == "2":
+                    srv.uninstall()
             else:
                 print("Invalid option.")
         except KeyboardInterrupt:

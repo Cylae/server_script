@@ -26,7 +26,7 @@ def install_nginx():
     system.run_command("systemctl enable nginx", check=False)
     system.run_command("systemctl start nginx", check=False)
 
-def update_nginx(domain, port, service_type="standard"):
+def update_nginx(domain, port, service_type="standard", proxy_protocol="http"):
     """
     Creates an Nginx configuration for a domain.
     """
@@ -34,9 +34,6 @@ def update_nginx(domain, port, service_type="standard"):
         install_nginx()
 
     conf_path = os.path.join(SITES_AVAIL, domain)
-
-    # Basic Config Template
-    # This mimics the original script's logic (proxy headers, etc.)
 
     client_max_body = "10G" if service_type == "cloud" else "512M"
 
@@ -46,7 +43,7 @@ server {{
     server_name {domain};
 
     location / {{
-        proxy_pass http://127.0.0.1:{port};
+        proxy_pass {proxy_protocol}://127.0.0.1:{port};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
