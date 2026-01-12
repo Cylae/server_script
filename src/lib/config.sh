@@ -34,9 +34,11 @@ load_config() {
         done
 
         # Save to config
-        echo "DOMAIN=\"$DOMAIN\"" >> "$CONFIG_FILE"
-        echo "EMAIL=\"admin@$DOMAIN\"" >> "$CONFIG_FILE"
-        echo "INSTALL_DIR=\"$(pwd)\"" >> "$CONFIG_FILE"
+        {
+            echo "DOMAIN=\"$DOMAIN\""
+            echo "EMAIL=\"admin@$DOMAIN\""
+            echo "INSTALL_DIR=\"$(pwd)\""
+        } >> "$CONFIG_FILE"
         chmod 600 "$CONFIG_FILE"
     fi
 
@@ -63,6 +65,7 @@ generate_password() {
 get_auth_value() {
     local key="$1"
     if [ -f "$AUTH_FILE" ]; then
+        # Handle grep failing to find key (exit code 1) gracefully
         grep "^${key}=" "$AUTH_FILE" 2>/dev/null | cut -d= -f2- | tail -n 1 || true
     fi
 }
@@ -79,10 +82,18 @@ save_credential() {
 
     # Update or Append credential
     # We remove the old line first to avoid sed delimiter issues with special chars in value
-    if grep -q "^${key}=" "$AUTH_FILE"; then
-        sed -i "/^${key}=/d" "$AUTH_FILE"
+    # Using a temp file is safer than sed -i for critical auth files to prevent corruption on crash
+    local temp_auth
+    temp_auth=$(mktemp)
+
+    if [ -s "$AUTH_FILE" ]; then
+        # Exclude the key if it exists
+        grep -v "^${key}=" "$AUTH_FILE" > "$temp_auth" || true
     fi
-    echo "${key}=${value}" >> "$AUTH_FILE"
+
+    echo "${key}=${value}" >> "$temp_auth"
+    mv "$temp_auth" "$AUTH_FILE"
+    chmod 600 "$AUTH_FILE"
 }
 
 get_or_create_password() {

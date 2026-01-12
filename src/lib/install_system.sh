@@ -32,9 +32,11 @@ init_system() {
     export DEBIAN_FRONTEND=noninteractive
 
     # 1. Basics
-    if ! command -v jq &> /dev/null; then
+    # Optimized install: reduce calls to apt-get update
+    if ! command -v jq &> /dev/null || ! command -v pigz &> /dev/null; then
         msg "Installing Basic Dependencies..."
-        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz unattended-upgrades >/dev/null
+        apt-get update -q
+        apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz unattended-upgrades >/dev/null
 
         # Configure Unattended Upgrades
         echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades
@@ -49,20 +51,24 @@ init_system() {
             local RAM_MB=$(free -m | awk '/Mem:/ {print $2}')
             if [ "$RAM_MB" -lt 2048 ]; then
                 # < 2GB RAM: 2x RAM
-                echo $(( RAM_MB * 2 ))M
+                echo $(( RAM_MB * 2 ))
             elif [ "$RAM_MB" -le 8192 ]; then
                 # 2GB - 8GB RAM: 1x RAM
-                echo "${RAM_MB}M"
+                echo "${RAM_MB}"
             else
                 # > 8GB RAM: Cap at 4GB
-                echo "4096M"
+                echo "4096"
             fi
         }
 
-        SWAP_SIZE=$(calculate_swap_size)
-        msg "Allocating Swap: $SWAP_SIZE"
+        SWAP_MB=$(calculate_swap_size)
+        msg "Allocating Swap: ${SWAP_MB}MB"
 
-        fallocate -l $SWAP_SIZE /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${SWAP_SIZE%M}
+        # Try fallocate first (fast), fail back to dd (compatible)
+        if ! fallocate -l "${SWAP_MB}M" /swapfile 2>/dev/null; then
+             dd if=/dev/zero of=/swapfile bs=1M count="$SWAP_MB" status=progress
+        fi
+
         chmod 600 /swapfile
         mkswap /swapfile
         swapon /swapfile

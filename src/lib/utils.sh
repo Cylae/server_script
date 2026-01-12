@@ -13,7 +13,18 @@ manage_backup() {
 
     # DB Dump
     if command -v mysqldump >/dev/null; then
-        mysqldump -u root --password="$DB_ROOT_PASS" --all-databases > "$BACKUP_DIR/db_$TIMESTAMP.sql"
+        # Check if DB_ROOT_PASS is set, otherwise try to load it
+        if [ -z "${DB_ROOT_PASS:-}" ]; then
+             if grep -q "mysql_root_password" "$AUTH_FILE"; then
+                 DB_ROOT_PASS=$(get_auth_value "mysql_root_password")
+             fi
+        fi
+
+        if [ -n "${DB_ROOT_PASS:-}" ]; then
+             mysqldump -u root --password="$DB_ROOT_PASS" --all-databases > "$BACKUP_DIR/db_$TIMESTAMP.sql"
+        else
+             warn "Database root password not found. Skipping DB backup."
+        fi
     fi
 
     # Files
@@ -137,7 +148,14 @@ system_update() {
     msg "Updating Docker Images..."
     if docker ps >/dev/null 2>&1; then
         # Bolt: Parallelize image pulls to speed up updates
-        docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | xargs -P 4 -n 1 docker pull 2>/dev/null || true
+        # Limit concurrency based on profile to avoid killing low-end servers
+        local profile=$(cat /etc/cyl_profile 2>/dev/null || echo "HIGH")
+        local jobs=4
+        if [ "$profile" == "LOW" ]; then
+             jobs=2
+        fi
+
+        docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | xargs -P "$jobs" -n 1 docker pull 2>/dev/null || true
         docker image prune -f >/dev/null
     fi
     success "System Updated"

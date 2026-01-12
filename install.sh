@@ -71,22 +71,30 @@ check_disk_space
 # ------------------------------------------------------------------------------
 echo "Checking core dependencies..." >&3
 
-install_if_missing() {
-    local cmd=$1
-    local pkg=${2:-$1} # Default to cmd name if pkg name not provided
+install_dependencies() {
+    local to_install=()
+    for pkg in "$@"; do
+        if ! command -v "$pkg" >/dev/null 2>&1; then
+             # Handle package name mapping if needed (e.g. lsb_release -> lsb-release)
+             if [ "$pkg" == "lsb_release" ]; then
+                 to_install+=("lsb-release")
+             else
+                 to_install+=("$pkg")
+             fi
+        fi
+    done
 
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        echo "Installing missing dependency: $pkg..." >&3
+    if [ ${#to_install[@]} -gt 0 ]; then
+        echo "Installing missing dependencies: ${to_install[*]}..." >&3
         export DEBIAN_FRONTEND=noninteractive
 
-        # Simple retry logic for apt
         local retries=5
         local count=0
-        until apt-get update -q && apt-get install -y "$pkg"; do
+        until apt-get update -q && apt-get install -y "${to_install[@]}"; do
             exit_code=$?
             count=$((count + 1))
             if [ $count -ge $retries ]; then
-                echo "Error: Failed to install $pkg after $retries attempts." >&3
+                echo "Error: Failed to install dependencies after $retries attempts." >&3
                 return 1
             fi
             echo "Apt failed. Retrying in 5s..." >&3
@@ -95,11 +103,7 @@ install_if_missing() {
     fi
 }
 
-install_if_missing curl
-install_if_missing wget
-install_if_missing git
-install_if_missing jq
-install_if_missing lsb_release lsb-release
+install_dependencies curl wget git jq lsb_release
 
 # ------------------------------------------------------------------------------
 # EXECUTION
@@ -109,7 +113,8 @@ install_if_missing lsb_release lsb-release
 if command -v realpath >/dev/null 2>&1; then
     INSTALL_DIR="$(dirname "$(realpath "$0")")"
 else
-    INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+    # Fallback to a reasonably robust method
+    INSTALL_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 fi
 cd "$INSTALL_DIR"
 

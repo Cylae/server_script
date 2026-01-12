@@ -9,7 +9,7 @@ manage_mail() {
         mkdir -p /opt/mail
 
         # Resource Check
-        local profile=$(cat /etc/cyl_profile)
+        local profile=$(cat /etc/cyl_profile 2>/dev/null || echo "HIGH")
         local clamav_state=1
         if [ "$profile" == "LOW" ]; then
             clamav_state=0
@@ -105,6 +105,7 @@ EOF
         echo -e "   User: ${CYAN}$full_email${NC}" >&3
         echo -e "   Pass: ${CYAN}$pass${NC}" >&3
     else
+        # Correctly call remove_docker_service. The 4th arg (port) is optional.
         remove_docker_service "$name" "Mail Server" "$sub"
         ufw delete allow 25,587,465,143,993/tcp >/dev/null 2>&1 || true
     fi
