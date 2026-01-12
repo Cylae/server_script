@@ -14,14 +14,49 @@ check_resources() {
     fi
 
     # Disk Check (Free space on /)
-    # Output format of df -BG: Filesystem 1G-blocks Used Available Use% Mounted on
-    # awk 'NR==2 {print $4}' gets the Available column of the second line (e.g., "10G")
     local FREE_DISK=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
 
     if [ -z "$FREE_DISK" ]; then
         warn "Could not detect disk space. Skipping check."
     elif [ "$FREE_DISK" -lt 5 ]; then
         fatal "Insufficient Disk Space. Free: ${FREE_DISK}GB. Required: 5GB+"
+    fi
+}
+
+calculate_swap_size() {
+    local RAM_MB=$(free -m | awk '/Mem:/ {print $2}')
+
+    # Get Free Disk Space in MB
+    local FREE_DISK_MB=$(df -BM / | awk 'NR==2 {print $4}' | sed 's/M//')
+
+    # 1. Calculate Ideal Swap based on RAM
+    local ideal_swap
+    if [ "$RAM_MB" -lt 2048 ]; then
+        # < 2GB RAM: 2x RAM
+        ideal_swap=$(( RAM_MB * 2 ))
+    elif [ "$RAM_MB" -le 8192 ]; then
+        # 2GB - 8GB RAM: 1x RAM
+        ideal_swap="${RAM_MB}"
+    else
+        # > 8GB RAM: Cap at 4GB
+        ideal_swap="4096"
+    fi
+
+    # 2. Safety Check: Don't consume more than 50% of available disk space
+    local max_safe_swap=$(( FREE_DISK_MB / 2 ))
+
+    # 3. Small Disk Logic: If Free Disk < 10GB, Cap Swap strictly
+    if [ "$FREE_DISK_MB" -lt 10240 ]; then
+        if [ "$ideal_swap" -gt 1024 ]; then
+                ideal_swap=1024
+        fi
+    fi
+
+    # Apply Safety Cap
+    if [ "$ideal_swap" -gt "$max_safe_swap" ]; then
+        echo "$max_safe_swap"
+    else
+        echo "$ideal_swap"
     fi
 }
 
@@ -32,9 +67,10 @@ init_system() {
     export DEBIAN_FRONTEND=noninteractive
 
     # 1. Basics
-    if ! command -v jq &> /dev/null; then
+    if ! command -v jq &> /dev/null || ! command -v pigz &> /dev/null; then
         msg "Installing Basic Dependencies..."
-        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz unattended-upgrades >/dev/null
+        apt-get update -q
+        apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz unattended-upgrades >/dev/null
 
         # Configure Unattended Upgrades
         echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades
@@ -45,24 +81,13 @@ init_system() {
     if [ ! -f /swapfile ]; then
         msg "Creating Swap File (Smart Size)..."
 
-        calculate_swap_size() {
-            local RAM_MB=$(free -m | awk '/Mem:/ {print $2}')
-            if [ "$RAM_MB" -lt 2048 ]; then
-                # < 2GB RAM: 2x RAM
-                echo $(( RAM_MB * 2 ))M
-            elif [ "$RAM_MB" -le 8192 ]; then
-                # 2GB - 8GB RAM: 1x RAM
-                echo "${RAM_MB}M"
-            else
-                # > 8GB RAM: Cap at 4GB
-                echo "4096M"
-            fi
-        }
+        SWAP_MB=$(calculate_swap_size)
+        msg "Allocating Swap: ${SWAP_MB}MB"
 
-        SWAP_SIZE=$(calculate_swap_size)
-        msg "Allocating Swap: $SWAP_SIZE"
+        if ! fallocate -l "${SWAP_MB}M" /swapfile 2>/dev/null; then
+             dd if=/dev/zero of=/swapfile bs=1M count="$SWAP_MB" status=progress
+        fi
 
-        fallocate -l $SWAP_SIZE /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=${SWAP_SIZE%M}
         chmod 600 /swapfile
         mkswap /swapfile
         swapon /swapfile
