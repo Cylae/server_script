@@ -20,6 +20,7 @@ source src/lib/docker.sh
 source src/lib/database.sh
 source src/lib/proxy.sh
 source src/lib/utils.sh
+source src/lib/media.sh
 source src/lib/install_system.sh
 
 # Source Services
@@ -35,6 +36,15 @@ source src/services/netdata.sh
 source src/services/portainer.sh
 source src/services/ftp.sh
 source src/services/glpi.sh
+# Media Stack
+source src/services/qbittorrent.sh
+source src/services/prowlarr.sh
+source src/services/jackett.sh
+source src/services/sonarr.sh
+source src/services/radarr.sh
+source src/services/plex.sh
+source src/services/tautulli.sh
+source src/services/overseerr.sh
 
 show_dns_records() {
     local ip=$(curl -s https://api.ipify.org)
@@ -57,6 +67,16 @@ show_dns_records() {
     if docker ps --format '{{.Names}}' | grep -q "^portainer"; then echo -e "CNAME | portainer            | $DOMAIN" >&3; fi
     if docker ps --format '{{.Names}}' | grep -q "^netdata"; then echo -e "CNAME | netdata              | $DOMAIN" >&3; fi
     if [ -d "/opt/glpi" ]; then echo -e "CNAME | support              | $DOMAIN" >&3; fi
+
+    # Media Stack DNS
+    if [ -d "/opt/qbittorrent" ]; then echo -e "CNAME | qbittorrent          | $DOMAIN" >&3; fi
+    if [ -d "/opt/prowlarr" ]; then echo -e "CNAME | prowlarr             | $DOMAIN" >&3; fi
+    if [ -d "/opt/jackett" ]; then echo -e "CNAME | jackett              | $DOMAIN" >&3; fi
+    if [ -d "/opt/sonarr" ]; then echo -e "CNAME | sonarr               | $DOMAIN" >&3; fi
+    if [ -d "/opt/radarr" ]; then echo -e "CNAME | radarr               | $DOMAIN" >&3; fi
+    if [ -d "/opt/plex" ]; then echo -e "CNAME | plex                 | $DOMAIN" >&3; fi
+    if [ -d "/opt/tautulli" ]; then echo -e "CNAME | tautulli             | $DOMAIN" >&3; fi
+    if [ -d "/opt/overseerr" ]; then echo -e "CNAME | overseerr            | $DOMAIN" >&3; fi
 
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
     echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)" >&3
@@ -97,6 +117,44 @@ show_credentials() {
     ask "Press Enter to continue..." dummy
 }
 
+show_menu_media() {
+    clear >&3 || true
+    echo -e "${PURPLE}=================================================================${NC}" >&3
+    echo -e "${PURPLE}  MEDIA SUITE${NC}" >&3
+    echo -e "${PURPLE}=================================================================${NC}" >&3
+    echo -e " 1. Manage Plex Media Server [$(d_status plex)]" >&3
+    echo -e " 2. Manage Tautulli          [$(d_status tautulli)]" >&3
+    echo -e " 3. Manage Overseerr         [$(d_status overseerr)]" >&3
+    echo -e " 4. Manage Sonarr (TV)       [$(d_status sonarr)]" >&3
+    echo -e " 5. Manage Radarr (Movies)   [$(d_status radarr)]" >&3
+    echo -e " 6. Manage Prowlarr (Index)  [$(d_status prowlarr)]" >&3
+    echo -e " 7. Manage Jackett (Index)   [$(d_status jackett)]" >&3
+    echo -e " 8. Manage qBittorrent       [$(d_status qbittorrent)]" >&3
+    echo -e "-----------------------------------------------------------------" >&3
+    echo -e " 0. Back to Main Menu" >&3
+    echo -e "-----------------------------------------------------------------" >&3
+
+    ask "Select >" mchoice
+    case $mchoice in
+        1) [ -d "/opt/plex" ] && manage_plex "remove" || manage_plex "install" ;;
+        2) [ -d "/opt/tautulli" ] && manage_tautulli "remove" || manage_tautulli "install" ;;
+        3) [ -d "/opt/overseerr" ] && manage_overseerr "remove" || manage_overseerr "install" ;;
+        4) [ -d "/opt/sonarr" ] && manage_sonarr "remove" || manage_sonarr "install" ;;
+        5) [ -d "/opt/radarr" ] && manage_radarr "remove" || manage_radarr "install" ;;
+        6) [ -d "/opt/prowlarr" ] && manage_prowlarr "remove" || manage_prowlarr "install" ;;
+        7) [ -d "/opt/jackett" ] && manage_jackett "remove" || manage_jackett "install" ;;
+        8) [ -d "/opt/qbittorrent" ] && manage_qbittorrent "remove" || manage_qbittorrent "install" ;;
+        0) return ;;
+        *) echo "Invalid option" >&3; sleep 1 ;;
+    esac
+
+    # Auto-sync logic for media services
+    if [[ "$mchoice" =~ ^[0-9]+$ ]] && [ "$mchoice" -le 8 ] && [ "$mchoice" -ge 1 ]; then
+        ask "Apply changes now (Update SSL/Nginx)? (y/n):" confirm
+        if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
+    fi
+}
+
 show_menu() {
     clear >&3 || true
     echo -e "${PURPLE}=================================================================${NC}" >&3
@@ -125,6 +183,7 @@ show_menu() {
     echo -e "10. Manage WireGuard       [$(p_status wireguard)]" >&3
     echo -e "11. Manage FileBrowser     [$(p_status filebrowser)]" >&3
     echo -e "12. Manage GLPI (Ticket)   [$(p_status glpi)]" >&3
+    echo -e "13. Media Suite (Plex/Starr) >>" >&3
     echo -e "-----------------------------------------------------------------" >&3
     echo -e " s. System Update" >&3
     echo -e " b. Backup Data" >&3
@@ -145,6 +204,7 @@ run_main() {
     check_os
     load_config
     init_system
+    setup_media_directories
 
     while true; do
         show_menu
@@ -163,6 +223,7 @@ run_main() {
             10) [ -d "/opt/wireguard" ] && manage_wireguard "remove" || manage_wireguard "install" ;;
             11) [ -d "/opt/filebrowser" ] && manage_filebrowser "remove" || manage_filebrowser "install" ;;
             12) [ -d "/opt/glpi" ] && manage_glpi "remove" || manage_glpi "install" ;;
+            13) show_menu_media ;;
 
             s) system_update ;;
             b) manage_backup ;;

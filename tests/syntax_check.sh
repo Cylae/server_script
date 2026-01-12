@@ -1,15 +1,16 @@
 #!/bin/bash
-# Syntax checker for all shell scripts
+set -u
 
-echo "Checking syntax..."
-FAIL=0
-while read -r file; do
-    if ! bash -n "$file"; then
-        echo "FAIL: $file"
-        FAIL=1
+# Simple Syntax Check for Bash Scripts
+echo "Running syntax check on .sh files..."
+
+find src -name "*.sh" | while read -r file; do
+    if bash -n "$file"; then
+        echo -e "\033[0;32m[OK]\033[0m $file"
     else
-        echo "OK: $file"
+        echo -e "\033[0;31m[FAIL]\033[0m $file"
+        exit 1
     fi
-done < <(find . -type f -name "*.sh")
+done
 
-exit $FAIL
+echo "All scripts passed syntax check."

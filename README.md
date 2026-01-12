@@ -1,352 +1,77 @@
-# Cylae Server Manager (CSM)
+# Cylae Server Manager (Robust Edition)
 
-![Version](https://img.shields.io/badge/Version-9.3-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green) ![Tests](https://img.shields.io/badge/Tests-100%2B-brightgreen)
+**Greetings, user.**
 
-A professional, "turnkey" solution for deploying a self-hosted infrastructure on Debian or Ubuntu. Designed for absolute stability, security, and ease of use.
+I am Sheldon Cooper, B.S., M.S., M.A., Ph.D., Sc.D., and I have graciously decided to oversee your server infrastructure. Do try to keep up.
 
-## 🚀 Quick Start (The One-Liner)
+This repository contains the `Cylae Server Manager`, a modular, idempotent, and frankly, quite adequate Bash-based framework for deploying self-hosted services via Docker. It is designed for Debian 11/12 and Ubuntu 20.04+, operating under the assumption that you prefer order over chaos.
 
-Copy and paste this command into your terminal. It handles everything:
+## 1. The Stack (Or "Why This Is Superior")
 
+The system is architected to run a plethora of applications, harmoniously integrated behind a reverse proxy (Nginx) with automated SSL (Certbot).
+
+### Core Services
+*   **Portainer**: Docker management. (For those who need a GUI to understand containers).
+*   **Netdata**: Real-time performance monitoring.
+*   **WireGuard**: VPN. (Security is not optional).
+*   **Uptime Kuma**: Monitoring.
+*   **Vaultwarden**: Bitwarden compatible server.
+*   **Nextcloud**: Cloud storage.
+*   **Gitea**: Git hosting.
+*   **Mail Server**: Docker-mailserver.
+*   **FileBrowser**: Web-based file manager.
+*   **GLPI**: IT Asset Management.
+
+### The Media Suite (New & Improved)
+We have expanded the capabilities to include a comprehensive media acquisition and playback suite. All components share a unified directory structure at `/opt/media` to ensure hard links work correctly (minimizing I/O, obviously).
+
+*   **Plex Media Server**: The media player.
+*   **Tautulli**: Monitoring for Plex. (Because one must know who is watching what).
+*   **Sonarr**: TV Series PVR.
+*   **Radarr**: Movie PVR.
+*   **Overseerr**: Request management. (To mitigate the incessant requests from your less tech-savvy acquaintances).
+*   **Prowlarr**: Indexer manager. (Superior to Jackett, though Jackett is included for legacy reasons).
+*   **qBittorrent**: The download client.
+*   **Jackett**: Legacy indexer proxy.
+
+## 2. Installation (Pay Attention)
+
+The installation process is automated, but you must execute it with the appropriate privileges.
+
+### One-Liner
 ```bash
-sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://github.com/Cylae/server_script.git cylae-manager && cd cylae-manager && sudo chmod +x install.sh && sudo ./install.sh
+git clone https://github.com/Cylae/server_script.git cylae-manager && cd cylae-manager && chmod +x install.sh && ./install.sh
 ```
 
----
+### Protocol
+1.  **Clone** the repository.
+2.  **Execute** `./install.sh`.
+3.  **Follow** the prompts. Do not deviate.
+4.  **Select** the services you wish to install.
 
-## 📋 Prerequisites (Pre-Flight Check)
+## 3. Directory Structure (The "Organization")
 
-The script now enforces strict resource checks to prevent stability issues.
+The system enforces a strict hierarchy. Do not move files arbitrarily.
 
-1.  **A Fresh Server:**
-    *   **OS:** Debian 11/12 (Recommended) or Ubuntu 20.04/22.04/24.04.
-    *   **Architecture:** x86_64 / amd64.
-    *   **Hardware:**
-        *   Minimum: 1 vCPU, 2GB RAM (Strict check: <5GB disk space will block installation).
-        *   Recommended: 2 vCPU, 4GB RAM (High Performance mode).
-2.  **Domain Name:** You must own a domain (e.g., `example.com`) pointing to your server's public IP.
-3.  **Root Access:** You need `root` or `sudo` privileges.
-4.  **Ports Open:** Ensure ports `80` (HTTP) and `443` (HTTPS) are open in your provider's firewall.
+*   `/opt/<service>`: Persistent data for each service.
+*   `/opt/media`: Shared media volume.
+    *   `/opt/media/movies`: For Radarr.
+    *   `/opt/media/tv`: For Sonarr.
+    *   `/opt/media/downloads`: For qBittorrent.
+*   `/etc/nginx/sites-available`: Nginx configurations.
+*   `/var/backups/cyl_manager`: Where your data goes when you adhere to the backup schedule.
 
----
+## 4. Usage Guidelines
 
-## 🛠 Features
+*   **Idempotency**: The scripts are designed to be run multiple times. If you select "Install" on an installed service, it will update the configuration.
+*   **DNS**: The script will tell you exactly what DNS records to set. Do exactly as it says.
+*   **Credentials**: Use the 'Show Credentials' option in the menu. Do not write them on a post-it note.
 
-*   **Modular Design:** Install only what you need.
-*   **Docker-Native:** All services run in isolated containers.
-*   **Secure by Default:**
-    *   Automatic SSL (Let's Encrypt).
-    *   Firewall (UFW) & Fail2Ban configured out-of-the-box.
-    *   **Auto-Security Updates:** Unattended upgrades enabled for the OS.
-    *   Kernel hardening and network stack tuning (BBR enabled).
-*   **Adaptive Performance:**
-    *   **Smart Swap:** Dynamic swap size allocation based on RAM.
-    *   **ZRAM:** Automatic memory compression for low-spec VMs (<2GB RAM).
-    *   **Parallel Updates:** Docker image updates are parallelized based on system profile.
-    *   **Docker Optimization:** Global log rotation to prevent disk saturation.
-*   **Reliability:**
-    *   **Self-Healing Watchdog:** Auto-restarts critical services (Nginx/DB) if they crash.
-    *   **Robust Error Handling:** Strict mode enabled (`set -euo pipefail`) to fail fast on errors.
-    *   **Restore Wizard:** Built-in disaster recovery to restore backups easily.
-    *   **Health Checks:** Validate service status via HTTP checks.
-*   **Centralized Management:**
-    *   Single Dashboard.
-    *   Unified Database (MariaDB).
-    *   Automated Backups & Updates.
+## 5. Troubleshooting
 
-### Supported Services
-| Service | Description | URL |
-| :--- | :--- | :--- |
-| **Nextcloud** | Cloud storage & collaboration | `cloud.example.com` |
-| **Gitea** | Git service (Github alternative) | `git.example.com` |
-| **Vaultwarden** | Password manager (Bitwarden) | `pass.example.com` |
-| **Portainer** | Docker container management | `portainer.example.com` |
-| **Uptime Kuma** | Monitoring & Status Page | `status.example.com` |
-| **WireGuard** | Modern VPN | `vpn.example.com` |
-| **Mail Server** | Full stack email (Postfix/Dovecot) | `mail.example.com` |
-| **FileBrowser** | Web-based file manager | `files.example.com` |
-| **GLPI** | IT Asset Management | `support.example.com` |
-| **Netdata** | Real-time performance monitoring | `netdata.example.com` |
-| **YOURLS** | URL Shortener | `x.example.com` |
-| **FTP** | File Transfer Protocol (vsftpd) | `ftp://example.com` |
+If the system fails, it is statistically likely to be user error. However:
+1.  Check the logs: `/var/log/server_manager.log`.
+2.  Run `docker ps` to ensure containers are running.
+3.  Verify your port forwarding.
 
----
-
-## 📖 Step-by-Step Installation Guide
-
-If you prefer to run commands manually instead of the one-liner:
-
-### 1. Update and Install Git
-```bash
-sudo apt update
-sudo apt install -y git
-```
-
-### 2. Clone the Repository
-We recommend installing in `/opt/cylae-manager`.
-```bash
-cd /opt
-sudo git clone https://github.com/Cylae/server_script.git cylae-manager
-```
-
-### 3. Run the Installer
-```bash
-cd cylae-manager
-sudo chmod +x install.sh
-sudo ./install.sh
-```
-
-### 4. Follow the Wizard
-The script will ask for:
-*   **Domain Name:** Enter your domain (e.g., `example.com`).
-*   **Profile:** It automatically detects RAM and suggests a profile (Low/High).
-
----
-
-## ⚙️ Configuration & Maintenance
-
-### Managing Services
-Run the script anytime to access the main menu:
-```bash
-sudo /usr/local/bin/server_manager.sh
-```
-Or simply:
-```bash
-cd /opt/cylae-manager && ./install.sh
-```
-
-### Identifiants
-Passwords are generated automatically and stored securely.
-*   **View Credentials:** Select option `c. Show Credentials` in the menu.
-*   **File Location:** `/root/.auth_details` (Root only).
-
-### Backups & Restore
-Backups include the database and configuration files.
-*   **Location:** `/var/backups/cyl_manager/`
-*   **Policy:** Files older than 7 days are automatically deleted.
-*   **Compression:** Uses parallel compression (pigz) for speed if available.
-*   **Manual Backup:** Select option `b. Backup Data`.
-*   **Restore:** Select option `x. Restore from Backup` to restore files and databases.
-
-### Health & Monitoring
-*   **Health Check:** Select `k. Health Check` to verify that all services are responding (HTTP 200 OK).
-*   **Uptime Kuma:** Install Uptime Kuma for historical uptime tracking.
-
-### Updates
-*   **System Update:** Select option `s. System Update` (Updates OS, Docker images, and the script).
-*   **Auto-Update:** The system updates itself nightly at 04:00 AM.
-
----
-
-## ❓ Deep Troubleshooting
-
-### "The script fails immediately with exit code 1"
-*   **Cause:** Usually permission errors or missing dependencies.
-*   **Fix:** Ensure you run with `sudo`. The latest version automatically handles this. Check logs at `/var/log/server_manager.log`.
-
-### "Port 80/443 already in use"
-*   **Cause:** Another web server (e.g., default Apache) is running.
-*   **Fix:** The script attempts to fix this, but you can manually run: `sudo apt remove apache2 -y`.
-
-### "SSL Certificate Generation Failed"
-*   **Cause:** DNS is not propagating or Firewall is blocking.
-*   **Fix:**
-    1.  Verify your domain points to the server IP: `ping example.com`
-    2.  Ensure port 80 is open.
-    3.  Run option `r. Refresh Infrastructure` to retry.
-
-### "Docker service not starting"
-*   **Cause:** Port conflict or configuration error.
-*   **Fix:** Check container logs: `docker logs <container_name>`.
-
----
-
-## 🏗 Architecture
-
-*   **Core:** Bash scripts in `src/lib/`.
-*   **Services:** Modular scripts in `src/services/`.
-*   **State:**
-    *   Config: `/etc/cyl_manager.conf`
-    *   Auth: `/root/.auth_details`
-    *   Data: `/opt/<service_name>`
-*   **Proxy:** Nginx acts as a reverse proxy, handling SSL termination and routing traffic to Docker containers.
-
----
-
-# Cylae Server Manager (CSM) [Français]
-
-![Version](https://img.shields.io/badge/Version-9.3-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
-
-Une solution professionnelle "clé en main" pour déployer une infrastructure auto-hébergée sur Debian ou Ubuntu. Conçue pour une stabilité absolue, une sécurité renforcée et une facilité d'utilisation.
-
-## 🚀 Démarrage Rapide (La Commande Unique)
-
-Copiez et collez cette commande dans votre terminal. Elle s'occupe de tout :
-
-```bash
-sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://github.com/Cylae/server_script.git cylae-manager && cd cylae-manager && sudo chmod +x install.sh && sudo ./install.sh
-```
-
----
-
-## 📋 Prérequis
-
-Le script impose désormais des vérifications strictes pour garantir la stabilité.
-
-1.  **Un Serveur Frais :**
-    *   **OS :** Debian 11/12 (Recommandé) ou Ubuntu 20.04/22.04/24.04.
-    *   **Architecture :** x86_64 / amd64.
-    *   **Matériel :**
-        *   Minimum : 1 vCPU, 2 Go RAM (Vérification stricte : <5 Go d'espace disque bloquera l'installation).
-        *   Recommandé : 2 vCPU, 4 Go RAM (Mode Haute Performance).
-2.  **Nom de Domaine :** Vous devez posséder un domaine (ex: `exemple.com`) pointant vers l'IP publique de votre serveur.
-3.  **Accès Root :** Vous devez avoir les privilèges `root` ou `sudo`.
-4.  **Ports Ouverts :** Assurez-vous que les ports `80` (HTTP) et `443` (HTTPS) sont ouverts dans le pare-feu de votre fournisseur.
-
----
-
-## 🛠 Fonctionnalités
-
-*   **Conception Modulaire :** Installez uniquement ce dont vous avez besoin.
-*   **Docker-Natif :** Tous les services fonctionnent dans des conteneurs isolés.
-*   **Sécurisé par Défaut :**
-    *   SSL Automatique (Let's Encrypt).
-    *   Pare-feu (UFW) & Fail2Ban configurés dès le départ.
-    *   **Mises à jour de Sécurité Auto :** Unattended upgrades activé pour l'OS.
-    *   Durcissement du noyau et optimisation de la pile réseau (BBR activé).
-*   **Performance Adaptative :**
-    *   **Smart Swap :** Taille du Swap dynamique selon la RAM.
-    *   **ZRAM :** Compression mémoire automatique pour les petites VM (<2Go RAM).
-    *   **Mises à jour Parallèles :** Les mises à jour d'images Docker sont parallélisées selon le profil système.
-    *   **Optimisation Docker :** Rotation des logs globale pour éviter la saturation disque.
-*   **Fiabilité :**
-    *   **Watchdog Auto-Réparateur :** Redémarre automatiquement les services critiques (Nginx/DB) en cas de crash.
-    *   **Gestion d'Erreur Robuste :** Mode strict activé (`set -euo pipefail`) pour échouer rapidement en cas d'erreur.
-    *   **Assistant de Restauration :** Restauration facile des sauvegardes.
-    *   **Bilan de Santé (Health Check) :** Vérifie le statut HTTP des services.
-*   **Gestion Centralisée :**
-    *   Tableau de bord unique.
-    *   Base de données unifiée (MariaDB).
-    *   Sauvegardes et Mises à jour automatisées.
-
-### Services Supportés
-| Service | Description | URL |
-| :--- | :--- | :--- |
-| **Nextcloud** | Stockage cloud & collaboration | `cloud.exemple.com` |
-| **Gitea** | Service Git (Alternative à Github) | `git.exemple.com` |
-| **Vaultwarden** | Gestionnaire de mots de passe (Bitwarden) | `pass.exemple.com` |
-| **Portainer** | Gestion de conteneurs Docker | `portainer.exemple.com` |
-| **Uptime Kuma** | Monitoring & Page de statut | `status.exemple.com` |
-| **WireGuard** | VPN Moderne | `vpn.exemple.com` |
-| **Mail Server** | Serveur mail complet (Postfix/Dovecot) | `mail.exemple.com` |
-| **FileBrowser** | Gestionnaire de fichiers web | `files.exemple.com` |
-| **GLPI** | Gestion de Parc Informatique (ITAM) | `support.exemple.com` |
-| **Netdata** | Monitoring en temps réel | `netdata.exemple.com` |
-| **YOURLS** | Réducteur d'URL | `x.exemple.com` |
-| **FTP** | Protocole de transfert de fichiers (vsftpd) | `ftp://exemple.com` |
-
----
-
-## 📖 Guide d'Installation Étape par Étape
-
-Si vous préférez exécuter les commandes manuellement :
-
-### 1. Mettre à jour et Installer Git
-```bash
-sudo apt update
-sudo apt install -y git
-```
-
-### 2. Cloner le Dépôt
-Nous recommandons l'installation dans `/opt/cylae-manager`.
-```bash
-cd /opt
-sudo git clone https://github.com/Cylae/server_script.git cylae-manager
-```
-
-### 3. Lancer l'Installateur
-```bash
-cd cylae-manager
-sudo chmod +x install.sh
-sudo ./install.sh
-```
-
-### 4. Suivre l'Assistant
-Le script vous demandera :
-*   **Nom de Domaine :** Entrez votre domaine (ex: `exemple.com`).
-*   **Profil :** Il détecte automatiquement la RAM et suggère un profil (Bas/Haut).
-
----
-
-## ⚙️ Configuration & Maintenance
-
-### Gérer les Services
-Lancez le script à tout moment pour accéder au menu principal :
-```bash
-sudo /usr/local/bin/server_manager.sh
-```
-Or simplement :
-```bash
-cd /opt/cylae-manager && ./install.sh
-```
-
-### Identifiants
-Les mots de passe sont générés automatiquement et stockés de manière sécurisée.
-*   **Voir les Identifiants :** Sélectionnez l'option `c. Show Credentials` dans le menu.
-*   **Emplacement du Fichier :** `/root/.auth_details` (Root uniquement).
-
-### Sauvegardes & Restauration
-Les sauvegardes incluent la base de données et les fichiers de configuration.
-*   **Emplacement :** `/var/backups/cyl_manager/`
-*   **Politique :** Les fichiers de plus de 7 jours sont supprimés automatiquement.
-*   **Compression :** Utilise la compression parallèle (pigz) pour la rapidité si disponible.
-*   **Sauvegarde Manuelle :** Sélectionnez l'option `b. Backup Data`.
-*   **Restauration :** Sélectionnez l'option `x. Restore from Backup`.
-
-### Santé & Monitoring
-*   **Health Check :** Sélectionnez `k. Health Check` pour vérifier que tous les services répondent (HTTP 200).
-*   **Uptime Kuma :** Installez Uptime Kuma pour un suivi historique.
-
-### Mises à Jour
-*   **Mise à jour Système :** Sélectionnez l'option `s. System Update` (Met à jour l'OS, les images Docker et le script).
-*   **Mise à jour Auto :** Le système se met à jour automatiquement chaque nuit à 04:00 AM.
-
----
-
-## ❓ Dépannage Approfondi
-
-### "The script fails immediately with exit code 1"
-*   **Cause :** Généralement des erreurs de permission ou des dépendances manquantes.
-*   **Solution :** Assurez-vous de lancer avec `sudo`. La dernière version gère cela automatiquement. Vérifiez les logs dans `/var/log/server_manager.log`.
-
-### "Port 80/443 already in use"
-*   **Cause :** Un autre serveur web (ex: Apache par défaut) est en cours d'exécution.
-*   **Solution :** Le script tente de corriger cela, mais vous pouvez lancer manuellement : `sudo apt remove apache2 -y`.
-
-### "SSL Certificate Generation Failed"
-*   **Cause :** Le DNS ne s'est pas propagé ou le Pare-feu bloque.
-*   **Solution :**
-    1.  Vérifiez que votre domaine pointe vers l'IP du serveur : `ping exemple.com`
-    2.  Assurez-vous que le port 80 est ouvert.
-    3.  Lancez l'option `r. Refresh Infrastructure` pour réessayer.
-
-### "Docker service not starting"
-*   **Cause :** Conflit de port ou erreur de configuration.
-*   **Solution :** Vérifiez les logs du conteneur : `docker logs <nom_du_conteneur>`.
-
----
-
-## 🏗 Architecture
-
-*   **Cœur :** Scripts Bash dans `src/lib/`.
-*   **Services :** Scripts modulaires dans `src/services/`.
-*   **État :**
-    *   Config : `/etc/cyl_manager.conf`
-    *   Auth : `/root/.auth_details`
-    *   Données : `/opt/<nom_du_service>`
-*   **Proxy :** Nginx agit comme un reverse proxy, gérant la terminaison SSL et le routage vers les conteneurs Docker.
-
----
-
-**Auteur :** Équipe Cylae
-**Licence :** MIT
+*Bazinga.*
