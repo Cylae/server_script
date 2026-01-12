@@ -78,16 +78,16 @@ show_credentials() {
         echo -e "${CYAN}--- Database ---${NC}" >&3
         grep "mysql_root_password" $AUTH_FILE | while read -r line; do
              echo "DB Root: ${line#*=}" >&3
-        done
+        done || true
         grep "_db_pass" $AUTH_FILE | while read -r line; do
              local svc=$(echo "$line" | cut -d_ -f1)
              echo "$svc DB: ${line#*=}" >&3
-        done
+        done || true
 
         echo -e "\n${CYAN}--- Services ---${NC}" >&3
         grep -v "mysql_root_password" $AUTH_FILE | grep -v "_db_pass" | while read -r line; do
              echo "${line%%=*}: ${line#*=}" >&3
-        done
+        done || true
     else
         echo "No credentials found." >&3
     fi

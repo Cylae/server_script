@@ -23,7 +23,6 @@ manage_gitea() {
         local host_ip=$(ip -4 route get 1 | awk '{print $7}')
 
         CONTENT=$(cat <<EOF
-version: "3"
 services:
   server:
     image: gitea/gitea:latest
