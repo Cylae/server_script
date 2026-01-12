@@ -25,6 +25,8 @@ source src/lib/config.sh
 source src/lib/utils.sh
 # We need docker.sh for check_port_conflict
 source src/lib/docker.sh
+# We need install_system.sh for check_resources
+source src/lib/install_system.sh
 
 # Mock logging
 log() { echo "LOG: $1"; }
@@ -41,6 +43,74 @@ fatal() { echo "FATAL: $1"; return 1; }
 FAILED=0
 
 echo "Running Unit Tests..."
+
+# Test check_resources
+echo "Test 0: check_resources"
+
+# Mock nproc and df
+nproc() { echo "4"; }
+df() {
+    # Mocking df -BG /
+    # Filesystem 1G-blocks Used Available Use% Mounted on
+    echo "Filesystem 1G-blocks Used Available Use% Mounted on"
+    echo "/dev/sda1 100G 10G 90G 10% /"
+}
+
+if check_resources; then
+    echo "PASS: Resources OK"
+else
+    echo "FAIL: Resources check failed unexpectedly"
+    FAILED=1
+fi
+
+# Mock failure (Disk < 5GB)
+df() {
+    echo "Filesystem 1G-blocks Used Available Use% Mounted on"
+    echo "/dev/sda1 100G 96G 4G 96% /"
+}
+
+OUTPUT=$(check_resources 2>&1 || true)
+if echo "$OUTPUT" | grep -q "FATAL: Insufficient Disk Space"; then
+    echo "PASS: Detected Low Disk Space"
+else
+    echo "FAIL: Did not detect Low Disk Space"
+    echo "DEBUG Output: $OUTPUT"
+    FAILED=1
+fi
+
+# Test detect_profile
+echo "Test 0.5: detect_profile"
+export PROFILE_FILE="./test_profile_out"
+
+# Mock free -m to return 2000MB (LOW)
+free() {
+    echo "              total        used        free      shared  buff/cache   available"
+    echo "Mem:           2000         500         500         100         900        1500"
+}
+
+detect_profile >/dev/null
+PROFILE=$(cat "$PROFILE_FILE")
+if [ "$PROFILE" == "LOW" ]; then
+    echo "PASS: Detected LOW Profile"
+else
+    echo "FAIL: Failed to detect LOW Profile (Got $PROFILE)"
+    FAILED=1
+fi
+
+# Mock free -m to return 8000MB (HIGH)
+free() {
+    echo "              total        used        free      shared  buff/cache   available"
+    echo "Mem:           8000         500         500         100         900        1500"
+}
+detect_profile >/dev/null
+PROFILE=$(cat "$PROFILE_FILE")
+if [ "$PROFILE" == "HIGH" ]; then
+    echo "PASS: Detected HIGH Profile"
+else
+    echo "FAIL: Failed to detect HIGH Profile (Got $PROFILE)"
+    FAILED=1
+fi
+rm "$PROFILE_FILE"
 
 # Test validate_password
 echo "Test 1: validate_password (short)"
