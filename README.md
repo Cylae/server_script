@@ -136,7 +136,7 @@ Backups include the database and configuration files.
 
 ### Updates
 *   **System Update:** Select option `s. System Update` (Updates OS, Docker images, and the script).
-*   **Auto-Update:** The system updates itself nightly at 04:00 AM.
+*   **Auto-Update:** The system updates itself nightly at 04:00 AM using a robust Git-based mechanism and native Docker Compose updates (Watchtower has been deprecated for better control).
 
 ---
 

@@ -2,7 +2,7 @@
 
 # ==============================================================================
 #  CYL.AE SERVER MANAGER - AUTO UPDATE AGENT
-#  Version: 2.0 (Enhanced Reliability)
+#  Version: 3.0 (Clean State)
 # ==============================================================================
 
 # Strict mode
@@ -32,10 +32,13 @@ echo "STARTING UPDATE: $(date)"
 
 log() { echo "$(date +'%Y-%m-%d %H:%M:%S') - $1"; }
 
-# 1. Self-Update
+# 1. Self-Update (Codebase)
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
-    if [ -n "${INSTALL_DIR:-}" ] && [ -d "$INSTALL_DIR/.git" ]; then
+    # Defaults
+    INSTALL_DIR="${INSTALL_DIR:-/opt/cylae-manager}"
+
+    if [ -d "$INSTALL_DIR/.git" ]; then
         log "[SELF] Checking for script updates in $INSTALL_DIR..."
 
         # Fetch only
@@ -48,16 +51,21 @@ if [ -f "$CONFIG_FILE" ]; then
             log "[SELF] Update found. Pulling..."
             if git -C "$INSTALL_DIR" pull -q; then
                  log "[SELF] Git pull successful."
-                 # Update binaries
-                 if [ -f "$INSTALL_DIR/install.sh" ]; then
-                    cp "$INSTALL_DIR/install.sh" /usr/local/bin/server_manager.sh
-                    chmod +x /usr/local/bin/server_manager.sh
-                 fi
+                 # Update ONLY the auto-updater binary, preserve the manager wrapper
                  if [ -f "$INSTALL_DIR/auto_update.sh" ]; then
                     cp "$INSTALL_DIR/auto_update.sh" /usr/local/bin/server_autoupdate.sh
                     chmod +x /usr/local/bin/server_autoupdate.sh
                  fi
-                 log "[SELF] Binaries updated."
+                 # Update libraries in /usr/local/lib/cyl_manager if that's where they live
+                 # But utils.sh setup_autoupdate copies src/ to /usr/local/lib/cyl_manager.
+                 # So we should probably refresh that too.
+                 if [ -d "$INSTALL_DIR/src" ]; then
+                     mkdir -p /usr/local/lib/cyl_manager
+                     # Copy contents of src/ to lib dir, not src folder itself
+                     cp -r "$INSTALL_DIR/src/"* /usr/local/lib/cyl_manager/
+                 fi
+
+                 log "[SELF] Binaries and libraries updated."
             else
                  log "[SELF] ERROR: Git pull failed."
             fi
@@ -69,7 +77,7 @@ if [ -f "$CONFIG_FILE" ]; then
     fi
 fi
 
-# 2. System Updates
+# 2. System Updates (OS)
 export DEBIAN_FRONTEND=noninteractive
 log "[SYSTEM] Updating apt packages..."
 if apt-get update -q && apt-get upgrade -y -q; then
@@ -78,21 +86,31 @@ else
     log "[SYSTEM] ERROR: Package update failed."
 fi
 
-# 3. Docker Updates (via Watchtower)
+# 3. Docker Updates (Native)
 if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
     log "[DOCKER] Checking for container updates..."
-    # Run Watchtower once to update all running containers
-    # We use containrrr/watchtower:latest-dev for latest features or stable
-    if docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        containrrr/watchtower \
-        --run-once --cleanup --include-restarting; then
-        log "[DOCKER] Containers updated."
-    else
-        log "[DOCKER] Watchtower run failed."
+
+    # 3a. Update Services in /opt
+    if [ -d "/opt" ]; then
+        for d in /opt/*; do
+            if [ -f "$d/docker-compose.yml" ]; then
+                name=$(basename "$d")
+                log "[DOCKER] Updating service: $name"
+                (
+                    cd "$d"
+                    # Pull new images
+                    if docker compose pull --quiet; then
+                        # Recreate containers if needed
+                        docker compose up -d
+                    else
+                        log "[DOCKER] Failed to pull images for $name"
+                    fi
+                ) || true
+            fi
+        done
     fi
 
-    # Prune
+    # 3b. Prune unused images
     log "[DOCKER] Cleaning up unused images..."
     docker image prune -f
 else
