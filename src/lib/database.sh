@@ -45,11 +45,25 @@ host=localhost
 EOF
 
     # Use ALTER USER to ensure password consistency on reinstall
-    # Capture failure to ensure cleanup
-    if ! mysql --defaults-extra-file="$temp_cnf" -e "CREATE DATABASE IF NOT EXISTS \`$db\`; CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass'; GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%'; FLUSH PRIVILEGES; ALTER USER '$user'@'%' IDENTIFIED BY '$pass';"; then
-        rm -f "$temp_cnf"
+    # Write SQL to a temporary file to avoid exposing password in process list (ps aux)
+    local sql_file
+    sql_file=$(mktemp)
+    cat <<SQL > "$sql_file"
+CREATE DATABASE IF NOT EXISTS \`$db\`;
+CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass';
+GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%';
+FLUSH PRIVILEGES;
+ALTER USER '$user'@'%' IDENTIFIED BY '$pass';
+SQL
+
+    # Execute SQL file
+    if ! mysql --defaults-extra-file="$temp_cnf" < "$sql_file"; then
+        rm -f "$temp_cnf" "$sql_file"
         fatal "Database operation failed for $db"
     fi
+
+    # Explicit remove
+    rm -f "$temp_cnf" "$sql_file"
 
     # Explicit remove
     rm -f "$temp_cnf"

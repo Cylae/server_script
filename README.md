@@ -39,6 +39,8 @@ The script now enforces strict resource checks to prevent stability issues.
     *   Firewall (UFW) & Fail2Ban configured out-of-the-box.
     *   **Auto-Security Updates:** Unattended upgrades enabled for the OS.
     *   Kernel hardening and network stack tuning (BBR enabled).
+    *   **Secure Password Policy:** Enforces complexity (Upper, Lower, Digit) and robust credentials management.
+    *   **Security Headers:** Nginx configured with HSTS, X-Frame-Options, and more.
 *   **Adaptive Performance:**
     *   **Smart Swap:** Dynamic swap size allocation based on RAM.
     *   **ZRAM:** Automatic memory compression for low-spec VMs (<2GB RAM).
