@@ -64,6 +64,11 @@ deploy_docker_service() {
 
     msg "Installing $pretty_name..."
 
+    # Validate Subdomain
+    if [[ ! "$subdomain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        fatal "Invalid subdomain for $pretty_name: $subdomain"
+    fi
+
     # Check for port conflicts if a port is exposed
     if [ -n "$port" ]; then
         check_port_conflict "$port" "$pretty_name"

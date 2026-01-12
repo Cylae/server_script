@@ -12,6 +12,16 @@ update_nginx() {
     local type=$3 # proxy or php
     local root=${4:-}
 
+    # Input Validation
+    if [[ ! "$sub" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        error "Invalid subdomain: $sub"
+        return 1
+    fi
+    if [[ ! "$port" =~ ^[0-9]+$ ]] && [[ "$type" == "proxy" ]]; then
+        error "Invalid port: $port"
+        return 1
+    fi
+
     # Security & Performance Headers (Sheldon Approved)
     local SEC_HEADERS='
     add_header X-Frame-Options "SAMEORIGIN" always;

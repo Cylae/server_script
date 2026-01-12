@@ -21,7 +21,17 @@ manage_backup() {
         fi
 
         if [ -n "${DB_ROOT_PASS:-}" ]; then
-             mysqldump -u root --password="$DB_ROOT_PASS" --all-databases > "$BACKUP_DIR/db_$TIMESTAMP.sql"
+             local temp_cnf
+             temp_cnf=$(mktemp)
+             chmod 600 "$temp_cnf"
+             cat <<EOF > "$temp_cnf"
+[client]
+user=root
+password=$DB_ROOT_PASS
+host=localhost
+EOF
+             mysqldump --defaults-extra-file="$temp_cnf" --all-databases > "$BACKUP_DIR/db_$TIMESTAMP.sql"
+             rm -f "$temp_cnf"
         else
              warn "Database root password not found. Skipping DB backup."
         fi
