@@ -20,6 +20,22 @@ init_docker() {
     if ! docker network inspect $DOCKER_NET >/dev/null 2>&1; then
         docker network create $DOCKER_NET
     fi
+
+    # Configure Log Rotation
+    if [ ! -f /etc/docker/daemon.json ]; then
+        msg "Configuring Docker Log Rotation..."
+        mkdir -p /etc/docker
+        cat <<EOF > /etc/docker/daemon.json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+        systemctl restart docker || warn "Failed to restart Docker after config."
+    fi
 }
 
 check_port_conflict() {

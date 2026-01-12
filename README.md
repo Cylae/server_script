@@ -1,6 +1,6 @@
 # Cylae Server Manager (CSM)
 
-![Version](https://img.shields.io/badge/Version-8.1-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green)
+![Version](https://img.shields.io/badge/Version-9.1-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green)
 
 A professional, "turnkey" solution for deploying a self-hosted infrastructure on Debian or Ubuntu. Designed for absolute stability, security, and ease of use.
 
@@ -16,14 +16,14 @@ sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://
 
 ## 📋 Prerequisites (Pre-Flight Check)
 
-Before you begin, ensure you have:
+The script now enforces strict resource checks to prevent stability issues.
 
 1.  **A Fresh Server:**
     *   **OS:** Debian 11/12 or Ubuntu 20.04/22.04/24.04.
     *   **Architecture:** x86_64 / amd64.
     *   **Hardware:**
-        *   Minimum: 1 vCPU, 2GB RAM (Low Profile mode)
-        *   Recommended: 2 vCPU, 4GB RAM (High Performance mode)
+        *   Minimum: 1 vCPU, 2GB RAM (Strict check: <5GB disk space will block installation).
+        *   Recommended: 2 vCPU, 4GB RAM (High Performance mode).
 2.  **Domain Name:** You must own a domain (e.g., `example.com`) pointing to your server's public IP.
 3.  **Root Access:** You need `root` or `sudo` privileges.
 4.  **Ports Open:** Ensure ports `80` (HTTP) and `443` (HTTPS) are open in your provider's firewall.
@@ -37,7 +37,14 @@ Before you begin, ensure you have:
 *   **Secure by Default:**
     *   Automatic SSL (Let's Encrypt).
     *   Firewall (UFW) & Fail2Ban configured out-of-the-box.
+    *   **Auto-Security Updates:** Unattended upgrades enabled for the OS.
     *   Kernel hardening and network stack tuning (BBR enabled).
+*   **Adaptive Performance (V9.1):**
+    *   **Smart Swap:** Dynamic swap size allocation based on RAM.
+    *   **ZRAM:** Automatic memory compression for low-spec VMs (<2GB RAM).
+    *   **Docker Optimization:** Global log rotation to prevent disk saturation.
+*   **Reliability:**
+    *   **Self-Healing Watchdog:** Auto-restarts critical services (Nginx/DB) if they crash.
 *   **Centralized Management:**
     *   Single Dashboard.
     *   Unified Database (MariaDB).
@@ -109,9 +116,11 @@ Passwords are generated automatically and stored securely.
 *   **View Credentials:** Select option `c. Show Credentials` in the menu.
 *   **File Location:** `/root/.auth_details` (Root only).
 
-### Backups
+### Backups (Smart Rotation)
 Backups include the database and configuration files.
 *   **Location:** `/var/backups/cyl_manager/`
+*   **Policy:** Files older than 7 days are automatically deleted.
+*   **Compression:** Uses parallel compression (pigz) for speed if available.
 *   **Manual Backup:** Select option `b. Backup Data`.
 
 ### Updates
@@ -157,7 +166,7 @@ Backups include the database and configuration files.
 
 # Cylae Server Manager (CSM) [Français]
 
-![Version](https://img.shields.io/badge/Version-8.1-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
+![Version](https://img.shields.io/badge/Version-9.1-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
 
 Une solution professionnelle "clé en main" pour déployer une infrastructure auto-hébergée sur Debian ou Ubuntu. Conçue pour une stabilité absolue, une sécurité renforcée et une facilité d'utilisation.
 
@@ -173,14 +182,14 @@ sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://
 
 ## 📋 Prérequis
 
-Avant de commencer, assurez-vous d'avoir :
+Le script impose désormais des vérifications strictes pour garantir la stabilité.
 
 1.  **Un Serveur Frais :**
     *   **OS :** Debian 11/12 ou Ubuntu 20.04/22.04/24.04.
     *   **Architecture :** x86_64 / amd64.
     *   **Matériel :**
-        *   Minimum : 1 vCPU, 2 Go RAM (Mode Profil Bas)
-        *   Recommandé : 2 vCPU, 4 Go RAM (Mode Haute Performance)
+        *   Minimum : 1 vCPU, 2 Go RAM (Vérification stricte : <5 Go d'espace disque bloquera l'installation).
+        *   Recommandé : 2 vCPU, 4 Go RAM (Mode Haute Performance).
 2.  **Nom de Domaine :** Vous devez posséder un domaine (ex: `exemple.com`) pointant vers l'IP publique de votre serveur.
 3.  **Accès Root :** Vous devez avoir les privilèges `root` ou `sudo`.
 4.  **Ports Ouverts :** Assurez-vous que les ports `80` (HTTP) et `443` (HTTPS) sont ouverts dans le pare-feu de votre fournisseur.
@@ -194,7 +203,14 @@ Avant de commencer, assurez-vous d'avoir :
 *   **Sécurisé par Défaut :**
     *   SSL Automatique (Let's Encrypt).
     *   Pare-feu (UFW) & Fail2Ban configurés dès le départ.
+    *   **Mises à jour de Sécurité Auto :** Unattended upgrades activé pour l'OS.
     *   Durcissement du noyau et optimisation de la pile réseau (BBR activé).
+*   **Performance Adaptative (V9.1) :**
+    *   **Smart Swap :** Taille du Swap dynamique selon la RAM.
+    *   **ZRAM :** Compression mémoire automatique pour les petites VM (<2Go RAM).
+    *   **Optimisation Docker :** Rotation des logs globale pour éviter la saturation disque.
+*   **Fiabilité :**
+    *   **Watchdog Auto-Réparateur :** Redémarre automatiquement les services critiques (Nginx/DB) en cas de crash.
 *   **Gestion Centralisée :**
     *   Tableau de bord unique.
     *   Base de données unifiée (MariaDB).
@@ -266,9 +282,11 @@ Les mots de passe sont générés automatiquement et stockés de manière sécur
 *   **Voir les Identifiants :** Sélectionnez l'option `c. Show Credentials` dans le menu.
 *   **Emplacement du Fichier :** `/root/.auth_details` (Root uniquement).
 
-### Sauvegardes
+### Sauvegardes (Rotation Intelligente)
 Les sauvegardes incluent la base de données et les fichiers de configuration.
 *   **Emplacement :** `/var/backups/cyl_manager/`
+*   **Politique :** Les fichiers de plus de 7 jours sont supprimés automatiquement.
+*   **Compression :** Utilise la compression parallèle (pigz) pour la rapidité si disponible.
 *   **Sauvegarde Manuelle :** Sélectionnez l'option `b. Backup Data`.
 
 ### Mises à Jour
