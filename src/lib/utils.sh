@@ -17,27 +17,32 @@ manage_backup() {
     fi
 
     # Files
-    tar -czf "$BACKUP_DIR/files_$TIMESTAMP.tar.gz" /opt /var/www /etc/nginx/sites-available /root/.auth_details 2>/dev/null
+    if command -v pigz >/dev/null; then
+        tar --use-compress-program=pigz -cf "$BACKUP_DIR/files_$TIMESTAMP.tar.gz" /opt /var/www /etc/nginx/sites-available /root/.auth_details 2>/dev/null
+    else
+        tar -czf "$BACKUP_DIR/files_$TIMESTAMP.tar.gz" /opt /var/www /etc/nginx/sites-available /root/.auth_details 2>/dev/null
+    fi
 
-    # Retention (keep last 5)
-    ls -tp "$BACKUP_DIR"/db_*.sql 2>/dev/null | grep -v '/$' | tail -n +6 | xargs -I {} rm -- {} 2>/dev/null || true
-    ls -tp "$BACKUP_DIR"/files_*.tar.gz 2>/dev/null | grep -v '/$' | tail -n +6 | xargs -I {} rm -- {} 2>/dev/null || true
+    # Retention (Smart Rotation: 7 days)
+    find "$BACKUP_DIR" -name "db_*.sql" -type f -mtime +7 -delete 2>/dev/null || true
+    find "$BACKUP_DIR" -name "files_*.tar.gz" -type f -mtime +7 -delete 2>/dev/null || true
 
     success "Backup Complete: $TIMESTAMP"
 }
 
 detect_profile() {
+    local profile_file="${PROFILE_FILE:-/etc/cyl_profile}"
     TOTAL_RAM=$(free -m | awk '/Mem:/ { print $2 }')
     msg "Detected RAM: ${TOTAL_RAM}MB"
 
     if [ "$TOTAL_RAM" -lt 3800 ]; then
         PROFILE="LOW"
         msg "Profile selected: LOW RESOURCE (Optimization for stability)"
-        echo "LOW" > /etc/cyl_profile
+        echo "LOW" > "$profile_file"
     else
         PROFILE="HIGH"
         msg "Profile selected: HIGH PERFORMANCE (Optimization for speed)"
-        echo "HIGH" > /etc/cyl_profile
+        echo "HIGH" > "$profile_file"
     fi
 }
 

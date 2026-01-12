@@ -6,7 +6,27 @@ set -euo pipefail
 # Initial system setup and dependencies
 # ==============================================================================
 
+check_resources() {
+    # CPU Check
+    local CPU_CORES=$(nproc)
+    if [ "$CPU_CORES" -lt 2 ]; then
+        warn "Low CPU Core count detected ($CPU_CORES). Recommended: 2+"
+    fi
+
+    # Disk Check (Free space on /)
+    # Output format of df -BG: Filesystem 1G-blocks Used Available Use% Mounted on
+    # awk 'NR==2 {print $4}' gets the Available column of the second line (e.g., "10G")
+    local FREE_DISK=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
+
+    if [ -z "$FREE_DISK" ]; then
+        warn "Could not detect disk space. Skipping check."
+    elif [ "$FREE_DISK" -lt 5 ]; then
+        fatal "Insufficient Disk Space. Free: ${FREE_DISK}GB. Required: 5GB+"
+    fi
+}
+
 init_system() {
+    check_resources
     msg "Initializing System Infrastructure..."
 
     export DEBIAN_FRONTEND=noninteractive
@@ -14,7 +34,7 @@ init_system() {
     # 1. Basics
     if ! command -v jq &> /dev/null; then
         msg "Installing Basic Dependencies..."
-        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin >/dev/null
+        apt-get update -q && apt-get install -y curl wget git unzip gnupg2 apt-transport-https ca-certificates lsb-release ufw sudo htop apache2-utils fail2ban jq bc iproute2 ncurses-bin pigz >/dev/null
     fi
 
     # 2. Swap & BBR
