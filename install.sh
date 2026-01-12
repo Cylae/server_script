@@ -52,15 +52,24 @@ trap cleanup EXIT
 
 # 4. Disk Space Check
 check_disk_space() {
-    local required_mb=2048 # 2GB
+    local fatal_limit_mb=500  # 500MB is the absolute minimum to function
+    local warn_limit_mb=2048  # 2GB is recommended
+
     # Check root partition available space in MB
     local available_mb
     if command -v df >/dev/null 2>&1; then
          available_mb=$(df / . --output=avail -B 1M | tail -n 1)
-         if [ "$available_mb" -lt "$required_mb" ]; then
-            echo "Error: Insufficient disk space." >&3
-            echo "Required: ${required_mb}MB, Available: ${available_mb}MB." >&3
+
+         if [ "$available_mb" -lt "$fatal_limit_mb" ]; then
+            echo "Error: Critically low disk space." >&3
+            echo "Required: ${fatal_limit_mb}MB, Available: ${available_mb}MB." >&3
             exit 1
+         elif [ "$available_mb" -lt "$warn_limit_mb" ]; then
+            echo -e "\033[0;33mWarning: Low disk space.\033[0m" >&3
+            echo "Recommended: ${warn_limit_mb}MB, Available: ${available_mb}MB." >&3
+            echo "You may encounter issues during installation." >&3
+            # We allow proceeding, but maybe we should ask?
+            # For automation sake, we proceed with warning.
          fi
     fi
 }

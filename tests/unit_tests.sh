@@ -18,14 +18,10 @@ docker() {
 }
 
 # Source libraries
-# Note: Some sourcing might fail if dependencies aren't met, but we mock what we need.
-# We source utils/config/core first.
 source src/lib/core.sh
 source src/lib/config.sh
 source src/lib/utils.sh
-# We need docker.sh for check_port_conflict
 source src/lib/docker.sh
-# We need install_system.sh for check_resources
 source src/lib/install_system.sh
 
 # Mock logging
@@ -114,45 +110,85 @@ rm "$PROFILE_FILE"
 
 # Test calculate_swap_size
 echo "Test 0.6: calculate_swap_size"
-# We need to source or mock calculate_swap_size since it's defined inside init_system
-# For testing purposes, we redefine it here as it would be in the script
-calculate_swap_size() {
-    local RAM_MB=$1
-    if [ "$RAM_MB" -lt 2048 ]; then
-        echo $(( RAM_MB * 2 ))
-    elif [ "$RAM_MB" -le 8192 ]; then
-        echo "${RAM_MB}"
-    else
-        echo "4096"
-    fi
+
+# We need to redefine calculate_swap_size to use the sourced version's logic
+# But the sourced version calls `free` and `df`, so we mock `free` and `df`.
+
+# Case 1: 4GB RAM, 50GB Free Disk (Standard Case) -> 4GB Swap
+free() { echo "Mem: 4096"; }
+df() {
+    # 50GB Free = 51200 MB
+    echo "Filesystem 1M-blocks Used Available Use% Mounted on"
+    echo "/dev/sda1 100000 48800 51200 50% /"
 }
 
-# Case 1: 1GB RAM -> 2GB Swap
-SWAP=$(calculate_swap_size 1024)
-if [ "$SWAP" == "2048" ]; then
-    echo "PASS: Swap calculation for 1GB RAM"
+SWAP=$(calculate_swap_size)
+if [ "$SWAP" == "4096" ]; then
+    echo "PASS: Standard Swap (4GB RAM -> 4GB Swap)"
 else
-    echo "FAIL: Swap calculation for 1GB RAM (Got $SWAP)"
+    echo "FAIL: Standard Swap (Got $SWAP)"
     FAILED=1
 fi
 
-# Case 2: 4GB RAM -> 4GB Swap
-SWAP=$(calculate_swap_size 4096)
-if [ "$SWAP" == "4096" ]; then
-    echo "PASS: Swap calculation for 4GB RAM"
+# Case 2: 4GB RAM, 6GB Free Disk (Safety Cap 50%) -> 3GB Swap (Max safe = 3072)
+# Wait, Safety Cap: Max 50% of free. 6GB Free -> 3GB Swap.
+# Small Disk Logic: If Free < 10GB (10240MB), Cap at 1GB IF ideal > 1GB.
+# So here: Free = 6144 MB (< 10GB). Ideal = 4096.
+# Small Disk Logic triggers: Cap at 1024.
+# Safety Cap triggers: 3072.
+# Result should be 1024.
+
+free() { echo "Mem: 4096"; }
+df() {
+    # 6GB Free = 6144 MB
+    echo "Filesystem 1M-blocks Used Available Use% Mounted on"
+    echo "/dev/sda1 10000 3856 6144 60% /"
+}
+SWAP=$(calculate_swap_size)
+if [ "$SWAP" == "1024" ]; then
+    echo "PASS: Small Disk Cap (6GB Free -> 1GB Swap)"
 else
-    echo "FAIL: Swap calculation for 4GB RAM (Got $SWAP)"
+    echo "FAIL: Small Disk Cap (Expected 1024, Got $SWAP)"
     FAILED=1
 fi
 
-# Case 3: 16GB RAM -> 4GB Swap
-SWAP=$(calculate_swap_size 16384)
+# Case 3: 4GB RAM, 12GB Free Disk (> 10GB but 50% cap check)
+# Free = 12288 MB (> 10GB). Small Disk Logic OFF.
+# Ideal = 4096.
+# Safety Cap (50%) = 6144.
+# Result = 4096.
+free() { echo "Mem: 4096"; }
+df() {
+    # 12GB Free = 12288 MB
+    echo "Filesystem 1M-blocks Used Available Use% Mounted on"
+    echo "/dev/sda1 20000 7712 12288 40% /"
+}
+SWAP=$(calculate_swap_size)
 if [ "$SWAP" == "4096" ]; then
-    echo "PASS: Swap calculation for 16GB RAM"
+    echo "PASS: Medium Disk (12GB Free -> 4GB Swap)"
 else
-    echo "FAIL: Swap calculation for 16GB RAM (Got $SWAP)"
+    echo "FAIL: Medium Disk (Expected 4096, Got $SWAP)"
     FAILED=1
 fi
+
+# Case 4: 1GB RAM, 6GB Free Disk
+# Ideal = 2GB.
+# Free = 6144 MB (< 10GB).
+# Small Disk Logic: If Free < 10GB. Ideal (2048) > 1024. Cap at 1024.
+free() { echo "Mem: 1024"; }
+df() {
+    # 6GB Free = 6144 MB
+    echo "Filesystem 1M-blocks Used Available Use% Mounted on"
+    echo "/dev/sda1 10000 3856 6144 60% /"
+}
+SWAP=$(calculate_swap_size)
+if [ "$SWAP" == "1024" ]; then
+    echo "PASS: Small RAM on Small Disk (1GB RAM -> 1GB Swap)"
+else
+    echo "FAIL: Small RAM on Small Disk (Expected 1024, Got $SWAP)"
+    FAILED=1
+fi
+
 
 # Test validate_password
 echo "Test 1: validate_password (short)"
@@ -191,10 +227,9 @@ else
     FAILED=1
 fi
 
-# Test Duplicate handling (Expectation: should handle it)
+# Test Duplicate handling
 echo "Test 5: save_credential (duplicate)"
 save_credential "test_key" "new_value"
-# Check if get_auth_value returns the NEW value
 RET=$(get_auth_value "test_key")
 if [ "$RET" == "new_value" ]; then
     echo "PASS: Retrieved updated credential"
@@ -205,17 +240,10 @@ fi
 
 # Test 6: check_port_conflict
 echo "Test 6: check_port_conflict"
-
-# Mock 'ss' command
-# The check uses ss -tuln | awk '{print $5}' | grep -E ":$port$"
-# We need to simulate ss output where column 5 contains the address:port
 ss() {
     # Netid State Recv-Q Send-Q Local_Address:Port Peer_Address:Port Process
     echo "tcp LISTEN 0 128 *:8080 *:* users:((\"java\",pid=123,fd=10))"
 }
-
-# Run check_port_conflict for port 8080 (Mocked to be in use)
-# We expect it to call 'ask' then 'fatal' because our mock 'ask' returns 'n'
 OUTPUT=$(check_port_conflict "8080" "TestService") || true
 
 if echo "$OUTPUT" | grep -q "FATAL: Aborting installation"; then
@@ -226,12 +254,9 @@ else
     FAILED=1
 fi
 
-# Mock 'ss' to return empty (No conflict)
 ss() {
     echo ""
 }
-
-# Run check_port_conflict for port 9090 (Free)
 OUTPUT=$(check_port_conflict "9090" "TestService") || true
 if [ -z "$OUTPUT" ]; then
     echo "PASS: No conflict detected for free port"

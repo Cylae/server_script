@@ -34,7 +34,8 @@ ensure_db() {
 
     # Ensure cleanup happens even if mysql fails
     # NOTE: We use RETURN trap to avoid clobbering global EXIT trap
-    trap 'rm -f "$temp_cnf"' RETURN
+    # We expand the variable NOW so the trap doesn't depend on variable scope later
+    trap "rm -f '$temp_cnf'" RETURN
 
     cat <<EOF > "$temp_cnf"
 [client]
@@ -45,5 +46,7 @@ EOF
 
     # Use ALTER USER to ensure password consistency on reinstall
     mysql --defaults-extra-file="$temp_cnf" -e "CREATE DATABASE IF NOT EXISTS \`$db\`; CREATE USER IF NOT EXISTS '$user'@'%' IDENTIFIED BY '$pass'; GRANT ALL PRIVILEGES ON \`$db\`.* TO '$user'@'%'; FLUSH PRIVILEGES; ALTER USER '$user'@'%' IDENTIFIED BY '$pass';"
+
+    # Explicit remove in case trap fails or logic changes, though trap handles it too
     rm -f "$temp_cnf"
 }
