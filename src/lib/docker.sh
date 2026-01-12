@@ -42,14 +42,11 @@ check_port_conflict() {
     local port=$1
     local name=$2
 
-    # Check if port is in use
-    # We escape the dollar sign for end-of-line anchor to prevent bash subshell expansion
-    # grep returns 1 if not found, so we protect it with if to prevent set -e failure
-    if ss -tuln | grep -E ":$port(\$|\s)" >/dev/null 2>&1; then
-        # Check if it's already used by the container we are trying to deploy (restart case)
-        # But usually we are checking host ports.
-        # If we are redeploying the SAME service, it might be occupying the port.
-        # We can ignore if we are just updating.
+    # Check if port is in use using ss
+    # -t: tcp, -u: udp, -l: listening, -n: numeric
+    # We look for specific port binding.
+    # Pattern: ":PORT " or ":PORT$"
+    if ss -tuln | awk '{print $5}' | grep -E ":$port$" >/dev/null 2>&1; then
         warn "Port $port is currently in use."
         ask "Is this expected (e.g., updating existing service)? (y/n):" confirm
         if [[ "$confirm" != "y" ]]; then
@@ -73,10 +70,13 @@ deploy_docker_service() {
     fi
 
     mkdir -p "/opt/$name"
-
     echo "$docker_compose_content" > "/opt/$name/docker-compose.yml"
 
-    cd "/opt/$name" && docker compose up -d
+    # Robust deployment: pull first to minimize downtime, then up -d
+    # 'up -d' handles recreation if config changed
+    cd "/opt/$name"
+    docker compose pull --quiet || warn "Failed to pull images for $name, trying to build/run anyway..."
+    docker compose up -d
 
     update_nginx "$subdomain" "$port" "proxy"
     success "$pretty_name Installed at https://$subdomain"
@@ -94,7 +94,8 @@ remove_docker_service() {
 
     if [ -d "/opt/$name" ]; then
         if [ -f "/opt/$name/docker-compose.yml" ]; then
-            cd "/opt/$name" && docker compose down
+            # We use || true to ensure script doesn't fail if containers are already gone/borked
+            cd "/opt/$name" && docker compose down || true
         fi
         if [[ "$confirm_delete" == "y" ]]; then
             cd / && rm -rf "/opt/$name"

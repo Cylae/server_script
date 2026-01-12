@@ -119,17 +119,17 @@ echo "Test 0.6: calculate_swap_size"
 calculate_swap_size() {
     local RAM_MB=$1
     if [ "$RAM_MB" -lt 2048 ]; then
-        echo $(( RAM_MB * 2 ))M
+        echo $(( RAM_MB * 2 ))
     elif [ "$RAM_MB" -le 8192 ]; then
-        echo "${RAM_MB}M"
+        echo "${RAM_MB}"
     else
-        echo "4096M"
+        echo "4096"
     fi
 }
 
 # Case 1: 1GB RAM -> 2GB Swap
 SWAP=$(calculate_swap_size 1024)
-if [ "$SWAP" == "2048M" ]; then
+if [ "$SWAP" == "2048" ]; then
     echo "PASS: Swap calculation for 1GB RAM"
 else
     echo "FAIL: Swap calculation for 1GB RAM (Got $SWAP)"
@@ -138,7 +138,7 @@ fi
 
 # Case 2: 4GB RAM -> 4GB Swap
 SWAP=$(calculate_swap_size 4096)
-if [ "$SWAP" == "4096M" ]; then
+if [ "$SWAP" == "4096" ]; then
     echo "PASS: Swap calculation for 4GB RAM"
 else
     echo "FAIL: Swap calculation for 4GB RAM (Got $SWAP)"
@@ -147,7 +147,7 @@ fi
 
 # Case 3: 16GB RAM -> 4GB Swap
 SWAP=$(calculate_swap_size 16384)
-if [ "$SWAP" == "4096M" ]; then
+if [ "$SWAP" == "4096" ]; then
     echo "PASS: Swap calculation for 16GB RAM"
 else
     echo "FAIL: Swap calculation for 16GB RAM (Got $SWAP)"
@@ -207,8 +207,11 @@ fi
 echo "Test 6: check_port_conflict"
 
 # Mock 'ss' command
+# The check uses ss -tuln | awk '{print $5}' | grep -E ":$port$"
+# We need to simulate ss output where column 5 contains the address:port
 ss() {
-    echo "LISTEN 0 128 *:8080 *:* users:((\"java\",pid=123,fd=10))"
+    # Netid State Recv-Q Send-Q Local_Address:Port Peer_Address:Port Process
+    echo "tcp LISTEN 0 128 *:8080 *:* users:((\"java\",pid=123,fd=10))"
 }
 
 # Run check_port_conflict for port 8080 (Mocked to be in use)

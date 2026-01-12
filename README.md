@@ -1,6 +1,6 @@
 # Cylae Server Manager (CSM)
 
-![Version](https://img.shields.io/badge/Version-9.1-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green)
+![Version](https://img.shields.io/badge/Version-9.2-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green)
 
 A professional, "turnkey" solution for deploying a self-hosted infrastructure on Debian or Ubuntu. Designed for absolute stability, security, and ease of use.
 
@@ -19,7 +19,7 @@ sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://
 The script now enforces strict resource checks to prevent stability issues.
 
 1.  **A Fresh Server:**
-    *   **OS:** Debian 11/12 or Ubuntu 20.04/22.04/24.04.
+    *   **OS:** Debian 11/12 (Recommended) or Ubuntu 20.04/22.04/24.04.
     *   **Architecture:** x86_64 / amd64.
     *   **Hardware:**
         *   Minimum: 1 vCPU, 2GB RAM (Strict check: <5GB disk space will block installation).
@@ -39,12 +39,14 @@ The script now enforces strict resource checks to prevent stability issues.
     *   Firewall (UFW) & Fail2Ban configured out-of-the-box.
     *   **Auto-Security Updates:** Unattended upgrades enabled for the OS.
     *   Kernel hardening and network stack tuning (BBR enabled).
-*   **Adaptive Performance (V9.1):**
+*   **Adaptive Performance (V9.2):**
     *   **Smart Swap:** Dynamic swap size allocation based on RAM.
     *   **ZRAM:** Automatic memory compression for low-spec VMs (<2GB RAM).
+    *   **Parallel Updates:** Docker image updates are parallelized based on system profile.
     *   **Docker Optimization:** Global log rotation to prevent disk saturation.
 *   **Reliability:**
     *   **Self-Healing Watchdog:** Auto-restarts critical services (Nginx/DB) if they crash.
+    *   **Robust Error Handling:** Strict mode enabled (`set -euo pipefail`) to fail fast on errors.
 *   **Centralized Management:**
     *   Single Dashboard.
     *   Unified Database (MariaDB).
@@ -166,7 +168,7 @@ Backups include the database and configuration files.
 
 # Cylae Server Manager (CSM) [Français]
 
-![Version](https://img.shields.io/badge/Version-9.1-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
+![Version](https://img.shields.io/badge/Version-9.2-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
 
 Une solution professionnelle "clé en main" pour déployer une infrastructure auto-hébergée sur Debian ou Ubuntu. Conçue pour une stabilité absolue, une sécurité renforcée et une facilité d'utilisation.
 
@@ -185,7 +187,7 @@ sudo apt update && sudo apt install -y git && cd /opt && sudo git clone https://
 Le script impose désormais des vérifications strictes pour garantir la stabilité.
 
 1.  **Un Serveur Frais :**
-    *   **OS :** Debian 11/12 ou Ubuntu 20.04/22.04/24.04.
+    *   **OS :** Debian 11/12 (Recommandé) ou Ubuntu 20.04/22.04/24.04.
     *   **Architecture :** x86_64 / amd64.
     *   **Matériel :**
         *   Minimum : 1 vCPU, 2 Go RAM (Vérification stricte : <5 Go d'espace disque bloquera l'installation).
@@ -205,12 +207,14 @@ Le script impose désormais des vérifications strictes pour garantir la stabili
     *   Pare-feu (UFW) & Fail2Ban configurés dès le départ.
     *   **Mises à jour de Sécurité Auto :** Unattended upgrades activé pour l'OS.
     *   Durcissement du noyau et optimisation de la pile réseau (BBR activé).
-*   **Performance Adaptative (V9.1) :**
+*   **Performance Adaptative (V9.2) :**
     *   **Smart Swap :** Taille du Swap dynamique selon la RAM.
     *   **ZRAM :** Compression mémoire automatique pour les petites VM (<2Go RAM).
+    *   **Mises à jour Parallèles :** Les mises à jour d'images Docker sont parallélisées selon le profil système.
     *   **Optimisation Docker :** Rotation des logs globale pour éviter la saturation disque.
 *   **Fiabilité :**
     *   **Watchdog Auto-Réparateur :** Redémarre automatiquement les services critiques (Nginx/DB) en cas de crash.
+    *   **Gestion d'Erreur Robuste :** Mode strict activé (`set -euo pipefail`) pour échouer rapidement en cas d'erreur.
 *   **Gestion Centralisée :**
     *   Tableau de bord unique.
     *   Base de données unifiée (MariaDB).
