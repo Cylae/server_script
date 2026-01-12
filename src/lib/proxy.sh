@@ -49,11 +49,16 @@ server {
     # However, to be optimal, we should enforce HSTS on HTTP to redirect.
 
     # Dynamic body size: 10G for cloud, 512M for others
+EOF
+
+    # Calculate Body Size outside heredoc
     if [[ "$sub" == *"cloud"* ]]; then
-        client_max_body_size 10G;
+        echo "    client_max_body_size 10G;" >> "/etc/nginx/sites-available/$sub"
     else
-        client_max_body_size 512M;
+        echo "    client_max_body_size 512M;" >> "/etc/nginx/sites-available/$sub"
     fi
+
+    cat <<EOF >> "/etc/nginx/sites-available/$sub"
     client_body_buffer_size 512k;
 
     $SEC_HEADERS
