@@ -13,6 +13,18 @@ set -e
 # PRE-FLIGHT CHECKS & ROOT ESCALATION
 # ------------------------------------------------------------------------------
 
+# 0. Help Argument
+if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
+    echo "Cylae Server Manager - Installer"
+    echo "Usage: ./install.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help    Show this help message"
+    echo ""
+    echo "For more info, see README.md"
+    exit 0
+fi
+
 # 1. Root Check & Escalation
 if [ "$EUID" -ne 0 ]; then
     echo "This script requires root privileges."

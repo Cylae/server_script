@@ -6,46 +6,49 @@ manage_netdata() {
     local sub="netdata.$DOMAIN"
 
     if [ "$1" == "install" ]; then
-        msg "Installing Netdata..."
-        mkdir -p "/opt/$name"
-        # Using bind mounts to ensure we can back them up
-        mkdir -p "/opt/$name/config" "/opt/$name/lib" "/opt/$name/cache"
-
         # Check port conflict first
         check_port_conflict "19999" "Netdata"
 
-        # We run this one manually as it requires many host mounts
-        # Ideally this should be a compose file too for consistency, but arguments are complex.
-        # Let's keep it 'run' for now but handle it better.
+        CONTENT=$(cat <<EOF
+services:
+  netdata:
+    image: netdata/netdata
+    container_name: netdata
+    pid: host
+    network_mode: host
+    restart: unless-stopped
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - ./config:/etc/netdata
+      - ./lib:/var/lib/netdata
+      - ./cache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NETDATA_CLAIM_TOKEN=
+      - NETDATA_CLAIM_URL=
+      - NETDATA_CLAIM_ROOMS=
+EOF
+)
+        # Note: Netdata runs on host network, so port "19999" is on host.
+        # deploy_docker_service handles nginx config.
+        # But `deploy_docker_service` uses `docker compose up`.
+        # Netdata running in `network_mode: host` doesn't use the 'server-net' network.
+        # This is fine.
 
-        if docker ps -a --format '{{.Names}}' | grep -q "^netdata$"; then
-             docker rm -f netdata || true
-        fi
+        # However, `deploy_docker_service` calls `update_nginx`.
+        # `update_nginx` needs a port.
+        deploy_docker_service "$name" "Netdata" "$sub" "19999" "$CONTENT"
 
-        docker run -d --name=netdata --pid=host --network=$DOCKER_NET -p 127.0.0.1:19999:19999 \
-          -v "/opt/$name/config:/etc/netdata" \
-          -v "/opt/$name/lib:/var/lib/netdata" \
-          -v "/opt/$name/cache:/var/cache/netdata" \
-          -v /etc/passwd:/host/etc/passwd:ro -v /etc/group:/host/etc/group:ro -v /proc:/host/proc:ro \
-          -v /sys:/host/sys:ro -v /etc/os-release:/host/etc/os-release:ro -v /var/run/docker.sock:/var/run/docker.sock \
-          --restart always --cap-add SYS_PTRACE --security-opt apparmor=unconfined netdata/netdata
-
-        update_nginx "$sub" "19999" "proxy"
-        success "Netdata Installed"
     elif [ "$1" == "remove" ]; then
-        msg "Removing Netdata..."
-        docker stop netdata >/dev/null 2>&1 || true
-        docker rm netdata >/dev/null 2>&1 || true
-
-        ask "Do you want to PERMANENTLY DELETE data for Netdata? (y/n):" confirm_delete
-        if [[ "$confirm_delete" == "y" ]]; then
-            rm -rf "/opt/$name"
-            warn "Data directory /opt/$name deleted."
-        else
-            warn "Data directory /opt/$name PRESERVED."
-        fi
-
-        rm -f "/etc/nginx/sites-enabled/$sub"
-        success "Netdata Removed"
+        remove_docker_service "$name" "Netdata" "$sub"
     fi
 }

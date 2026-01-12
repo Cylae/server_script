@@ -78,16 +78,16 @@ show_credentials() {
         echo -e "${CYAN}--- Database ---${NC}" >&3
         grep "mysql_root_password" $AUTH_FILE | while read -r line; do
              echo "DB Root: ${line#*=}" >&3
-        done
+        done || true
         grep "_db_pass" $AUTH_FILE | while read -r line; do
              local svc=$(echo "$line" | cut -d_ -f1)
              echo "$svc DB: ${line#*=}" >&3
-        done
+        done || true
 
         echo -e "\n${CYAN}--- Services ---${NC}" >&3
         grep -v "mysql_root_password" $AUTH_FILE | grep -v "_db_pass" | while read -r line; do
              echo "${line%%=*}: ${line#*=}" >&3
-        done
+        done || true
     else
         echo "No credentials found." >&3
     fi
@@ -128,6 +128,8 @@ show_menu() {
     echo -e "-----------------------------------------------------------------" >&3
     echo -e " s. System Update" >&3
     echo -e " b. Backup Data" >&3
+    echo -e " x. Restore from Backup" >&3
+    echo -e " k. Health Check" >&3
     echo -e " r. Refresh Infrastructure (Nginx/SSL)" >&3
     echo -e " t. Tune System (Profile)" >&3
     echo -e " d. DNS Records Info" >&3
@@ -164,6 +166,8 @@ run_main() {
 
             s) system_update ;;
             b) manage_backup ;;
+            x) manage_restore ;;
+            k) health_check ;;
             r) sync_infrastructure ;;
             t) tune_system ;;
             d) show_dns_records ;;

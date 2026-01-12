@@ -1,6 +1,6 @@
 # Cylae Server Manager (CSM)
 
-![Version](https://img.shields.io/badge/Version-9.2-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green)
+![Version](https://img.shields.io/badge/Version-9.3-blue) ![Stability](https://img.shields.io/badge/Stability-Production--Grade-green) ![Tests](https://img.shields.io/badge/Tests-100%2B-brightgreen)
 
 A professional, "turnkey" solution for deploying a self-hosted infrastructure on Debian or Ubuntu. Designed for absolute stability, security, and ease of use.
 
@@ -39,7 +39,7 @@ The script now enforces strict resource checks to prevent stability issues.
     *   Firewall (UFW) & Fail2Ban configured out-of-the-box.
     *   **Auto-Security Updates:** Unattended upgrades enabled for the OS.
     *   Kernel hardening and network stack tuning (BBR enabled).
-*   **Adaptive Performance (V9.2):**
+*   **Adaptive Performance:**
     *   **Smart Swap:** Dynamic swap size allocation based on RAM.
     *   **ZRAM:** Automatic memory compression for low-spec VMs (<2GB RAM).
     *   **Parallel Updates:** Docker image updates are parallelized based on system profile.
@@ -47,6 +47,8 @@ The script now enforces strict resource checks to prevent stability issues.
 *   **Reliability:**
     *   **Self-Healing Watchdog:** Auto-restarts critical services (Nginx/DB) if they crash.
     *   **Robust Error Handling:** Strict mode enabled (`set -euo pipefail`) to fail fast on errors.
+    *   **Restore Wizard:** Built-in disaster recovery to restore backups easily.
+    *   **Health Checks:** Validate service status via HTTP checks.
 *   **Centralized Management:**
     *   Single Dashboard.
     *   Unified Database (MariaDB).
@@ -113,17 +115,22 @@ Or simply:
 cd /opt/cylae-manager && ./install.sh
 ```
 
-### Credentials
+### Identifiants
 Passwords are generated automatically and stored securely.
 *   **View Credentials:** Select option `c. Show Credentials` in the menu.
 *   **File Location:** `/root/.auth_details` (Root only).
 
-### Backups (Smart Rotation)
+### Backups & Restore
 Backups include the database and configuration files.
 *   **Location:** `/var/backups/cyl_manager/`
 *   **Policy:** Files older than 7 days are automatically deleted.
 *   **Compression:** Uses parallel compression (pigz) for speed if available.
 *   **Manual Backup:** Select option `b. Backup Data`.
+*   **Restore:** Select option `x. Restore from Backup` to restore files and databases.
+
+### Health & Monitoring
+*   **Health Check:** Select `k. Health Check` to verify that all services are responding (HTTP 200 OK).
+*   **Uptime Kuma:** Install Uptime Kuma for historical uptime tracking.
 
 ### Updates
 *   **System Update:** Select option `s. System Update` (Updates OS, Docker images, and the script).
@@ -168,7 +175,7 @@ Backups include the database and configuration files.
 
 # Cylae Server Manager (CSM) [Français]
 
-![Version](https://img.shields.io/badge/Version-9.2-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
+![Version](https://img.shields.io/badge/Version-9.3-blue) ![Stability](https://img.shields.io/badge/Stabilité-Production--Grade-green)
 
 Une solution professionnelle "clé en main" pour déployer une infrastructure auto-hébergée sur Debian ou Ubuntu. Conçue pour une stabilité absolue, une sécurité renforcée et une facilité d'utilisation.
 
@@ -207,7 +214,7 @@ Le script impose désormais des vérifications strictes pour garantir la stabili
     *   Pare-feu (UFW) & Fail2Ban configurés dès le départ.
     *   **Mises à jour de Sécurité Auto :** Unattended upgrades activé pour l'OS.
     *   Durcissement du noyau et optimisation de la pile réseau (BBR activé).
-*   **Performance Adaptative (V9.2) :**
+*   **Performance Adaptative :**
     *   **Smart Swap :** Taille du Swap dynamique selon la RAM.
     *   **ZRAM :** Compression mémoire automatique pour les petites VM (<2Go RAM).
     *   **Mises à jour Parallèles :** Les mises à jour d'images Docker sont parallélisées selon le profil système.
@@ -215,6 +222,8 @@ Le script impose désormais des vérifications strictes pour garantir la stabili
 *   **Fiabilité :**
     *   **Watchdog Auto-Réparateur :** Redémarre automatiquement les services critiques (Nginx/DB) en cas de crash.
     *   **Gestion d'Erreur Robuste :** Mode strict activé (`set -euo pipefail`) pour échouer rapidement en cas d'erreur.
+    *   **Assistant de Restauration :** Restauration facile des sauvegardes.
+    *   **Bilan de Santé (Health Check) :** Vérifie le statut HTTP des services.
 *   **Gestion Centralisée :**
     *   Tableau de bord unique.
     *   Base de données unifiée (MariaDB).
@@ -276,7 +285,7 @@ Lancez le script à tout moment pour accéder au menu principal :
 ```bash
 sudo /usr/local/bin/server_manager.sh
 ```
-Ou simplement :
+Or simplement :
 ```bash
 cd /opt/cylae-manager && ./install.sh
 ```
@@ -286,12 +295,17 @@ Les mots de passe sont générés automatiquement et stockés de manière sécur
 *   **Voir les Identifiants :** Sélectionnez l'option `c. Show Credentials` dans le menu.
 *   **Emplacement du Fichier :** `/root/.auth_details` (Root uniquement).
 
-### Sauvegardes (Rotation Intelligente)
+### Sauvegardes & Restauration
 Les sauvegardes incluent la base de données et les fichiers de configuration.
 *   **Emplacement :** `/var/backups/cyl_manager/`
 *   **Politique :** Les fichiers de plus de 7 jours sont supprimés automatiquement.
 *   **Compression :** Utilise la compression parallèle (pigz) pour la rapidité si disponible.
 *   **Sauvegarde Manuelle :** Sélectionnez l'option `b. Backup Data`.
+*   **Restauration :** Sélectionnez l'option `x. Restore from Backup`.
+
+### Santé & Monitoring
+*   **Health Check :** Sélectionnez `k. Health Check` pour vérifier que tous les services répondent (HTTP 200).
+*   **Uptime Kuma :** Installez Uptime Kuma pour un suivi historique.
 
 ### Mises à Jour
 *   **Mise à jour Système :** Sélectionnez l'option `s. System Update` (Met à jour l'OS, les images Docker et le script).

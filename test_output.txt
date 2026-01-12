@@ -1,0 +1,22 @@
+==========================================
+RUNNING COMPREHENSIVE TEST SUITE
+==========================================
+--- Config & Auth ---
+PASS: Validate Password (Short)
+PASS: Validate Password (OK)
+PASS: Save Credential
+PASS: Get Auth Value
+PASS: Update Credential
+PASS: Get Missing Credential
+--- Profiling ---
+PASS: Profile Low (2GB)
+PASS: Profile High (4GB)
+PASS: Profile Low (3799MB)
+PASS: Profile High (3800MB)
+--- Swap Calculation ---
+PASS: Swap: 1GB RAM / 6GB Disk
+PASS: Swap: 1GB RAM / 90GB Disk
+PASS: Swap: 4GB RAM / 90GB Disk
+PASS: Swap: 16GB RAM / 90GB Disk
+--- Docker Helpers ---
+PASS: Port Check Clean
