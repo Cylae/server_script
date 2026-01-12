@@ -46,6 +46,12 @@ show_dns_records() {
     echo -e "CNAME | www                  | $DOMAIN" >&3
     echo -e "CNAME | admin                | $DOMAIN" >&3
 
+    # Bolt: Cache docker containers to avoid multiple calls
+    local running_containers=""
+    if command -v docker >/dev/null 2>&1; then
+        running_containers=$(docker ps --format '{{.Names}}')
+    fi
+
     if [ -d "/opt/gitea" ]; then echo -e "CNAME | git                  | $DOMAIN" >&3; fi
     if [ -d "/opt/nextcloud" ]; then echo -e "CNAME | cloud                | $DOMAIN" >&3; fi
     if [ -d "/opt/mail" ]; then echo -e "CNAME | mail                 | $DOMAIN" >&3; fi
@@ -54,8 +60,8 @@ show_dns_records() {
     if [ -d "/opt/uptimekuma" ]; then echo -e "CNAME | status               | $DOMAIN" >&3; fi
     if [ -d "/opt/wireguard" ]; then echo -e "CNAME | vpn                  | $DOMAIN" >&3; fi
     if [ -d "/opt/filebrowser" ]; then echo -e "CNAME | files                | $DOMAIN" >&3; fi
-    if docker ps --format '{{.Names}}' | grep -q "^portainer"; then echo -e "CNAME | portainer            | $DOMAIN" >&3; fi
-    if docker ps --format '{{.Names}}' | grep -q "^netdata"; then echo -e "CNAME | netdata              | $DOMAIN" >&3; fi
+    if echo "$running_containers" | grep -q "^portainer"; then echo -e "CNAME | portainer            | $DOMAIN" >&3; fi
+    if echo "$running_containers" | grep -q "^netdata"; then echo -e "CNAME | netdata              | $DOMAIN" >&3; fi
     if [ -d "/opt/glpi" ]; then echo -e "CNAME | support              | $DOMAIN" >&3; fi
 
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
@@ -105,12 +111,18 @@ show_menu() {
     echo -e "Domain: ${CYAN}$DOMAIN${NC} | IP: ${CYAN}$(ip -4 route get 1 | awk '{print $7}')${NC}" >&3
     echo -e "-----------------------------------------------------------------" >&3
 
+    # Bolt: Cache docker containers to avoid multiple calls (100ms+ per call)
+    local running_containers=""
+    if command -v docker >/dev/null 2>&1; then
+        running_containers=$(docker ps --format '{{.Names}}')
+    fi
+
     # Status Check Helper
     p_status() {
         if [ -d "/opt/$1" ]; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
     }
     d_status() {
-        if docker ps --format '{{.Names}}' | grep -q "^$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+        if echo "$running_containers" | grep -q "^$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
     }
 
     echo -e " 1. Manage Gitea           [$(p_status gitea)]" >&3
