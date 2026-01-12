@@ -24,7 +24,6 @@ manage_glpi() {
 
         # We use diouxx/glpi for simplicity
         CONTENT=$(cat <<EOF
-version: '3'
 services:
   glpi:
     image: diouxx/glpi:latest

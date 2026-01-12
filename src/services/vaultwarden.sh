@@ -9,7 +9,6 @@ manage_vaultwarden() {
         # Vaultwarden doesn't use external DB in this config, so no password prompt needed for DB.
 
         CONTENT=$(cat <<EOF
-version: '3'
 services:
   vaultwarden:
     image: vaultwarden/server:latest

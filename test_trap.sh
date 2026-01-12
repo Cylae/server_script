@@ -1,10 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-func() {
-    local myvar="hello"
-    trap 'echo "Cleaning $myvar"' RETURN
-    echo "Inside func"
+func_a() {
+  local myvar="A_VAR"
+  # Use double quotes to bake the value in, like in the real code
+  trap "echo returning A with $myvar" RETURN
 }
 
-func
+func_b() {
+  func_a
+  echo "inside B"
+}
+
+echo "Calling B"
+func_b
+echo "Finished B"

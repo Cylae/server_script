@@ -17,7 +17,6 @@ manage_mail() {
         fi
 
         CONTENT=$(cat <<EOF
-version: '3'
 services:
   mailserver:
     image: mailserver/docker-mailserver:latest

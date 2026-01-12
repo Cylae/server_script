@@ -16,7 +16,6 @@ manage_portainer() {
         fi
 
         CONTENT=$(cat <<EOF
-version: '2'
 services:
   portainer:
     image: portainer/portainer-ce
