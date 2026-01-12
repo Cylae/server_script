@@ -19,7 +19,7 @@ check_resources() {
     if [ -z "$FREE_DISK" ]; then
         warn "Could not detect disk space. Skipping check."
     elif [ "$FREE_DISK" -lt 5 ]; then
-        fatal "Insufficient Disk Space. Free: ${FREE_DISK}GB. Required: 5GB+"
+        warn "Low Disk Space. Free: ${FREE_DISK}GB. Recommended: 5GB+"
     fi
 }
 
