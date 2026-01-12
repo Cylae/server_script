@@ -111,8 +111,9 @@ echo "--- Config & Auth ---"
 validate_password "1234567" >/dev/null && res="0" || res="1"
 assert_eq "Validate Password (Short)" "1" "$res"
 
-# Test 2: Validate Password OK
-validate_password "12345678" >/dev/null && res="0" || res="1"
+# Test 2: Validate Password OK (Should Fail because default validation requires Upper/Lower/Digit)
+# The mock function in test env is strict. Let's fix the test input to be valid.
+validate_password "Pass1234" >/dev/null && res="0" || res="1"
 assert_eq "Validate Password (OK)" "0" "$res"
 
 # Test 3: Save Credential
@@ -176,6 +177,8 @@ df() {
     echo "Filesystem 1M-blocks Used Available Use% Mounted on"
     echo "/dev/sda1 10000 3000 6000 30% /" # 6GB Free
 }
+# calculate_swap_size uses df -BM which outputs M suffix, need to handle that in mock or adapt expectation
+# Our mock returns raw numbers. The function might strip 'M'.
 swap=$(calculate_swap_size)
 assert_eq "Swap: 1GB RAM / 6GB Disk" "1024" "$swap"
 
@@ -279,7 +282,7 @@ echo "--- Stress Tests ---"
 
 # We run a loop of password validations to ensure stability
 for i in {1..82}; do
-    validate_password "pass${i}word" >/dev/null
+    validate_password "Pass${i}word1" >/dev/null
     res=$?
     assert_eq "Stress Pass Validation $i" "0" "$res"
 done

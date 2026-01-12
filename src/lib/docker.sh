@@ -8,6 +8,20 @@ set -euo pipefail
 
 DOCKER_NET="server-net"
 
+# Check if a service is installed (Container running or Directory exists)
+is_installed() {
+    local name=$1
+    # Check if docker container is running
+    if docker ps --format '{{.Names}}' | grep -q "^$name"; then
+        return 0
+    fi
+    # Fallback to directory check if service might be stopped but installed
+    if [ -d "/opt/$name" ] && [ -f "/opt/$name/docker-compose.yml" ]; then
+        return 0
+    fi
+    return 1
+}
+
 init_docker() {
     if ! command -v docker &> /dev/null; then
         msg "Installing Docker..."

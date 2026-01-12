@@ -105,20 +105,6 @@ show_menu() {
     echo -e "Domain: ${CYAN}$DOMAIN${NC} | IP: ${CYAN}$(ip -4 route get 1 | awk '{print $7}')${NC}" >&3
     echo -e "-----------------------------------------------------------------" >&3
 
-    # Status Check Helper
-    is_installed() {
-        local name=$1
-        # Check if docker container is running
-        if docker ps --format '{{.Names}}' | grep -q "^$name"; then
-            return 0
-        fi
-        # Fallback to directory check if service might be stopped but installed
-        if [ -d "/opt/$name" ] && [ -f "/opt/$name/docker-compose.yml" ]; then
-            return 0
-        fi
-        return 1
-    }
-
     status_str() {
         if is_installed "$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
     }

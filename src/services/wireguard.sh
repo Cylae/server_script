@@ -17,7 +17,12 @@ manage_wireguard() {
              WGPASS=$(get_or_create_password "wg_pass")
         fi
 
-        local host_ip=$(curl -s https://api.ipify.org)
+        # Use local routing IP as fallback if curl fails, or prefer it if we want internal IP
+        # But for WireGuard we usually want Public IP.
+        # However, relying on curl inside install script which might run in restricted env is risky.
+        # We will try curl, fallback to ip route.
+        local host_ip
+        host_ip=$(curl -s --connect-timeout 5 https://api.ipify.org || ip -4 route get 1 | awk '{print $7}')
 
         CONTENT=$(cat <<EOF
 services:
