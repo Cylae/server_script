@@ -25,7 +25,6 @@ manage_yourls() {
 
         # NOTE: Mapping /var/www/html to local 'data' dir to persist plugins/config
         CONTENT=$(cat <<EOF
-version: '3'
 services:
   yourls:
     image: yourls:latest

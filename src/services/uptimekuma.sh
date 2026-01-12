@@ -8,7 +8,6 @@ manage_uptimekuma() {
         msg "Installing Uptime Kuma..."
 
         CONTENT=$(cat <<EOF
-version: '3'
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:1

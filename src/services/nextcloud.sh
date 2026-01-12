@@ -23,7 +23,6 @@ manage_nextcloud() {
         local host_ip=$(docker network inspect $DOCKER_NET | jq -r '.[0].IPAM.Config[0].Gateway')
 
         CONTENT=$(cat <<EOF
-version: '2'
 services:
   redis:
     image: redis:alpine

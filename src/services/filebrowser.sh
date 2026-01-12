@@ -11,7 +11,6 @@ manage_filebrowser() {
         echo '{"port": 80, "baseURL": "", "address": "", "log": "stdout", "database": "/database.db", "root": "/srv"}' > /opt/$name/settings.json
 
         CONTENT=$(cat <<EOF
-version: '3'
 services:
   filebrowser:
     image: filebrowser/filebrowser
