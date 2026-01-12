@@ -106,25 +106,35 @@ show_menu() {
     echo -e "-----------------------------------------------------------------" >&3
 
     # Status Check Helper
-    p_status() {
-        if [ -d "/opt/$1" ]; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
-    }
-    d_status() {
-        if docker ps --format '{{.Names}}' | grep -q "^$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+    is_installed() {
+        local name=$1
+        # Check if docker container is running
+        if docker ps --format '{{.Names}}' | grep -q "^$name"; then
+            return 0
+        fi
+        # Fallback to directory check if service might be stopped but installed
+        if [ -d "/opt/$name" ] && [ -f "/opt/$name/docker-compose.yml" ]; then
+            return 0
+        fi
+        return 1
     }
 
-    echo -e " 1. Manage Gitea           [$(p_status gitea)]" >&3
-    echo -e " 2. Manage Nextcloud       [$(p_status nextcloud)]" >&3
-    echo -e " 3. Manage Portainer       [$(d_status portainer)]" >&3
-    echo -e " 4. Manage Netdata         [$(d_status netdata)]" >&3
-    echo -e " 5. Manage Mail Server     [$(p_status mail)]" >&3
-    echo -e " 6. Manage YOURLS          [$(p_status yourls)]" >&3
+    status_str() {
+        if is_installed "$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+    }
+
+    echo -e " 1. Manage Gitea           [$(status_str gitea)]" >&3
+    echo -e " 2. Manage Nextcloud       [$(status_str nextcloud)]" >&3
+    echo -e " 3. Manage Portainer       [$(status_str portainer)]" >&3
+    echo -e " 4. Manage Netdata         [$(status_str netdata)]" >&3
+    echo -e " 5. Manage Mail Server     [$(status_str mail)]" >&3
+    echo -e " 6. Manage YOURLS          [$(status_str yourls)]" >&3
     echo -e " 7. Manage FTP             [$(if command -v vsftpd >/dev/null; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi)]" >&3
-    echo -e " 8. Manage Vaultwarden     [$(p_status vaultwarden)]" >&3
-    echo -e " 9. Manage Uptime Kuma     [$(p_status uptimekuma)]" >&3
-    echo -e "10. Manage WireGuard       [$(p_status wireguard)]" >&3
-    echo -e "11. Manage FileBrowser     [$(p_status filebrowser)]" >&3
-    echo -e "12. Manage GLPI (Ticket)   [$(p_status glpi)]" >&3
+    echo -e " 8. Manage Vaultwarden     [$(status_str vaultwarden)]" >&3
+    echo -e " 9. Manage Uptime Kuma     [$(status_str uptimekuma)]" >&3
+    echo -e "10. Manage WireGuard       [$(status_str wireguard)]" >&3
+    echo -e "11. Manage FileBrowser     [$(status_str filebrowser)]" >&3
+    echo -e "12. Manage GLPI (Ticket)   [$(status_str glpi)]" >&3
     echo -e "-----------------------------------------------------------------" >&3
     echo -e " s. System Update" >&3
     echo -e " b. Backup Data" >&3
@@ -151,18 +161,18 @@ run_main() {
         ask "Select >" choice
 
         case $choice in
-            1) [ -d "/opt/gitea" ] && manage_gitea "remove" || manage_gitea "install" ;;
-            2) [ -d "/opt/nextcloud" ] && manage_nextcloud "remove" || manage_nextcloud "install" ;;
-            3) docker ps --format '{{.Names}}' | grep -q "^portainer" && manage_portainer "remove" || manage_portainer "install" ;;
-            4) docker ps --format '{{.Names}}' | grep -q "^netdata" && manage_netdata "remove" || manage_netdata "install" ;;
-            5) [ -d "/opt/mail" ] && manage_mail "remove" || manage_mail "install" ;;
-            6) [ -d "/opt/yourls" ] && manage_yourls "remove" || manage_yourls "install" ;;
+            1) is_installed "gitea" && manage_gitea "remove" || manage_gitea "install" ;;
+            2) is_installed "nextcloud" && manage_nextcloud "remove" || manage_nextcloud "install" ;;
+            3) is_installed "portainer" && manage_portainer "remove" || manage_portainer "install" ;;
+            4) is_installed "netdata" && manage_netdata "remove" || manage_netdata "install" ;;
+            5) is_installed "mail" && manage_mail "remove" || manage_mail "install" ;;
+            6) is_installed "yourls" && manage_yourls "remove" || manage_yourls "install" ;;
             7) command -v vsftpd &>/dev/null && manage_ftp "remove" || manage_ftp "install" ;;
-            8) [ -d "/opt/vaultwarden" ] && manage_vaultwarden "remove" || manage_vaultwarden "install" ;;
-            9) [ -d "/opt/uptimekuma" ] && manage_uptimekuma "remove" || manage_uptimekuma "install" ;;
-            10) [ -d "/opt/wireguard" ] && manage_wireguard "remove" || manage_wireguard "install" ;;
-            11) [ -d "/opt/filebrowser" ] && manage_filebrowser "remove" || manage_filebrowser "install" ;;
-            12) [ -d "/opt/glpi" ] && manage_glpi "remove" || manage_glpi "install" ;;
+            8) is_installed "vaultwarden" && manage_vaultwarden "remove" || manage_vaultwarden "install" ;;
+            9) is_installed "uptimekuma" && manage_uptimekuma "remove" || manage_uptimekuma "install" ;;
+            10) is_installed "wireguard" && manage_wireguard "remove" || manage_wireguard "install" ;;
+            11) is_installed "filebrowser" && manage_filebrowser "remove" || manage_filebrowser "install" ;;
+            12) is_installed "glpi" && manage_glpi "remove" || manage_glpi "install" ;;
 
             s) system_update ;;
             b) manage_backup ;;

@@ -121,7 +121,8 @@ change_ssh_port() {
     ask "Do you want to change the default SSH port (22)? [y/N]:" change_port
     if [[ "$change_port" =~ ^[Yy]$ ]]; then
         ask "Enter new SSH Port (e.g., 2222):" SSH_PORT
-        if [[ "$SSH_PORT" =~ ^[0-9]+$ ]]; then
+        # Strict numeric validation to prevent injection
+        if [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && [ "$SSH_PORT" -gt 0 ] && [ "$SSH_PORT" -lt 65536 ]; then
             sed -i "s/^Port .*/Port $SSH_PORT/" /etc/ssh/sshd_config
             if ! grep -q "^Port" /etc/ssh/sshd_config; then
                 echo "Port $SSH_PORT" >> /etc/ssh/sshd_config

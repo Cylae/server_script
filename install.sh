@@ -39,7 +39,8 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 2. Setup Logging (Safe now that we are root)
-LOG_FILE="/var/log/server_manager.log"
+LOG_DIR="${LOG_DIR:-/var/log}"
+LOG_FILE="$LOG_DIR/server_manager.log"
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE"
     chmod 600 "$LOG_FILE"
