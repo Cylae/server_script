@@ -50,9 +50,21 @@ load_config() {
 
 validate_password() {
     local pass="$1"
-    # Basic complexity: length >= 8
+    # Complexity: length >= 8, uppercase, lowercase, digit
     if [ ${#pass} -lt 8 ]; then
         warn "Password is too short (min 8 chars)."
+        return 1
+    fi
+    if ! [[ "$pass" =~ [A-Z] ]]; then
+        warn "Password must contain at least one uppercase letter."
+        return 1
+    fi
+    if ! [[ "$pass" =~ [a-z] ]]; then
+        warn "Password must contain at least one lowercase letter."
+        return 1
+    fi
+    if ! [[ "$pass" =~ [0-9] ]]; then
+        warn "Password must contain at least one digit."
         return 1
     fi
     return 0

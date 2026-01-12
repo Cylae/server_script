@@ -94,8 +94,8 @@ init_system() {
         echo '/swapfile none swap sw 0 0' >> /etc/fstab
     fi
 
-    if ! grep -q "CYLAE OPTIMIZED NETWORK STACK" /etc/sysctl.conf; then
-        cat <<EOF >> /etc/sysctl.conf
+    # Use dedicated file for sysctl settings for idempotency and cleanliness
+    cat <<EOF > /etc/sysctl.d/99-cylae-network.conf
 # ------------------------------------------------------------------------------
 # CYLAE OPTIMIZED NETWORK STACK
 # ------------------------------------------------------------------------------
@@ -113,8 +113,7 @@ net.core.netdev_max_backlog=16384
 fs.file-max=100000
 # ------------------------------------------------------------------------------
 EOF
-        sysctl -p >/dev/null
-    fi
+    sysctl --system >/dev/null
 
     # 3. DNS Optimization
     if [ -f /etc/systemd/resolved.conf ]; then

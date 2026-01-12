@@ -91,9 +91,16 @@ manage_restore() {
             msg "Restarting Services..."
             systemctl restart nginx || true
             systemctl restart mariadb || true
-            if docker ps >/dev/null 2>&1; then
-                # Restart all containers
-                docker ps -q | xargs -r docker restart
+
+            # Restore Docker Containers (Recreate them)
+            # Iterate through opt directories and run docker compose up
+            if [ -d "/opt" ]; then
+                for d in /opt/*; do
+                    if [ -f "$d/docker-compose.yml" ]; then
+                        msg "Restoring container $(basename "$d")..."
+                        (cd "$d" && docker compose up -d) || warn "Failed to start $(basename "$d")"
+                    fi
+                done
             fi
 
             success "Restore Complete!"

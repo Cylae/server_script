@@ -106,6 +106,7 @@ remove_docker_service() {
     fi
 
     rm -f "/etc/nginx/sites-enabled/$subdomain"
+    rm -f "/etc/nginx/sites-available/$subdomain"
     if [ -n "$port" ]; then
         ufw delete allow "$port" >/dev/null 2>&1 || true
     fi
