@@ -128,6 +128,8 @@ show_menu() {
     echo -e "-----------------------------------------------------------------" >&3
     echo -e " s. System Update" >&3
     echo -e " b. Backup Data" >&3
+    echo -e " x. Restore from Backup" >&3
+    echo -e " k. Health Check" >&3
     echo -e " r. Refresh Infrastructure (Nginx/SSL)" >&3
     echo -e " t. Tune System (Profile)" >&3
     echo -e " d. DNS Records Info" >&3
@@ -164,6 +166,8 @@ run_main() {
 
             s) system_update ;;
             b) manage_backup ;;
+            x) manage_restore ;;
+            k) health_check ;;
             r) sync_infrastructure ;;
             t) tune_system ;;
             d) show_dns_records ;;

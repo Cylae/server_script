@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ==============================================================================
 # UTILS MODULE
-# General utilities (Backup, System Tuning, etc)
+# General utilities (Backup, Restore, System Tuning, etc)
 # ==============================================================================
 
 manage_backup() {
@@ -39,6 +39,113 @@ manage_backup() {
     find "$BACKUP_DIR" -name "files_*.tar.gz" -type f -mtime +7 -delete 2>/dev/null || true
 
     success "Backup Complete: $TIMESTAMP"
+}
+
+manage_restore() {
+    clear >&3 || true
+    msg "SYSTEM RESTORE WIZARD"
+    warn "This will OVERWRITE current data. Recommended to backup first."
+
+    # List Backups
+    if [ ! -d "$BACKUP_DIR" ] || [ -z "$(ls -A "$BACKUP_DIR")" ]; then
+        error "No backups found in $BACKUP_DIR"
+        ask "Press Enter to return..." dummy
+        return
+    fi
+
+    echo "Available File Backups:"
+    local i=1
+    local backups=()
+    while IFS= read -r file; do
+        echo "$i) $(basename "$file")"
+        backups+=("$file")
+        ((i++))
+    done < <(find "$BACKUP_DIR" -name "files_*.tar.gz" | sort -r)
+
+    ask "Select backup to restore (Number):" choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#backups[@]}" ]; then
+        local selected_file="${backups[$((choice-1))]}"
+        local timestamp=$(basename "$selected_file" | sed 's/files_//;s/.tar.gz//')
+        local db_file="$BACKUP_DIR/db_$timestamp.sql"
+
+        ask "Are you sure you want to restore from $timestamp? (y/n):" confirm
+        if [[ "$confirm" == "y" ]]; then
+            msg "Restoring Files..."
+            tar -xf "$selected_file" -C /
+
+            if [ -f "$db_file" ]; then
+                msg "Restoring Database..."
+                if [ -z "${DB_ROOT_PASS:-}" ]; then
+                     DB_ROOT_PASS=$(get_auth_value "mysql_root_password")
+                fi
+                if [ -n "$DB_ROOT_PASS" ]; then
+                    mysql -u root --password="$DB_ROOT_PASS" < "$db_file"
+                    success "Database Restored"
+                else
+                    warn "DB Password missing, skipping DB restore."
+                fi
+            else
+                warn "Matching DB backup ($db_file) not found."
+            fi
+
+            msg "Restarting Services..."
+            systemctl restart nginx || true
+            systemctl restart mariadb || true
+            if docker ps >/dev/null 2>&1; then
+                # Restart all containers
+                docker ps -q | xargs -r docker restart
+            fi
+
+            success "Restore Complete!"
+        else
+            msg "Restore Cancelled."
+        fi
+    else
+        error "Invalid selection."
+    fi
+    ask "Press Enter to continue..." dummy
+}
+
+health_check() {
+    clear >&3 || true
+    msg "SYSTEM HEALTH CHECK"
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    echo -e "SERVICE              | STATUS      | URL" >&3
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+
+    check_url() {
+        local name=$1
+        local url=$2
+        local code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "ERR")
+        if [[ "$code" == "200" || "$code" == "302" ]]; then
+            echo -e "${name} | ${GREEN}ONLINE ($code)${NC} | $url" >&3
+        else
+            echo -e "${name} | ${RED}DOWN ($code)${NC}   | $url" >&3
+        fi
+    }
+
+    # System Services
+    if systemctl is-active --quiet nginx; then
+        echo -e "Nginx                | ${GREEN}RUNNING${NC}     | -" >&3
+    else
+        echo -e "Nginx                | ${RED}STOPPED${NC}     | -" >&3
+    fi
+
+    if systemctl is-active --quiet mariadb; then
+        echo -e "MariaDB              | ${GREEN}RUNNING${NC}     | -" >&3
+    else
+        echo -e "MariaDB              | ${RED}STOPPED${NC}     | -" >&3
+    fi
+
+    # Web Services
+    if [ -d "/opt/gitea" ]; then check_url "Gitea               " "https://git.$DOMAIN"; fi
+    if [ -d "/opt/nextcloud" ]; then check_url "Nextcloud           " "https://cloud.$DOMAIN"; fi
+    if [ -d "/opt/portainer" ] || docker ps | grep -q portainer; then check_url "Portainer           " "https://admin.$DOMAIN"; fi # Assuming admin or direct
+    if [ -d "/opt/uptimekuma" ]; then check_url "Uptime Kuma         " "https://status.$DOMAIN"; fi
+    if [ -d "/opt/netdata" ] || docker ps | grep -q netdata; then check_url "Netdata             " "https://netdata.$DOMAIN"; fi
+
+    echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
+    ask "Press Enter to continue..." dummy
 }
 
 detect_profile() {
