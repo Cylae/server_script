@@ -6,13 +6,6 @@ set -euo pipefail
 # ==============================================================================
 
 # Source all libraries
-# Assuming we are running from the root directory or src/..
-# But since this is main.sh, we expect it to be sourced by install.sh in root.
-# So relative paths should be from root.
-
-# If we are running this file directly, we need to handle paths.
-# But the plan is to have a root install.sh that sources everything.
-
 source src/lib/core.sh
 source src/lib/config.sh
 source src/lib/security.sh
@@ -21,6 +14,7 @@ source src/lib/database.sh
 source src/lib/proxy.sh
 source src/lib/utils.sh
 source src/lib/install_system.sh
+source src/lib/media.sh
 
 # Source Services
 source src/services/gitea.sh
@@ -35,6 +29,16 @@ source src/services/netdata.sh
 source src/services/portainer.sh
 source src/services/ftp.sh
 source src/services/glpi.sh
+
+# Source Media Services
+source src/services/plex.sh
+source src/services/tautulli.sh
+source src/services/jackett.sh
+source src/services/sonarr.sh
+source src/services/radarr.sh
+source src/services/prowlarr.sh
+source src/services/overseerr.sh
+source src/services/qbittorrent.sh
 
 show_dns_records() {
     local ip=$(curl -s https://api.ipify.org)
@@ -58,6 +62,16 @@ show_dns_records() {
     if docker ps --format '{{.Names}}' | grep -q "^netdata"; then echo -e "CNAME | netdata              | $DOMAIN" >&3; fi
     if [ -d "/opt/glpi" ]; then echo -e "CNAME | support              | $DOMAIN" >&3; fi
 
+    # Media Stack DNS
+    if [ -d "/opt/plex" ]; then echo -e "CNAME | plex                 | $DOMAIN" >&3; fi
+    if [ -d "/opt/tautulli" ]; then echo -e "CNAME | tautulli             | $DOMAIN" >&3; fi
+    if [ -d "/opt/jackett" ]; then echo -e "CNAME | jackett              | $DOMAIN" >&3; fi
+    if [ -d "/opt/sonarr" ]; then echo -e "CNAME | sonarr               | $DOMAIN" >&3; fi
+    if [ -d "/opt/radarr" ]; then echo -e "CNAME | radarr               | $DOMAIN" >&3; fi
+    if [ -d "/opt/prowlarr" ]; then echo -e "CNAME | prowlarr             | $DOMAIN" >&3; fi
+    if [ -d "/opt/overseerr" ]; then echo -e "CNAME | request              | $DOMAIN" >&3; fi
+    if [ -d "/opt/qbittorrent" ]; then echo -e "CNAME | qbittorrent          | $DOMAIN" >&3; fi
+
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
     echo -e "MX    | @                    | mail.$DOMAIN (Priority 10)" >&3
     echo -e "TXT   | @                    | v=spf1 mx ~all" >&3
@@ -70,11 +84,7 @@ show_credentials() {
     msg "SAVED CREDENTIALS"
     echo -e "${YELLOW}-----------------------------------------------------${NC}" >&3
 
-    # We read directly from AUTH_FILE
     if [ -f "$AUTH_FILE" ]; then
-        # Mask passwords? No, the user wants to see them.
-        # Maybe we should categorize them.
-
         echo -e "${CYAN}--- Database ---${NC}" >&3
         grep "mysql_root_password" $AUTH_FILE | while read -r line; do
              echo "DB Root: ${line#*=}" >&3
@@ -97,6 +107,62 @@ show_credentials() {
     ask "Press Enter to continue..." dummy
 }
 
+# Helper for installation status
+is_installed() {
+    local name=$1
+    if docker ps --format '{{.Names}}' | grep -q "^$name"; then
+        return 0
+    fi
+    if [ -d "/opt/$name" ] && [ -f "/opt/$name/docker-compose.yml" ]; then
+        return 0
+    fi
+    return 1
+}
+
+status_str() {
+    if is_installed "$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
+}
+
+show_media_menu() {
+    while true; do
+        clear >&3 || true
+        echo -e "${PURPLE}=================================================================${NC}" >&3
+        echo -e "${PURPLE}  MEDIA STACK MANAGER${NC}" >&3
+        echo -e "${PURPLE}=================================================================${NC}" >&3
+        echo -e " 1. Manage Plex Media Server [$(status_str plex)]" >&3
+        echo -e " 2. Manage Tautulli          [$(status_str tautulli)]" >&3
+        echo -e " 3. Manage Sonarr (TV)       [$(status_str sonarr)]" >&3
+        echo -e " 4. Manage Radarr (Movies)   [$(status_str radarr)]" >&3
+        echo -e " 5. Manage Prowlarr (Index)  [$(status_str prowlarr)]" >&3
+        echo -e " 6. Manage Jackett           [$(status_str jackett)]" >&3
+        echo -e " 7. Manage Overseerr         [$(status_str overseerr)]" >&3
+        echo -e " 8. Manage qBittorrent       [$(status_str qbittorrent)]" >&3
+        echo -e "-----------------------------------------------------------------" >&3
+        echo -e " 0. Return to Main Menu" >&3
+        echo -e "-----------------------------------------------------------------" >&3
+
+        ask "Select >" choice
+        case $choice in
+            1) manage_plex "$(is_installed "plex" && echo "remove" || echo "install")" ;;
+            2) manage_tautulli "$(is_installed "tautulli" && echo "remove" || echo "install")" ;;
+            3) manage_sonarr "$(is_installed "sonarr" && echo "remove" || echo "install")" ;;
+            4) manage_radarr "$(is_installed "radarr" && echo "remove" || echo "install")" ;;
+            5) manage_prowlarr "$(is_installed "prowlarr" && echo "remove" || echo "install")" ;;
+            6) manage_jackett "$(is_installed "jackett" && echo "remove" || echo "install")" ;;
+            7) manage_overseerr "$(is_installed "overseerr" && echo "remove" || echo "install")" ;;
+            8) manage_qbittorrent "$(is_installed "qbittorrent" && echo "remove" || echo "install")" ;;
+            0) return ;;
+            *) echo "Invalid option" >&3; sleep 1 ;;
+        esac
+
+        # Auto-sync logic for media submenu
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ne 0 ]; then
+             ask "Apply changes now (Update SSL/Nginx)? (y/n):" confirm
+             if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
+        fi
+    done
+}
+
 show_menu() {
     clear >&3 || true
     echo -e "${PURPLE}=================================================================${NC}" >&3
@@ -104,24 +170,6 @@ show_menu() {
     echo -e "${PURPLE}=================================================================${NC}" >&3
     echo -e "Domain: ${CYAN}$DOMAIN${NC} | IP: ${CYAN}$(ip -4 route get 1 | awk '{print $7}')${NC}" >&3
     echo -e "-----------------------------------------------------------------" >&3
-
-    # Status Check Helper
-    is_installed() {
-        local name=$1
-        # Check if docker container is running
-        if docker ps --format '{{.Names}}' | grep -q "^$name"; then
-            return 0
-        fi
-        # Fallback to directory check if service might be stopped but installed
-        if [ -d "/opt/$name" ] && [ -f "/opt/$name/docker-compose.yml" ]; then
-            return 0
-        fi
-        return 1
-    }
-
-    status_str() {
-        if is_installed "$1"; then echo -e "${GREEN}INSTALLED${NC}"; else echo -e "${RED}NOT INSTALLED${NC}"; fi
-    }
 
     echo -e " 1. Manage Gitea           [$(status_str gitea)]" >&3
     echo -e " 2. Manage Nextcloud       [$(status_str nextcloud)]" >&3
@@ -135,6 +183,7 @@ show_menu() {
     echo -e "10. Manage WireGuard       [$(status_str wireguard)]" >&3
     echo -e "11. Manage FileBrowser     [$(status_str filebrowser)]" >&3
     echo -e "12. Manage GLPI (Ticket)   [$(status_str glpi)]" >&3
+    echo -e "13. ${CYAN}Manage Media Stack -> ${NC}" >&3
     echo -e "-----------------------------------------------------------------" >&3
     echo -e " s. System Update" >&3
     echo -e " b. Backup Data" >&3
@@ -173,6 +222,7 @@ run_main() {
             10) is_installed "wireguard" && manage_wireguard "remove" || manage_wireguard "install" ;;
             11) is_installed "filebrowser" && manage_filebrowser "remove" || manage_filebrowser "install" ;;
             12) is_installed "glpi" && manage_glpi "remove" || manage_glpi "install" ;;
+            13) show_media_menu ;;
 
             s) system_update ;;
             b) manage_backup ;;
@@ -192,7 +242,7 @@ run_main() {
             ask "Apply changes now (Update SSL/Nginx)? (y/n):" confirm
             if [[ "$confirm" == "y" ]]; then sync_infrastructure; fi
         else
-            if [ "$choice" != "0" ]; then
+            if [ "$choice" != "13" ] && [ "$choice" != "0" ]; then
                 ask "Press Enter to continue..." dummy
             fi
         fi
