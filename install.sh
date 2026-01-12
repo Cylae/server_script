@@ -53,7 +53,7 @@ trap cleanup EXIT
 # 4. Disk Space Check
 check_disk_space() {
     local fatal_limit_mb=300  # 300MB is the absolute minimum to function (Lowered to allow repairs)
-    local warn_limit_mb=2048  # 2GB is recommended
+    local warn_limit_mb=512   # Lowered recommendation to 512MB to allow installation on small VPS
 
     # Check root partition available space in MB
     local available_mb
