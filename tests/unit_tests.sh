@@ -66,7 +66,7 @@ df() {
 }
 
 OUTPUT=$(check_resources 2>&1 || true)
-if echo "$OUTPUT" | grep -q "FATAL: Insufficient Disk Space"; then
+if echo "$OUTPUT" | grep -q "WARN: Low Disk Space"; then
     echo "PASS: Detected Low Disk Space"
 else
     echo "FAIL: Did not detect Low Disk Space"

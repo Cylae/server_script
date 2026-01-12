@@ -4,6 +4,10 @@ set -euo pipefail
 manage_yourls() {
     local name="yourls"
     local sub="x.$DOMAIN"
+    local input_pass=""
+    local pass=""
+    local temp_cnf=""
+
     if [ "$1" == "install" ]; then
         msg "Installing YOURLS..."
 
