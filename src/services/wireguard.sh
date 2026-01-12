@@ -20,7 +20,6 @@ manage_wireguard() {
         local host_ip=$(curl -s https://api.ipify.org)
 
         CONTENT=$(cat <<EOF
-version: "3.8"
 services:
   wg-easy:
     environment:
