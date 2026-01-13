@@ -97,11 +97,10 @@ networks:
 
         msg("Initializing Mail User...")
         import time
-        timeout = 300
         count = 0
         initialized = False
         print("Waiting for mailserver to be ready...", end="", flush=True)
-        while count < timeout:
+        while True:
             # Check if container crashed
             res_status = subprocess.run("docker inspect -f '{{.State.Running}}' mailserver", shell=True, capture_output=True, text=True)
             if res_status.returncode == 0 and res_status.stdout.strip() == "false":
@@ -119,10 +118,6 @@ networks:
             if count % 10 == 0:
                 print(".", end="", flush=True)
         print("") # Newline
-
-        if not initialized:
-            logs = subprocess.run("docker logs mailserver --tail 50", shell=True, capture_output=True, text=True).stdout
-            fatal(f"Mail server failed to initialize within {timeout} seconds.\nLogs:\n{logs}")
 
         mail_user = ask("Enter email user", "postmaster")
         full_email = f"{mail_user}@{self.domain}"
