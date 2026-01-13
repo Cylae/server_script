@@ -1,93 +1,76 @@
-# Cylae Server Manager: Architect Edition (v11.0)
+# Cylae Server Manager
 
-> **"The Ultimate Optimized Media Server Stack"**
+A modular, robust, and modern framework for deploying and managing a self-hosted media and service ecosystem using Docker.
 
-This is not just a script; it is a **cybernetic organism** designed to assimilate your hardware and deploy a perfect, optimized, self-hosted infrastructure.
+## Features
 
-## 🚀 The "Clean Slate" Architecture
+*   **Modular Architecture:** Services are defined as independent modules.
+*   **Dynamic Configuration:** Uses environment variables and `.env` files.
+*   **Hardware Awareness:** Automatically detects system resources and adjusts service profiles.
+*   **Media Stack:** Plex, *Arr suite, Overseerr, etc.
+*   **Utility Stack:** Portainer, Gitea, Nextcloud, WireGuard, and more.
+*   **Modern CLI:** Built with `typer` and `rich` for a great user experience.
+*   **Interactive Menu:** Easy-to-use TUI for managing services.
 
-We have rebuilt the core. The legacy code was purged. In its place, we implemented a **Dynamic Hardware Detection Matrix**.
+## Installation
 
-### 🧠 Neuro-Adaptive Installation (Hardware Profiling)
-The system no longer blindly installs services. It *thinks*.
-Before a single container is spawned, the `HardwareManager` scans your neural pathways (CPU Cores, RAM, Swap, Disk Space).
+### Prerequisites
 
-*   **LOW_SPEC Profile** (<= 2 Cores or < 4GB RAM):
-    *   **Protocol:** "Survival Mode".
-    *   **Concurrency:** **Serialized**. Services are installed one by one to prevent the host from seizing up.
-    *   **MailServer:** ClamAV and SpamAssassin are **lobotomized** (disabled) to save ~2GB of RAM. The initialization loop is patient, waiting for the slow boot.
-    *   **Media Stack:** Plex, Sonarr, Radarr are given strict memory rations (e.g., Plex is capped at 1GB, *Arr apps at 256MB/512MB).
-    *   **Cloud & Misc:** Nextcloud, Gitea, and all other services have tighter memory limits (128M-512M) to fit within 2GB RAM.
-    *   **Safety:** Installation blocks if disk space is critical (<5GB).
+*   Debian or Ubuntu based system.
+*   Root privileges (required for Docker management).
 
-*   **HIGH_PERFORMANCE Profile**:
-    *   **Protocol:** "God Mode".
-    *   **Concurrency:** **Parallelized**. We spin up multiple installation threads (Max Workers: 3) to deploy the stack in record time.
-    *   **Resource Limits:** The floodgates are opened. Plex gets 4GB+, and services run with full feature sets enabled.
-
-## 🛠 Features & Capabilities
-
-### The Media Stack (Unified)
-A fully integrated, automated media consumption engine.
-*   **Plex**: The core. Optimized transcoding buffers.
-*   **The *Arr Suite**: Sonarr (TV), Radarr (Movies), Prowlarr (Indexers), Jackett (Legacy Indexers), Readarr (Books - *coming soon*).
-*   **Overseerr**: The request management frontend.
-*   **Tautulli**: Monitoring and analytics for Plex.
-*   **qBittorrent**: The downloader, bound to the stack.
-
-### The Core Services
-*   **MailServer**: Full stack (Postfix/Dovecot) with DKIM/DMARC. *Smart-disabled antivirus on low-end hardware.*
-*   **Nextcloud**: Your cloud.
-*   **Vaultwarden**: Your passwords.
-*   **WireGuard**: Your tunnel.
-*   **Uptime Kuma**: The heartbeat monitor.
-*   **Gitea**: Self-hosted git service.
-*   **Portainer**: Docker management.
-*   **GLPI**: IT Asset Management.
-
-## 💻 Usage
-
-### 0. Prerequisites
-*   OS: Debian 11/12 or Ubuntu 20.04/22.04 LTS.
-*   Root access.
-*   A valid domain name pointing to this server.
-
-### 1. Installation
-Clone the repository and run the bootstrap script. It will handle dependencies (Python, Docker, Venv).
+### One-Step Install
 
 ```bash
-git clone https://github.com/Cylae/server_script.git cylae-manager
-cd cylae-manager
-chmod +x install.sh
-./install.sh
+git clone https://github.com/Cylae/server_script.git
+cd server_script
+sudo ./install.sh
 ```
 
-### 2. The Interface
-Launch the manager globally:
+## Usage
+
+Once installed, you can access the CLI using the `cyl-manager` command.
+
+### Interactive Menu
+
+The easiest way to manage your server is via the interactive menu:
+
 ```bash
-cyl-manager
+sudo cyl-manager menu
 ```
 
-Navigate to **Option 13 (Manage Media Stack)** and select **99. Install ALL Media Services**.
-*   Sit back. The script will detect your hardware and choose the optimal deployment strategy automatically.
+### CLI Commands
 
-## 🔧 Technical Details (Under the Hood)
+You can also use specific commands for automation or quick actions:
 
-*   **Language**: Python 3.10+
-*   **Containerization**: Docker Compose V2 (Dynamic Generation).
-*   **Proxy**: Nginx (Auto-configured with Let's Encrypt SSL).
-*   **Database**: MariaDB (Optimized).
+```bash
+# List all services and their status
+sudo cyl-manager status
 
-### Memory Management Strategy
-We use `psutil` to query the kernel.
-*   **Code Reference**: `cyl_manager.core.system.determine_profile()`
-*   **Service Injection**: `BaseService` injects `self.profile` into every service class.
-*   **Docker Limits**: We utilize `deploy.resources.limits.memory` in generated Compose files to enforce the profile's will.
+# Install a specific service
+sudo cyl-manager install plex
+sudo cyl-manager install sonarr
 
-## ⚠️ "The 2 vCPU Benchmark"
-This system is certified to deploy on a **2 vCPU / 4GB RAM** VPS without crashing.
-*   *MailServer hanging fix*: Verified. ClamAV is terminated on sight in low-spec environments.
-*   *Installation freeze fix*: Verified. Serial execution prevents IOwait spikes.
+# Remove a service
+sudo cyl-manager remove portainer
+```
 
----
-*Built for efficiency. Designed for power.*
+## Configuration
+
+Configuration is stored in `/etc/cylae/.env`. Key settings include:
+
+*   `DOMAIN`: Your main domain name.
+*   `EMAIL`: Admin email for SSL notifications.
+*   `MEDIA_ROOT`: Path to media files (default: `/opt/media`).
+
+## Development
+
+To contribute or modify the code:
+
+1.  Clone the repository.
+2.  Install dependencies: `pip install -e .[dev]`
+3.  Run tests: `pytest`
+
+## License
+
+MIT License
