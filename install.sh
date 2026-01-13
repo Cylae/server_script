@@ -5,7 +5,7 @@ set -e
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-echo -e "${GREEN}Bootstrapping Cylae Server Manager (Python Edition)...${NC}"
+echo -e "${GREEN}Bootstrapping Cylae Server Manager...${NC}"
 
 # Check root
 if [ "$EUID" -ne 0 ]; then
@@ -13,28 +13,12 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Install dependencies for bootstrap
-apt-get update -q
-apt-get install -y python3 python3-pip python3-venv git
-
-# Create venv
-if [ ! -d ".venv" ]; then
-    python3 -m venv .venv
+# Ensure Python is installed
+if ! command -v python3 &> /dev/null; then
+    echo "Python3 not found. Installing..."
+    apt-get update -q
+    apt-get install -y python3 python3-pip python3-venv git
 fi
 
-# Activate venv
-source .venv/bin/activate
-
-# Install python deps
-pip install -r requirements.txt
-
-# Install the package in editable mode
-pip install -e .
-
-# Symlink to global path for convenience
-ln -sf $(pwd)/.venv/bin/cyl-manager /usr/local/bin/cyl-manager
-
-echo -e "${GREEN}Installation Complete! You can run 'cyl-manager' anytime.${NC}"
-
-# Run CLI
-cyl-manager
+# Run the Python installer
+python3 install.py

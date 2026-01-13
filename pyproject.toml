@@ -3,20 +3,26 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cylae-manager"
-version = "10.0.0"
-description = "Cylae Server Manager - Python Edition"
-authors = [{name = "Cylae", email = "dev@cyl.ae"}]
+name = "cyl-manager"
+version = "2.1.0"
+description = "A modular Python-based framework to deploy and manage a self-hosted media ecosystem."
+authors = [{name = "Cylae"}]
+license = {text = "MIT"}
+readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "typer[all]",
+    "rich",
+    "pydantic-settings",
+    "docker",
+    "PyYAML",
+    "psutil",
     "distro",
-    "requests",
-    "python-dotenv",
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: POSIX :: Linux",
+    "python-dotenv"
 ]
 
 [project.scripts]
-cyl-manager = "cyl_manager.cli:main"
+cyl-manager = "cyl_manager.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
