@@ -8,12 +8,14 @@ from ..services.base import BaseService
 from ..core.system import SystemManager
 from ..core.config import settings, save_settings
 from ..core.logging import print_header, logger
+from ..core.orchestrator import InstallationOrchestrator
 
 console = Console()
 
 class Menu:
     def __init__(self):
         self.services = ServiceRegistry.get_all()
+        self.orchestrator = InstallationOrchestrator()
 
     def display_main_menu(self):
         print_header()
@@ -34,6 +36,10 @@ class Menu:
 
         i = 1
         service_map = {}
+
+        # Add "Install All" option
+        menu.add_row("A", "[bold green]Install Full Stack (Recommended)[/bold green]", "")
+
         for name, service_cls in self.services.items():
              # Quick check without instantiating fully if possible, but for now instantiate
             svc = service_cls()
@@ -72,6 +78,25 @@ class Menu:
 
         Prompt.ask("Press Enter to continue")
 
+    def install_all(self):
+        console.clear()
+        console.print(Panel("[bold]Full Stack Installation[/bold]", style="green"))
+
+        services_to_install = list(self.services.keys())
+
+        console.print(f"This will install {len(services_to_install)} services.")
+        console.print(f"Hardware Profile: [bold]{self.orchestrator.profile}[/bold]")
+        if self.orchestrator.profile == "LOW":
+            console.print("[yellow]Low-Spec mode detected. Installation will be serialized to prevent system hang.[/yellow]")
+        else:
+            console.print("[green]High-Performance mode. Installation will run in parallel.[/green]")
+
+        if Prompt.ask("Proceed?", choices=["y", "n"], default="y") == "y":
+            self.orchestrator.install_services(services_to_install)
+            console.print("\n[bold green]Batch Installation Complete![/bold green]")
+
+        Prompt.ask("Press Enter to return to menu")
+
     def run(self):
         # First Run Check
         if settings.DOMAIN == "example.com":
@@ -88,6 +113,8 @@ class Menu:
                 break
             elif choice == "c":
                 self.configure_settings()
+            elif choice == "A" or choice == "a":
+                self.install_all()
             elif choice in service_map:
                 self.manage_service(service_map[choice])
             else:

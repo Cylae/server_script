@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional
 import subprocess
 import tempfile
 import yaml
+import time
+import json
 from pathlib import Path
 from ..core.docker import DockerManager
 from ..core.system import SystemManager
@@ -28,7 +30,16 @@ class BaseService(ABC):
         self.docker.ensure_network()
         compose_content = self.generate_compose()
         self._deploy_compose(compose_content)
-        logger.info(f"{self.pretty_name} installed successfully.")
+
+        # Validation Loop
+        try:
+            self.wait_for_health()
+        except ServiceError as e:
+            logger.error(f"Health check failed for {self.name}: {e}")
+            # Optionally rollback? For now, we just log and raise.
+            raise
+
+        logger.info(f"{self.pretty_name} installed and healthy.")
 
     def remove(self):
         logger.info(f"Removing {self.pretty_name}...")
@@ -51,6 +62,53 @@ class BaseService(ABC):
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to deploy compose file: {e.stderr.decode()}")
             raise ServiceError(f"Deployment failed for {self.name}")
+
+    def wait_for_health(self, timeout=300):
+        """Waits for the container to become healthy."""
+        logger.info(f"Waiting for {self.name} to become healthy...")
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            try:
+                # Inspect container state
+                cmd = ["docker", "inspect", "--format={{json .State}}", self.name]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    # Container might not exist yet if just started?
+                    time.sleep(2)
+                    continue
+
+                state = json.loads(result.stdout)
+
+                # Check status
+                status = state.get("Status")
+                health = state.get("Health", {})
+                health_status = health.get("Status")
+
+                if status == "running":
+                    if health_status:
+                        if health_status == "healthy":
+                            return True
+                        elif health_status == "unhealthy":
+                            logger.warning(f"{self.name} is unhealthy.")
+                            # Don't return immediately, give it a chance to recover?
+                            # Usually once unhealthy it stays so unless something changes.
+                            # But let's wait a bit more.
+                    else:
+                        # No healthcheck defined, assume running is good enough
+                        return True
+                elif status == "exited" or status == "dead":
+                     raise ServiceError(f"Container {self.name} crashed with status {status}")
+
+            except ServiceError:
+                raise # Re-raise explicit ServiceErrors (like crash)
+            except Exception as e:
+                logger.debug(f"Error checking health: {e}")
+
+            time.sleep(5)
+
+        raise ServiceError(f"Timeout waiting for {self.name} to become healthy")
 
     def get_common_env(self) -> Dict[str, str]:
         uid, gid = self.system.get_uid_gid()

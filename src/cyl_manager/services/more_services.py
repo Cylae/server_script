@@ -9,7 +9,11 @@ class MailService(BaseService):
     pretty_name = "Mail Server (Docker Mailserver)"
 
     def generate_compose(self) -> Dict[str, Any]:
+        # Optimization: Explicitly disable heavy services on LOW profile
         is_high_perf = "1" if self.profile == "HIGH" else "0"
+
+        # On LOW, we disable ClamAV and SpamAssassin to prevent hangs (Waiting for mailserver loop)
+        # We also adjust resource limits significantly.
 
         return {
             "version": "3",
@@ -28,7 +32,9 @@ class MailService(BaseService):
                         "ENABLE_FAIL2BAN": "1",
                         "ENABLE_POSTGREY": "0",
                         "ONE_DIR": "1",
-                        "DMS_DEBUG": "0"
+                        "DMS_DEBUG": "0",
+                        # Performance tuning
+                        "AMAVIS_LOGLEVEL": "0"
                     },
                     "volumes": [
                         f"{settings.DATA_DIR}/mail/data:/var/mail",
@@ -39,9 +45,16 @@ class MailService(BaseService):
                     ],
                     "ports": ["25:25", "143:143", "587:587", "993:993"],
                     "networks": [settings.DOCKER_NET],
+                    "healthcheck": {
+                        "test": "ss --listening --tcp | grep -E '25|143|587|993'",
+                        "interval": "30s",
+                        "timeout": "5s",
+                        "retries": 3,
+                        "start_period": "2m" # Give it time to start up, especially on LOW
+                    },
                     "deploy": self.get_resource_limits(
                         high_mem="2G", high_cpu="1.0",
-                        low_mem="1G", low_cpu="0.5"
+                        low_mem="768M", low_cpu="0.5" # 768M is absolute minimum for basic mail
                     )
                 }
             },

@@ -9,6 +9,9 @@ class PlexService(BaseService):
     pretty_name = "Plex Media Server"
 
     def generate_compose(self) -> Dict[str, Any]:
+        # Optimization: Strict limits on LOW profile to prevent transcoding from killing the server
+        # Also ensure we pass through hardware acceleration device if present (not implemented here but good to note)
+
         return {
             "version": "3",
             "services": {
@@ -19,7 +22,8 @@ class PlexService(BaseService):
                     "network_mode": "host",
                     "environment": {
                         **self.get_common_env(),
-                        "VERSION": "docker"
+                        "VERSION": "docker",
+                        # "PLEX_CLAIM": "" # User can add this manually if needed
                     },
                     "volumes": [
                         f"{settings.DATA_DIR}/plex:/config",
@@ -27,7 +31,7 @@ class PlexService(BaseService):
                     ],
                     "deploy": self.get_resource_limits(
                         high_mem="4G", high_cpu="2.0",
-                        low_mem="1G", low_cpu="0.5"
+                        low_mem="1G", low_cpu="0.75" # Restrict CPU on low spec
                     )
                 }
             }
@@ -60,6 +64,15 @@ class ArrService(BaseService):
     port: int
 
     def generate_compose(self) -> Dict[str, Any]:
+        # Optimization: .NET Core tweaks for low memory environments
+        env_vars = self.get_common_env()
+
+        if self.profile == "LOW":
+            # Reduce .NET overhead
+            env_vars["COMPlus_EnableDiagnostics"] = "0"
+            # Optional: GC Heap Limit (e.g. 256MB/512MB depending on service)
+            # env_vars["DOTNET_GCHeapHardLimit"] = "1C000000" # Example hex for limit
+
         return {
             "version": "3",
             "services": {
@@ -67,14 +80,17 @@ class ArrService(BaseService):
                     "image": f"lscr.io/linuxserver/{self.name}:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
-                    "environment": self.get_common_env(),
+                    "environment": env_vars,
                     "volumes": [
                         f"{settings.DATA_DIR}/{self.name}:/config",
                         f"{settings.MEDIA_ROOT}:/media"
                     ],
                     "ports": [f"{self.port}:{self.port}"],
                     "networks": [settings.DOCKER_NET],
-                    "deploy": self.get_resource_limits()
+                    "deploy": self.get_resource_limits(
+                        high_mem="1G", high_cpu="0.5",
+                        low_mem="384M", low_cpu="0.25" # Arr apps are surprisingly hungry on start
+                    )
                 }
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
@@ -132,7 +148,10 @@ class QbittorrentService(BaseService):
                         f"{settings.MEDIA_ROOT}/downloads:/downloads"
                     ],
                     "ports": ["8080:8080", "6881:6881", "6881:6881/udp"],
-                    "networks": [settings.DOCKER_NET]
+                    "networks": [settings.DOCKER_NET],
+                    "deploy": self.get_resource_limits(
+                        high_mem="512M", low_mem="256M"
+                    )
                 }
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
