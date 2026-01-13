@@ -25,3 +25,13 @@ class BaseService(ABC):
         if self.profile == "HIGH":
             return default_high
         return default_low
+
+    def get_common_env(self):
+        """Returns common environment variables for services."""
+        from ..core.system import get_uid_gid, get_timezone
+        uid, gid = get_uid_gid()
+        return {
+            "PUID": uid,
+            "PGID": gid,
+            "TZ": get_timezone(),
+        }

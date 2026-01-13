@@ -17,7 +17,7 @@ def check_os():
     msg(f"OS Detected: {distro.name(pretty=True)}")
 
 def get_uid_gid():
-    """Returns the sudo UID and GID or defaults."""
+    """Returns the sudo UID and GID or defaults. Used for PUID/PGID."""
     uid = os.environ.get("SUDO_UID", str(os.getuid()))
     try:
         import grp

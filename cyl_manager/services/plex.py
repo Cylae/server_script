@@ -17,6 +17,8 @@ class PlexService(BaseService):
         # Optimized for 2GB RAM Host: 1024M max for Plex
         mem_limit = self.get_resource_limit(default_high="4096M", default_low="1024M")
 
+        env = self.get_common_env()
+
         # Note: escaping { and } for f-string, but we need literal ${...} for docker-compose
         # So we use double {{ }} for python f-string escaping where we want literal {
 
@@ -26,9 +28,9 @@ services:
     image: linuxserver/plex:latest
     container_name: plex
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={env['PUID']}
+      - PGID={env['PGID']}
+      - TZ={env['TZ']}
       - VERSION=docker
     volumes:
       - /opt/plex/config:/config

@@ -77,6 +77,7 @@ Navigate to **Option 13 (Manage Media Stack)** and select **99. Install ALL Medi
 *   **Containerization**: Docker Compose V2 (Dynamic Generation).
 *   **Proxy**: Nginx (Auto-configured with Let's Encrypt SSL).
 *   **Database**: MariaDB (Optimized).
+*   **Testing**: Pytest based comprehensive test suite.
 
 ### Memory Management Strategy
 We use `psutil` to query the kernel.

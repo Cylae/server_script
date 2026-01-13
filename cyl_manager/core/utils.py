@@ -70,7 +70,7 @@ def is_port_open(port):
         return s.connect_ex(('127.0.0.1', int(port))) == 0
 
 def header_art():
-    print(f"""{CYAN}
+    print(rf"""{CYAN}
    ______      __
   / ____/_  __/ /___ ______
  / /   / / / / / __ `/ ___/

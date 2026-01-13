@@ -28,6 +28,8 @@ class GiteaService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
 
+        env = self.get_common_env()
+
         # Get Host IP
         # In Python we can get it via socket or just execute ip command
         import subprocess
@@ -45,8 +47,8 @@ services:
     networks:
       - {self.docker_net}
     environment:
-      - USER_UID=1000
-      - USER_GID=1000
+      - USER_UID={env['PUID']}
+      - USER_GID={env['PGID']}
       - GITEA__database__DB_TYPE=mysql
       - GITEA__database__HOST={host_ip}:3306
       - GITEA__database__NAME={self.name}
