@@ -10,13 +10,15 @@ We have rebuilt the core. The legacy code was purged. In its place, we implement
 
 ### 🧠 Neuro-Adaptive Installation (Hardware Profiling)
 The system no longer blindly installs services. It *thinks*.
-Before a single container is spawned, the `HardwareManager` scans your neural pathways (CPU Cores, RAM, Swap).
+Before a single container is spawned, the `HardwareManager` scans your neural pathways (CPU Cores, RAM, Swap, Disk Space).
 
 *   **LOW_SPEC Profile** (<= 2 Cores or < 4GB RAM):
     *   **Protocol:** "Survival Mode".
     *   **Concurrency:** **Serialized**. Services are installed one by one to prevent the host from seizing up.
     *   **MailServer:** ClamAV and SpamAssassin are **lobotomized** (disabled) to save ~2GB of RAM. The initialization loop is patient, waiting for the slow boot.
-    *   **Media Stack:** Plex, Sonarr, Radarr are given strict memory rations (e.g., Plex is capped at 2GB, *Arr apps at 1GB/512MB).
+    *   **Media Stack:** Plex, Sonarr, Radarr are given strict memory rations (e.g., Plex is capped at 1GB, *Arr apps at 256MB/512MB).
+    *   **Cloud & Misc:** Nextcloud, Gitea, and all other services have tighter memory limits (128M-512M) to fit within 2GB RAM.
+    *   **Safety:** Installation blocks if disk space is critical (<5GB).
 
 *   **HIGH_PERFORMANCE Profile**:
     *   **Protocol:** "God Mode".
@@ -39,6 +41,9 @@ A fully integrated, automated media consumption engine.
 *   **Vaultwarden**: Your passwords.
 *   **WireGuard**: Your tunnel.
 *   **Uptime Kuma**: The heartbeat monitor.
+*   **Gitea**: Self-hosted git service.
+*   **Portainer**: Docker management.
+*   **GLPI**: IT Asset Management.
 
 ## 💻 Usage
 

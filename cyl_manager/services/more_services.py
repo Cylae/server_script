@@ -165,6 +165,9 @@ class NetdataService(BaseService):
 
     def install(self):
         subdomain = f"netdata.{self.domain}"
+        # Netdata runs in host mode, resource limits in compose might be ignored or counterproductive
+        # But we can try to limit memory usage if supported by the container runtime
+        # For now, leaving as is or maybe just a small limit if it grows
 
         compose_content = """
 services:
@@ -305,6 +308,8 @@ class GLPIService(BaseService):
         except:
              host_ip = "172.17.0.1"
 
+        mem_limit = self.get_resource_limit(default_high="512M", default_low="256M")
+
         compose_content = f"""
 services:
   glpi:
@@ -324,6 +329,10 @@ services:
       - MARIADB_DATABASE={self.name}
       - MARIADB_USER={self.name}
       - MARIADB_PASSWORD={pass_val}
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
