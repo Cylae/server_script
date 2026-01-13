@@ -26,6 +26,10 @@ def msg(message):
     print(f"{GREEN}[INFO]{NC} {message}")
     log_info(message)
 
+def success(message):
+    print(f"{GREEN}[SUCCESS]{NC} {message}")
+    log_info(f"SUCCESS: {message}")
+
 def warn(message):
     print(f"{YELLOW}[WARN]{NC} {message}")
     log_info(f"WARNING: {message}")
