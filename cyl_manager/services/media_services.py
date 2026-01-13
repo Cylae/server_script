@@ -12,6 +12,8 @@ class TautulliService(BaseService):
         subdomain = f"tautulli.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True) # ensure media dir
 
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+
         compose_content = f"""
 services:
   tautulli:
@@ -31,7 +33,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: {mem_limit}
 
 networks:
   server-net:
@@ -51,6 +53,8 @@ class SonarrService(BaseService):
     def install(self):
         subdomain = f"sonarr.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
+
+        mem_limit = self.get_resource_limit(default_high="2048M", default_low="1024M")
 
         compose_content = f"""
 services:
@@ -72,7 +76,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: {mem_limit}
 
 networks:
   server-net:
@@ -92,6 +96,8 @@ class RadarrService(BaseService):
     def install(self):
         subdomain = f"radarr.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
+
+        mem_limit = self.get_resource_limit(default_high="2048M", default_low="1024M")
 
         compose_content = f"""
 services:
@@ -113,7 +119,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: {mem_limit}
 
 networks:
   server-net:
@@ -134,6 +140,8 @@ class ProwlarrService(BaseService):
         subdomain = f"prowlarr.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+
         compose_content = f"""
 services:
   prowlarr:
@@ -153,7 +161,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: {mem_limit}
 
 networks:
   server-net:
@@ -173,6 +181,8 @@ class JackettService(BaseService):
     def install(self):
         subdomain = f"jackett.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
+
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
 
         compose_content = f"""
 services:
@@ -195,7 +205,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: {mem_limit}
 
 networks:
   server-net:
@@ -216,6 +226,8 @@ class OverseerrService(BaseService):
         subdomain = f"request.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+
         compose_content = f"""
 services:
   overseerr:
@@ -235,7 +247,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: {mem_limit}
 
 networks:
   server-net:
@@ -255,6 +267,8 @@ class QbittorrentService(BaseService):
     def install(self):
         subdomain = f"qbittorrent.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
+
+        mem_limit = self.get_resource_limit(default_high="2048M", default_low="1024M")
 
         compose_content = f"""
 services:
@@ -279,7 +293,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: {mem_limit}
 
 networks:
   server-net:
