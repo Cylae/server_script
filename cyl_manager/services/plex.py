@@ -14,7 +14,8 @@ class PlexService(BaseService):
         os.makedirs("/opt/media", exist_ok=True)
 
         # Get dynamic resource limits
-        mem_limit = self.get_resource_limit(default_high="4096M", default_low="2048M")
+        # Optimized for 2GB RAM Host: 1024M max for Plex
+        mem_limit = self.get_resource_limit(default_high="4096M", default_low="1024M")
 
         # Note: escaping { and } for f-string, but we need literal ${...} for docker-compose
         # So we use double {{ }} for python f-string escaping where we want literal {

@@ -1,6 +1,6 @@
 import sys
 import concurrent.futures
-from .core.system import check_root, check_os, determine_profile
+from .core.system import check_root, check_os, determine_profile, check_disk_space
 from .core.install_system import init_system_resources
 from .core.docker import init_docker
 from .core.security import harden_system
@@ -44,6 +44,9 @@ def install_all_media_services():
     ]
 
     msg(f"Starting Bulk Installation. Hardware Profile: {profile}")
+
+    # Check disk space before bulk install
+    check_disk_space()
 
     if profile == "HIGH":
         msg("High Performance Profile: Installing in PARALLEL (Max 3 workers)")
@@ -104,6 +107,9 @@ def main():
     load_config()
     init_system_resources()
     harden_system()
+
+    # Initial hardware check on startup
+    check_disk_space()
 
     # Ensure domain is set
     if get("DOMAIN") == "example.com":

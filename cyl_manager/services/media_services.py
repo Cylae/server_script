@@ -12,7 +12,7 @@ class TautulliService(BaseService):
         subdomain = f"tautulli.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True) # ensure media dir
 
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
         compose_content = f"""
 services:
@@ -54,7 +54,7 @@ class SonarrService(BaseService):
         subdomain = f"sonarr.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
-        mem_limit = self.get_resource_limit(default_high="2048M", default_low="1024M")
+        mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
 
         compose_content = f"""
 services:
@@ -97,7 +97,7 @@ class RadarrService(BaseService):
         subdomain = f"radarr.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
-        mem_limit = self.get_resource_limit(default_high="2048M", default_low="1024M")
+        mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
 
         compose_content = f"""
 services:
@@ -140,7 +140,7 @@ class ProwlarrService(BaseService):
         subdomain = f"prowlarr.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
         compose_content = f"""
 services:
@@ -182,7 +182,7 @@ class JackettService(BaseService):
         subdomain = f"jackett.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
         compose_content = f"""
 services:
@@ -226,7 +226,7 @@ class OverseerrService(BaseService):
         subdomain = f"request.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
         compose_content = f"""
 services:
@@ -268,7 +268,7 @@ class QbittorrentService(BaseService):
         subdomain = f"qbittorrent.{self.domain}"
         os.makedirs("/opt/media", exist_ok=True)
 
-        mem_limit = self.get_resource_limit(default_high="2048M", default_low="1024M")
+        mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
 
         compose_content = f"""
 services:
