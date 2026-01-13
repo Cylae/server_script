@@ -22,6 +22,7 @@ class Menu:
         profile = SystemManager.get_hardware_profile()
         table = Table(show_header=False, box=None)
         table.add_row(f"[bold cyan]Domain:[/bold cyan] {settings.DOMAIN}")
+        table.add_row(f"[bold cyan]Email:[/bold cyan] {settings.EMAIL}")
         table.add_row(f"[bold cyan]Profile:[/bold cyan] {profile}")
         console.print(Panel(table, title="System Info", expand=False))
 
@@ -42,11 +43,42 @@ class Menu:
             i += 1
 
         console.print(menu)
-        console.print("\n[bold]0.[/bold] Exit")
+        console.print("\n[bold]c.[/bold] Configuration")
+        console.print("[bold]0.[/bold] Exit")
 
         return service_map
 
+    def configure_settings(self):
+        console.clear()
+        console.print(Panel("[bold]Configuration[/bold]", style="cyan"))
+
+        console.print(f"Current Domain: {settings.DOMAIN}")
+        new_domain = Prompt.ask("Enter Domain Name", default=settings.DOMAIN)
+
+        console.print(f"Current Email: {settings.EMAIL}")
+        new_email = Prompt.ask("Enter Admin Email", default=settings.EMAIL)
+
+        if new_domain != settings.DOMAIN or new_email != settings.EMAIL:
+            save_settings("DOMAIN", new_domain)
+            save_settings("EMAIL", new_email)
+
+            # Update current settings object in memory
+            settings.DOMAIN = new_domain
+            settings.EMAIL = new_email
+
+            console.print("[green]Settings saved successfully![/green]")
+        else:
+            console.print("[yellow]No changes made.[/yellow]")
+
+        Prompt.ask("Press Enter to continue")
+
     def run(self):
+        # First Run Check
+        if settings.DOMAIN == "example.com":
+            console.print("[bold yellow]First Setup Detected![/bold yellow]")
+            if Prompt.ask("Would you like to configure your domain and email now?", choices=["y", "n"], default="y") == "y":
+                self.configure_settings()
+
         while True:
             console.clear()
             service_map = self.display_main_menu()
@@ -54,8 +86,9 @@ class Menu:
 
             if choice == "0":
                 break
-
-            if choice in service_map:
+            elif choice == "c":
+                self.configure_settings()
+            elif choice in service_map:
                 self.manage_service(service_map[choice])
             else:
                 console.print("[red]Invalid selection[/red]")
