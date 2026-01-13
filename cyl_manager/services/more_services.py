@@ -1,6 +1,7 @@
 import os
 import subprocess
 import shutil
+import time
 from .base import BaseService
 from ..core.docker import deploy_service, remove_service, is_installed
 from ..core.database import ensure_db, generate_password, save_credential, get_auth_value
@@ -38,13 +39,14 @@ class MailService(BaseService):
             else:
                 fatal("Port 25 is in use by an unknown service. Please free up port 25 and try again.")
 
-        # Check profile for ClamAV
-        clamav_state = 1
-        if os.path.exists("/etc/cyl_profile"):
-            with open("/etc/cyl_profile", "r") as f:
-                if f.read().strip() == "LOW":
-                    clamav_state = 0
-                    msg("Low RAM detected: Disabling ClamAV.")
+        # Check profile for ClamAV/SpamAssassin
+        enable_clamav = 1
+        enable_spamassassin = 1
+
+        if self.profile == "LOW":
+            enable_clamav = 0
+            enable_spamassassin = 0
+            msg(f"Low Hardware Profile Detected ({self.profile}): Disabling ClamAV and SpamAssassin to prevent hang.")
 
         compose_content = f"""
 services:
@@ -66,8 +68,8 @@ services:
       - ./maillogs:/var/log/mail
       - ./config:/tmp/docker-mailserver
     environment:
-      - ENABLE_SPAMASSASSIN=1
-      - ENABLE_CLAMAV={clamav_state}
+      - ENABLE_SPAMASSASSIN={enable_spamassassin}
+      - ENABLE_CLAMAV={enable_clamav}
       - ENABLE_FAIL2BAN=1
       - SSL_TYPE=letsencrypt
     cap_add:
@@ -96,11 +98,19 @@ networks:
         subprocess.run("ufw allow 25,587,465,143,993/tcp", shell=True, stdout=subprocess.DEVNULL)
 
         msg("Initializing Mail User...")
-        import time
-        count = 0
+
+        # Robust wait loop with timeout
+        timeout = 300 # 5 minutes
+        start_time = time.time()
         initialized = False
+
         print("Waiting for mailserver to be ready...", end="", flush=True)
         while True:
+            # Check timeout
+            if time.time() - start_time > timeout:
+                print("")
+                fatal("Mail Server initialization timed out.")
+
             # Check if container crashed
             res_status = subprocess.run("docker inspect -f '{{.State.Running}}' mailserver", shell=True, capture_output=True, text=True)
             if res_status.returncode == 0 and res_status.stdout.strip() == "false":
@@ -114,9 +124,8 @@ networks:
                 initialized = True
                 break
             time.sleep(2)
-            count += 2
-            if count % 10 == 0:
-                print(".", end="", flush=True)
+            # Show simple progress
+            print(".", end="", flush=True)
         print("") # Newline
 
         mail_user = ask("Enter email user", "postmaster")
@@ -156,6 +165,9 @@ class NetdataService(BaseService):
 
     def install(self):
         subdomain = f"netdata.{self.domain}"
+        # Netdata runs in host mode, resource limits in compose might be ignored or counterproductive
+        # But we can try to limit memory usage if supported by the container runtime
+        # For now, leaving as is or maybe just a small limit if it grows
 
         compose_content = """
 services:
@@ -296,6 +308,8 @@ class GLPIService(BaseService):
         except:
              host_ip = "172.17.0.1"
 
+        mem_limit = self.get_resource_limit(default_high="512M", default_low="256M")
+
         compose_content = f"""
 services:
   glpi:
@@ -315,6 +329,10 @@ services:
       - MARIADB_DATABASE={self.name}
       - MARIADB_USER={self.name}
       - MARIADB_PASSWORD={pass_val}
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true

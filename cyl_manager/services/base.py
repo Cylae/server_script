@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
 from ..core.docker import deploy_service, remove_service, is_installed
 from ..core.config import get
+from ..core.system import determine_profile, get_uid_gid, get_timezone
 
 class BaseService(ABC):
     def __init__(self):
         self.domain = get("DOMAIN")
         self.docker_net = get("DOCKER_NET")
+        self.profile = determine_profile()
+        self.uid, self.gid = get_uid_gid()
+        self.tz = get_timezone()
 
     @abstractmethod
     def install(self):
@@ -17,3 +21,9 @@ class BaseService(ABC):
 
     def is_installed(self):
         return is_installed(self.name)
+
+    def get_resource_limit(self, default_high="2048M", default_low="512M"):
+        """Returns the memory limit based on the system profile."""
+        if self.profile == "HIGH":
+            return default_high
+        return default_low

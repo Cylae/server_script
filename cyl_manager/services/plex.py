@@ -13,8 +13,9 @@ class PlexService(BaseService):
         # Ensure media directories exist
         os.makedirs("/opt/media", exist_ok=True)
 
-        # Note: escaping { and } for f-string, but we need literal ${...} for docker-compose
-        # So we use double {{ }} for python f-string escaping where we want literal {
+        # Get dynamic resource limits
+        # Optimized for 2GB RAM Host: 1024M max for Plex
+        mem_limit = self.get_resource_limit(default_high="4096M", default_low="1024M")
 
         compose_content = f"""
 services:
@@ -22,9 +23,9 @@ services:
     image: linuxserver/plex:latest
     container_name: plex
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={self.uid}
+      - PGID={self.gid}
+      - TZ={self.tz}
       - VERSION=docker
     volumes:
       - /opt/plex/config:/config
@@ -37,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2048M
+          memory: {mem_limit}
 
 networks:
   server-net:

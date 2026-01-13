@@ -26,6 +26,8 @@ class NextcloudService(BaseService):
 
         ensure_db(self.name, self.name, pass_val)
 
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+
         # Get Gateway IP of the docker network
         try:
             res = subprocess.run(f"docker network inspect {self.docker_net} | jq -r '.[0].IPAM.Config[0].Gateway'", shell=True, capture_output=True, text=True)
@@ -42,6 +44,10 @@ services:
       - {self.docker_net}
     restart: always
     command: redis-server --requirepass {pass_val}
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   app:
     image: nextcloud
@@ -63,6 +69,10 @@ services:
       - REDIS_HOST=nextcloud_redis
       - REDIS_HOST_PASSWORD={pass_val}
       - NEXTCLOUD_TRUSTED_DOMAINS={subdomain}
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
@@ -103,6 +113,8 @@ class VaultwardenService(BaseService):
     def install(self):
         subdomain = f"pass.{self.domain}"
 
+        mem_limit = self.get_resource_limit(default_high="512M", default_low="256M")
+
         compose_content = f"""
 services:
   vaultwarden:
@@ -117,6 +129,10 @@ services:
       - {self.docker_net}
     ports:
       - "127.0.0.1:8082:80"
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
@@ -135,6 +151,8 @@ class UptimeKumaService(BaseService):
     def install(self):
         subdomain = f"status.{self.domain}"
 
+        mem_limit = self.get_resource_limit(default_high="512M", default_low="256M")
+
         compose_content = f"""
 services:
   uptime-kuma:
@@ -147,6 +165,10 @@ services:
       - {self.docker_net}
     ports:
       - "127.0.0.1:3001:3001"
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
@@ -180,6 +202,8 @@ class WireGuardService(BaseService):
         except:
              host_ip = "127.0.0.1" # Fallback
 
+        mem_limit = self.get_resource_limit(default_high="256M", default_low="128M")
+
         compose_content = f"""
 services:
   wg-easy:
@@ -207,6 +231,10 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     networks:
       - {self.docker_net}
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
@@ -236,6 +264,8 @@ class FileBrowserService(BaseService):
         with open(f"/opt/{self.name}/settings.json", "w") as f:
             f.write('{"port": 80, "baseURL": "", "address": "", "log": "stdout", "database": "/database.db", "root": "/srv"}')
 
+        mem_limit = self.get_resource_limit(default_high="256M", default_low="128M")
+
         compose_content = f"""
 services:
   filebrowser:
@@ -250,6 +280,10 @@ services:
       - {self.docker_net}
     ports:
       - "127.0.0.1:8083:80"
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
@@ -288,6 +322,8 @@ class YourlsService(BaseService):
 
         cookie = generate_password(16) # Simple random hex-like
 
+        mem_limit = self.get_resource_limit(default_high="256M", default_low="128M")
+
         compose_content = f"""
 services:
   yourls:
@@ -309,6 +345,10 @@ services:
       - YOURLS_USER=admin
       - YOURLS_PASS={pass_val}
       - YOURLS_COOKIEKEY={cookie}
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true

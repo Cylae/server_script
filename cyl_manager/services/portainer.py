@@ -12,6 +12,8 @@ class PortainerService(BaseService):
     def install(self):
         subdomain = f"portainer.{self.domain}"
 
+        mem_limit = self.get_resource_limit(default_high="256M", default_low="128M")
+
         # Check for legacy container
         # simplistic check
         try:
@@ -33,6 +35,10 @@ services:
       - ./data:/data
     networks:
       - {self.docker_net}
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true

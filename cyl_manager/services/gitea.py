@@ -26,10 +26,15 @@ class GiteaService(BaseService):
 
         ensure_db(self.name, self.name, pass_val)
 
+        mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
+
         # Get Host IP
         # In Python we can get it via socket or just execute ip command
         import subprocess
-        host_ip = subprocess.check_output("ip -4 route get 1 | awk '{print $7}'", shell=True).decode().strip()
+        try:
+             host_ip = subprocess.check_output("ip -4 route get 1 | awk '{print $7}'", shell=True).decode().strip()
+        except:
+             host_ip = "172.17.0.1"
 
         # Note: In f-string for docker-compose we need to be careful with double braces
         compose_content = f"""
@@ -56,6 +61,10 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
       - "2222:22"
+    deploy:
+      resources:
+        limits:
+          memory: {mem_limit}
 networks:
   {self.docker_net}:
     external: true
