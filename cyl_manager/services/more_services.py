@@ -4,7 +4,7 @@ import shutil
 from .base import BaseService
 from ..core.docker import deploy_service, remove_service, is_installed
 from ..core.database import ensure_db, generate_password, save_credential, get_auth_value
-from ..core.utils import ask, msg, fatal, warn, success
+from ..core.utils import ask, msg, fatal, warn, success, is_port_open
 from ..core.config import get, get_auth_details
 
 class MailService(BaseService):
@@ -14,6 +14,29 @@ class MailService(BaseService):
 
     def install(self):
         subdomain = f"mail.{self.domain}"
+
+        # Check for port conflicts (specifically port 25)
+        if is_port_open(25):
+            warn("Port 25 is currently in use.")
+            conflicting_service = None
+            for svc in ["postfix", "exim4", "sendmail"]:
+                if shutil.which("systemctl"):
+                    res = subprocess.run(f"systemctl is-active {svc}", shell=True, stdout=subprocess.DEVNULL)
+                    if res.returncode == 0:
+                        conflicting_service = svc
+                        break
+
+            if conflicting_service:
+                warn(f"Detected {conflicting_service} running on port 25.")
+                if ask(f"Do you want to stop and disable {conflicting_service} to proceed? [Y/n]", "Y").lower() in ["y", "yes"]:
+                    msg(f"Stopping {conflicting_service}...")
+                    subprocess.run(f"systemctl stop {conflicting_service}", shell=True, check=True)
+                    subprocess.run(f"systemctl disable {conflicting_service}", shell=True, check=True)
+                    success(f"{conflicting_service} stopped.")
+                else:
+                    fatal("Cannot install Mail Server while port 25 is in use.")
+            else:
+                fatal("Port 25 is in use by an unknown service. Please free up port 25 and try again.")
 
         # Check profile for ClamAV
         clamav_state = 1

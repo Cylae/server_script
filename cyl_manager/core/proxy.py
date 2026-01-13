@@ -108,7 +108,3 @@ def sync_infrastructure(email):
         subprocess.run(cmd)
 
     success("Infrastructure Synced.")
-
-def success(message):
-    from .utils import msg
-    msg(f"SUCCESS: {message}")
