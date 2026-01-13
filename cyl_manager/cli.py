@@ -1,5 +1,6 @@
 import sys
-from .core.system import check_root, check_os
+import concurrent.futures
+from .core.system import check_root, check_os, determine_profile
 from .core.install_system import init_system_resources
 from .core.docker import init_docker
 from .core.security import harden_system
@@ -25,6 +26,46 @@ def manage_service(service_class):
     else:
         svc.install()
 
+def install_service_wrapper(service_class):
+    """Wrapper for concurrent installation."""
+    svc = service_class()
+    if not svc.is_installed():
+        msg(f"Installing {svc.pretty_name}...")
+        svc.install()
+        return f"{svc.pretty_name} Installed"
+    return f"{svc.pretty_name} Already Installed"
+
+def install_all_media_services():
+    """Installs all media services with concurrency based on profile."""
+    profile = determine_profile()
+    services = [
+        PlexService, TautulliService, SonarrService, RadarrService,
+        ProwlarrService, JackettService, OverseerrService, QbittorrentService
+    ]
+
+    msg(f"Starting Bulk Installation. Hardware Profile: {profile}")
+
+    if profile == "HIGH":
+        msg("High Performance Profile: Installing in PARALLEL (Max 3 workers)")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_svc = {executor.submit(install_service_wrapper, svc): svc for svc in services}
+            for future in concurrent.futures.as_completed(future_to_svc):
+                try:
+                    result = future.result()
+                    msg(result)
+                except Exception as e:
+                    print(f"Service installation failed: {e}")
+    else:
+        msg("Low Spec Profile: Installing SEQUENTIALLY to prevent freeze")
+        for svc_class in services:
+            try:
+                msg(install_service_wrapper(svc_class))
+            except Exception as e:
+                print(f"Service installation failed: {e}")
+
+    if ask("Apply changes now (Update SSL/Nginx)? (y/n)") == "y":
+        sync_infrastructure(get("EMAIL"))
+
 def media_menu():
     while True:
         print("\n=== MEDIA STACK MANAGER ===")
@@ -37,6 +78,7 @@ def media_menu():
         print(f"7. Manage Overseerr       [{status_str(OverseerrService())}]")
         print(f"8. Manage qBittorrent     [{status_str(QbittorrentService())}]")
         print("---------------------------------")
+        print("99. Install ALL Media Services (Optimized)")
         print("0. Return to Main Menu")
 
         choice = ask("Select >")
@@ -49,6 +91,7 @@ def media_menu():
         elif choice == "6": manage_service(JackettService)
         elif choice == "7": manage_service(OverseerrService)
         elif choice == "8": manage_service(QbittorrentService)
+        elif choice == "99": install_all_media_services()
         elif choice == "0": break
 
         if choice in [str(i) for i in range(1, 9)]:
