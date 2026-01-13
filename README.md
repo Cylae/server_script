@@ -9,7 +9,7 @@ A modular, robust, and modern framework for deploying and managing a self-hosted
 *   **Hardware Awareness:** Automatically detects system resources and adjusts service profiles.
 *   **Media Stack:** Plex, *Arr suite, Overseerr, etc.
 *   **Utility Stack:** Portainer, Gitea, Nextcloud, WireGuard, and more.
-*   **Modern CLI:** Built with `typer` and `rich` for a great user experience.
+*   **Modern CLI:** Built with `typer` and `rich` for a great user experience (with pretty status tables).
 *   **Interactive Menu:** Easy-to-use TUI for managing services.
 
 ## Installation

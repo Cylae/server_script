@@ -1,5 +1,7 @@
 import typer
 from typing import Optional
+from rich.console import Console
+from rich.table import Table
 from .core.logging import setup_logging, logger
 from .core.system import SystemManager
 from .ui.menu import Menu
@@ -47,11 +49,17 @@ def remove(service_name: str):
 @app.command()
 def status():
     """List status of all services."""
-    table = []
+    console = Console()
+    table = Table(title="Service Status")
+    table.add_column("Service Name", style="cyan", no_wrap=True)
+    table.add_column("Status", style="magenta")
+
     for name, cls in ServiceRegistry.get_all().items():
         svc = cls()
-        status = "Installed" if svc.is_installed else "Not Installed"
-        print(f"{name:<20} : {status}")
+        status = "[green]Installed[/green]" if svc.is_installed else "[red]Not Installed[/red]"
+        table.add_row(name, status)
+
+    console.print(table)
 
 @app.command()
 def menu():

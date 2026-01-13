@@ -1,22 +1,24 @@
 # Agent Guidelines for Cylae Server Manager
 
 ## 1. Project Context
-This is a production-grade Bash server management script (`Cylae/server_script`).
+This is a modular Python-based server management framework (`Cylae/server_script`).
 It is designed for Debian 11/12 and Ubuntu 20.04+ servers.
-The goal is absolute stability, security, and idempotency.
+The goal is absolute stability, security, and idempotency using Docker for service deployment.
 
-## 2. Coding Standards (Bash)
-* **Strict Mode:** All scripts must start with `set -euo pipefail`.
-* **Variables:** Always quote variables (`"$VAR"`). Use `${VAR}` for clarity in strings.
-* **Functions:** Use `snake_case` for function names.
-* **Logging:** Use the `log_info`, `log_warn`, `log_error` functions defined in `src/lib/utils.sh` instead of `echo`.
-* **Root Check:** Critical functions must verify they are running as root.
+## 2. Coding Standards (Python)
+* **Style:** Follow PEP 8 guidelines.
+* **Type Hinting:** Use Python type hints strictly.
+* **CLI:** Use `typer` for CLI commands and `rich` for output/logging.
+* **Configuration:** Use `pydantic-settings` for environment configuration.
+* **Root Check:** Critical functions requiring privileges should verify they are running as root (use `SystemManager.check_root()`).
 
 ## 3. Architecture
-* **Core:** `src/lib/` contains shared logic.
-* **Modules:** `src/services/` contains install/config logic for specific services (Nginx, Docker, etc.).
-* **Idempotency:** All scripts must be re-runnable without breaking the system (check if a service exists before installing).
+* **Core:** `src/cyl_manager/core/` contains shared logic (config, system, logging).
+* **Services:** `src/cyl_manager/services/` contains service definitions inheriting from `BaseService`.
+* **Registry:** Services are registered via `ServiceRegistry` in `src/cyl_manager/services/registry.py`.
+* **Idempotency:** All operations must be idempotent.
 
 ## 4. Testing
-* Use `testinfra` (Python) for integration tests located in `tests/`.
-* Do not mock system commands unless strictly necessary; prefer checking exit codes.
+* Use `pytest` for unit and integration tests located in `tests/`.
+* Mock system calls (e.g., `subprocess.run`, `docker` SDK) where appropriate for unit tests.
+* Run tests with `pytest`.
