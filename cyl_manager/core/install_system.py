@@ -83,14 +83,26 @@ def init_system_resources():
             if is_port_open(3306):
                 warn("Port 3306 is in use. Check for conflicting services (e.g. Docker containers).")
 
-            logs = ""
+            # Attempt to revert configuration
+            warn("Attempting to revert MariaDB configuration to default (127.0.0.1)...")
+            subprocess.run(r"sed -i 's/bind-address = 0.0.0.0/bind-address = 127.0.0.1/' /etc/mysql/mariadb.conf.d/50-server.cnf", shell=True)
             try:
-                res = subprocess.run("journalctl -xeu mariadb.service --no-pager | tail -n 20", shell=True, capture_output=True, text=True)
-                logs = res.stdout
-            except:
-                logs = "Could not retrieve logs."
+                subprocess.run(["systemctl", "restart", "mariadb"], check=True)
+                warn("Reverted MariaDB to localhost binding. Docker connectivity to MariaDB will be limited.")
+                success("MariaDB recovered.")
+            except subprocess.CalledProcessError:
+                logs = ""
+                try:
+                    # Capture more logs and check error log file
+                    res = subprocess.run("journalctl -xeu mariadb.service --no-pager | tail -n 50", shell=True, capture_output=True, text=True)
+                    logs = res.stdout
+                    if os.path.exists("/var/log/mysql/error.log"):
+                         res_err = subprocess.run("tail -n 20 /var/log/mysql/error.log", shell=True, capture_output=True, text=True)
+                         logs += "\n--- /var/log/mysql/error.log ---\n" + res_err.stdout
+                except:
+                    logs = "Could not retrieve logs."
 
-            fatal(f"MariaDB failed to restart.\nLogs:\n{logs}")
+                fatal(f"MariaDB failed to restart even after revert.\nLogs:\n{logs}")
 
     # 2. Swap & BBR
     if not os.path.exists("/swapfile"):
