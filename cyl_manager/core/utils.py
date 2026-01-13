@@ -11,8 +11,16 @@ YELLOW = "\033[1;33m"
 CYAN = "\033[0;36m"
 NC = "\033[0m" # No Color
 
+# Try to use /var/log, but fall back to a local file if permission denied (e.g., in tests/non-root)
+log_file = "/var/log/server_manager.log"
+try:
+    with open(log_file, "a"):
+        pass
+except PermissionError:
+    log_file = "server_manager.log"
+
 logging.basicConfig(
-    filename="/var/log/server_manager.log",
+    filename=log_file,
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -75,6 +83,6 @@ def header_art():
   / ____/_  __/ /___ ______
  / /   / / / / / __ `/ ___/
 / /___/ /_/ / / /_/ / /__
-\____/\__, /_/\__,_/\___/
+\\____/\\__, /_/\\__,_/\\___/
      /____/
     {NC}""")

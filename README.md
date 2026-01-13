@@ -59,13 +59,13 @@ Clone the repository and run the bootstrap script. It will handle dependencies (
 git clone https://github.com/Cylae/server_script.git cylae-manager
 cd cylae-manager
 chmod +x install.sh
-./install.sh
+sudo ./install.sh
 ```
 
 ### 2. The Interface
 Launch the manager globally:
 ```bash
-cyl-manager
+sudo cyl-manager
 ```
 
 Navigate to **Option 13 (Manage Media Stack)** and select **99. Install ALL Media Services**.
@@ -88,6 +88,20 @@ We use `psutil` to query the kernel.
 This system is certified to deploy on a **2 vCPU / 4GB RAM** VPS without crashing.
 *   *MailServer hanging fix*: Verified. ClamAV is terminated on sight in low-spec environments.
 *   *Installation freeze fix*: Verified. Serial execution prevents IOwait spikes.
+
+## 🧪 Development
+
+To contribute or run tests locally:
+
+1.  **Install Test Dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2.  **Run Tests**:
+    ```bash
+    pytest tests/
+    ```
 
 ---
 *Built for efficiency. Designed for power.*

@@ -29,11 +29,20 @@ class NextcloudService(BaseService):
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
 
         # Get Gateway IP of the docker network
+        # Fallback to standard Docker gateway if detection fails
+        host_ip = "172.17.0.1"
         try:
-            res = subprocess.run(f"docker network inspect {self.docker_net} | jq -r '.[0].IPAM.Config[0].Gateway'", shell=True, capture_output=True, text=True)
-            host_ip = res.stdout.strip()
-        except:
-             host_ip = "172.17.0.1" # Fallback
+            # We need to ensure we don't rely on 'jq' being installed on host
+            res = subprocess.run(["docker", "network", "inspect", self.docker_net], capture_output=True, text=True)
+            if res.returncode == 0:
+                import json
+                data = json.loads(res.stdout)
+                if data and len(data) > 0 and 'IPAM' in data[0] and 'Config' in data[0]['IPAM'] and len(data[0]['IPAM']['Config']) > 0:
+                     gw = data[0]['IPAM']['Config'][0].get('Gateway')
+                     if gw:
+                         host_ip = gw
+        except Exception:
+             pass
 
         compose_content = f"""
 services:
@@ -198,8 +207,9 @@ class WireGuardService(BaseService):
 
         # Get public IP
         try:
-             host_ip = subprocess.check_output("curl -s https://api.ipify.org", shell=True).decode().strip()
-        except:
+             import requests
+             host_ip = requests.get("https://api.ipify.org", timeout=5).text.strip()
+        except Exception:
              host_ip = "127.0.0.1" # Fallback
 
         mem_limit = self.get_resource_limit(default_high="256M", default_low="128M")
@@ -315,8 +325,16 @@ class YourlsService(BaseService):
         ensure_db(self.name, self.name, pass_val)
 
         try:
-            res = subprocess.run(f"docker network inspect {self.docker_net} | jq -r '.[0].IPAM.Config[0].Gateway'", shell=True, capture_output=True, text=True)
-            host_ip = res.stdout.strip()
+            # We need to ensure we don't rely on 'jq' being installed on host
+            res = subprocess.run(["docker", "network", "inspect", self.docker_net], capture_output=True, text=True)
+            host_ip = "172.17.0.1"
+            if res.returncode == 0:
+                import json
+                data = json.loads(res.stdout)
+                if data and len(data) > 0 and 'IPAM' in data[0] and 'Config' in data[0]['IPAM'] and len(data[0]['IPAM']['Config']) > 0:
+                     gw = data[0]['IPAM']['Config'][0].get('Gateway')
+                     if gw:
+                         host_ip = gw
         except:
              host_ip = "172.17.0.1"
 

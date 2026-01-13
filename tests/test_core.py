@@ -27,3 +27,8 @@ def test_config(tmp_path):
 def test_utils():
     assert check_command("ls") is True
     assert check_command("nonexistentcommand") is False
+
+    # Test header_art
+    from cyl_manager.core.utils import header_art
+    # Should not raise exception
+    header_art()

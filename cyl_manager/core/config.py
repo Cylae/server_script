@@ -42,7 +42,15 @@ def set_config(key, value):
 
 def save_config():
     """Saves the current configuration to the config file."""
-    with open(CONFIG_FILE, "w") as f:
+    # Ensure config file is writable or try to write to a local file if permission denied
+    target_file = CONFIG_FILE
+    try:
+        with open(target_file, "a"):
+            pass
+    except PermissionError:
+        target_file = "cyl_manager.conf"
+
+    with open(target_file, "w") as f:
         for key, value in _config_cache.items():
             f.write(f"{key}={value}\n")
 

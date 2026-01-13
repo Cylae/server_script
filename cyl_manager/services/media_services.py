@@ -14,15 +14,28 @@ class TautulliService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   tautulli:
     image: lscr.io/linuxserver/tautulli:latest
     container_name: tautulli
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
     volumes:
       - /opt/tautulli/config:/config
     ports:
@@ -56,15 +69,28 @@ class SonarrService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
     volumes:
       - /opt/sonarr/config:/config
       - /opt/media:/data
@@ -99,15 +125,28 @@ class RadarrService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
     volumes:
       - /opt/radarr/config:/config
       - /opt/media:/data
@@ -142,15 +181,28 @@ class ProwlarrService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
     volumes:
       - /opt/prowlarr/config:/config
     ports:
@@ -184,15 +236,28 @@ class JackettService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   jackett:
     image: lscr.io/linuxserver/jackett:latest
     container_name: jackett
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
       - AUTO_UPDATE=true
     volumes:
       - /opt/jackett/config:/config
@@ -228,15 +293,28 @@ class OverseerrService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   overseerr:
     image: lscr.io/linuxserver/overseerr:latest
     container_name: overseerr
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
     volumes:
       - /opt/overseerr/config:/config
     ports:
@@ -270,15 +348,28 @@ class QbittorrentService(BaseService):
 
         mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
 
+        # Get PUID/PGID/TZ
+        try:
+            import grp
+            puid = os.getuid()
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except:
+            puid, pgid, tz = 1000, 1000, "UTC"
+
         compose_content = f"""
 services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
       - WEBUI_PORT=8080
     volumes:
       - /opt/qbittorrent/config:/config

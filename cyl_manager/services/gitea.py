@@ -29,11 +29,14 @@ class GiteaService(BaseService):
         mem_limit = self.get_resource_limit(default_high="1024M", default_low="512M")
 
         # Get Host IP
-        # In Python we can get it via socket or just execute ip command
-        import subprocess
+        # Using socket to determine the route to a public IP (doesn't actually connect)
+        import socket
         try:
-             host_ip = subprocess.check_output("ip -4 route get 1 | awk '{print $7}'", shell=True).decode().strip()
-        except:
+             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+             s.connect(("8.8.8.8", 80))
+             host_ip = s.getsockname()[0]
+             s.close()
+        except Exception:
              host_ip = "172.17.0.1"
 
         # Note: In f-string for docker-compose we need to be careful with double braces

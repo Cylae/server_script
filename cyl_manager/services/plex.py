@@ -17,8 +17,25 @@ class PlexService(BaseService):
         # Optimized for 2GB RAM Host: 1024M max for Plex
         mem_limit = self.get_resource_limit(default_high="4096M", default_low="1024M")
 
-        # Note: escaping { and } for f-string, but we need literal ${...} for docker-compose
-        # So we use double {{ }} for python f-string escaping where we want literal {
+        # Get user/group ID safely in Python
+        try:
+            puid = os.getuid()
+            # Try to get docker group id, fallback to current group
+            import grp
+            try:
+                pgid = grp.getgrnam('docker').gr_gid
+            except KeyError:
+                pgid = os.getgid()
+        except Exception:
+            puid = 1000
+            pgid = 1000
+
+        # Get Timezone
+        try:
+            with open("/etc/timezone", "r") as f:
+                tz = f.read().strip()
+        except FileNotFoundError:
+            tz = "UTC"
 
         compose_content = f"""
 services:
@@ -26,9 +43,9 @@ services:
     image: linuxserver/plex:latest
     container_name: plex
     environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
+      - PUID={puid}
+      - PGID={pgid}
+      - TZ={tz}
       - VERSION=docker
     volumes:
       - /opt/plex/config:/config
