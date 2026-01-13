@@ -3,7 +3,7 @@ import subprocess
 import shutil
 import math
 import multiprocessing
-from .utils import msg, warn, success, check_command, fatal
+from .utils import msg, warn, success, check_command, fatal, is_port_open
 
 def check_resources():
     """Checks CPU and Disk resources."""
@@ -75,8 +75,37 @@ def init_system_resources():
 
     # Configure MariaDB to listen on all interfaces (important for Docker containers)
     if os.path.exists("/etc/mysql/mariadb.conf.d/50-server.cnf"):
-        subprocess.run("sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf", shell=True)
-        subprocess.run(["systemctl", "restart", "mariadb"], check=True)
+        subprocess.run(r"sed -i 's/^\s*bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf", shell=True)
+        try:
+            subprocess.run(["systemctl", "restart", "mariadb"], check=True)
+        except subprocess.CalledProcessError:
+            warn("MariaDB restart failed. Attempting to diagnose...")
+            if is_port_open(3306):
+                warn("Port 3306 is in use. Check for conflicting services (e.g. Docker containers).")
+
+            # Attempt to revert configuration
+            warn("Attempting to revert MariaDB configuration to default (127.0.0.1)...")
+            subprocess.run(r"sed -i 's/bind-address = 0.0.0.0/bind-address = 127.0.0.1/' /etc/mysql/mariadb.conf.d/50-server.cnf", shell=True)
+            try:
+                subprocess.run(["systemctl", "restart", "mariadb"], check=True)
+                warn("Reverted MariaDB to localhost binding. Docker connectivity to MariaDB will be limited.")
+                success("MariaDB recovered.")
+            except subprocess.CalledProcessError:
+                logs = ""
+                try:
+                    # Capture more logs and check error log file
+                    res = subprocess.run("journalctl -xeu mariadb.service --no-pager | tail -n 50", shell=True, capture_output=True, text=True)
+                    logs = res.stdout
+                    if os.path.exists("/var/log/mysql/error.log"):
+                         res_err = subprocess.run("tail -n 20 /var/log/mysql/error.log", shell=True, capture_output=True, text=True)
+                         logs += "\n--- /var/log/mysql/error.log ---\n" + res_err.stdout
+                except:
+                    logs = "Could not retrieve logs."
+
+                if "No space left on device" in logs or "Errcode: 28" in logs:
+                    fatal("MariaDB failed to start: No space left on device. Please free up disk space.")
+
+                fatal(f"MariaDB failed to restart even after revert.\nLogs:\n{logs}")
 
     # 2. Swap & BBR
     if not os.path.exists("/swapfile"):
@@ -121,8 +150,8 @@ fs.file-max=100000
     # 3. DNS Optimization
     if os.path.exists("/etc/systemd/resolved.conf"):
         # We use a simple replacement strategy
-        subprocess.run("sed -i 's/^#\?DNS=.*/DNS=8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1/' /etc/systemd/resolved.conf", shell=True)
-        subprocess.run("sed -i 's/^#\?FallbackDNS=.*/FallbackDNS=1.1.1.1 1.0.0.1/' /etc/systemd/resolved.conf", shell=True)
+        subprocess.run(r"sed -i 's/^#\?DNS=.*/DNS=8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1/' /etc/systemd/resolved.conf", shell=True)
+        subprocess.run(r"sed -i 's/^#\?FallbackDNS=.*/FallbackDNS=1.1.1.1 1.0.0.1/' /etc/systemd/resolved.conf", shell=True)
         subprocess.run("systemctl restart systemd-resolved", shell=True, stderr=subprocess.DEVNULL)
 
     # 4. Docker Engine (Official)

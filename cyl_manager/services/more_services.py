@@ -4,7 +4,7 @@ import shutil
 from .base import BaseService
 from ..core.docker import deploy_service, remove_service, is_installed
 from ..core.database import ensure_db, generate_password, save_credential, get_auth_value
-from ..core.utils import ask, msg, fatal, warn, success
+from ..core.utils import ask, msg, fatal, warn, success, is_port_open
 from ..core.config import get, get_auth_details
 
 class MailService(BaseService):
@@ -14,6 +14,29 @@ class MailService(BaseService):
 
     def install(self):
         subdomain = f"mail.{self.domain}"
+
+        # Check for port conflicts (specifically port 25)
+        if is_port_open(25):
+            warn("Port 25 is currently in use.")
+            conflicting_service = None
+            for svc in ["postfix", "exim4", "sendmail"]:
+                if shutil.which("systemctl"):
+                    res = subprocess.run(f"systemctl is-active {svc}", shell=True, stdout=subprocess.DEVNULL)
+                    if res.returncode == 0:
+                        conflicting_service = svc
+                        break
+
+            if conflicting_service:
+                warn(f"Detected {conflicting_service} running on port 25.")
+                if ask(f"Do you want to stop and disable {conflicting_service} to proceed? [Y/n]", "Y").lower() in ["y", "yes"]:
+                    msg(f"Stopping {conflicting_service}...")
+                    subprocess.run(f"systemctl stop {conflicting_service}", shell=True, check=True)
+                    subprocess.run(f"systemctl disable {conflicting_service}", shell=True, check=True)
+                    success(f"{conflicting_service} stopped.")
+                else:
+                    fatal("Cannot install Mail Server while port 25 is in use.")
+            else:
+                fatal("Port 25 is in use by an unknown service. Please free up port 25 and try again.")
 
         # Check profile for ClamAV
         clamav_state = 1
@@ -74,19 +97,32 @@ networks:
 
         msg("Initializing Mail User...")
         import time
-        timeout = 60
+        timeout = 300
         count = 0
         initialized = False
+        print("Waiting for mailserver to be ready...", end="", flush=True)
         while count < timeout:
+            # Check if container crashed
+            res_status = subprocess.run("docker inspect -f '{{.State.Running}}' mailserver", shell=True, capture_output=True, text=True)
+            if res_status.returncode == 0 and res_status.stdout.strip() == "false":
+                print("") # Newline
+                warn("Mail Server container is not running.")
+                logs = subprocess.run("docker logs mailserver --tail 50", shell=True, capture_output=True, text=True).stdout
+                fatal(f"Mail Server crashed during startup.\nLogs:\n{logs}")
+
             res = subprocess.run("docker exec mailserver setup email list", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if res.returncode == 0:
                 initialized = True
                 break
             time.sleep(2)
             count += 2
+            if count % 10 == 0:
+                print(".", end="", flush=True)
+        print("") # Newline
 
         if not initialized:
-            fatal(f"Mail server failed to initialize within {timeout} seconds.")
+            logs = subprocess.run("docker logs mailserver --tail 50", shell=True, capture_output=True, text=True).stdout
+            fatal(f"Mail server failed to initialize within {timeout} seconds.\nLogs:\n{logs}")
 
         mail_user = ask("Enter email user", "postmaster")
         full_email = f"{mail_user}@{self.domain}"
