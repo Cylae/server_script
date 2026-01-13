@@ -102,6 +102,9 @@ def init_system_resources():
                 except:
                     logs = "Could not retrieve logs."
 
+                if "No space left on device" in logs or "Errcode: 28" in logs:
+                    fatal("MariaDB failed to start: No space left on device. Please free up disk space.")
+
                 fatal(f"MariaDB failed to restart even after revert.\nLogs:\n{logs}")
 
     # 2. Swap & BBR
