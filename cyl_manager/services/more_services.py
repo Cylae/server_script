@@ -97,9 +97,10 @@ networks:
 
         msg("Initializing Mail User...")
         import time
-        timeout = 60
+        timeout = 300
         count = 0
         initialized = False
+        print("Waiting for mailserver to be ready...", end="", flush=True)
         while count < timeout:
             res = subprocess.run("docker exec mailserver setup email list", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if res.returncode == 0:
@@ -107,6 +108,9 @@ networks:
                 break
             time.sleep(2)
             count += 2
+            if count % 10 == 0:
+                print(".", end="", flush=True)
+        print("") # Newline
 
         if not initialized:
             fatal(f"Mail server failed to initialize within {timeout} seconds.")
