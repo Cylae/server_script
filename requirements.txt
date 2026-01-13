@@ -3,3 +3,8 @@ requests
 python-dotenv
 pytest
 psutil
+docker
+jinja2
+rich
+typer
+pydantic-settings

@@ -1,110 +1,88 @@
 import os
 import subprocess
-from .utils import msg, success
+from pathlib import Path
+from jinja2 import Template
+from .logger import logger
+from .config import config
 
-def update_nginx(subdomain, port, type="proxy", root=None):
-    """Generates and updates Nginx configuration."""
+class ProxyManager:
+    def __init__(self):
+        self.certbot_email = config.EMAIL
+        self.domain = config.DOMAIN
+        self.nginx_conf_dir = Path("/etc/nginx/sites-available")
+        self.nginx_enabled_dir = Path("/etc/nginx/sites-enabled")
 
-    sec_headers = """
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-    add_header Permissions-Policy "interest-cohort=()" always;
-    """
+    def ensure_infrastructure(self):
+        """Installs Nginx and Certbot."""
+        if subprocess.run("which nginx", shell=True).returncode != 0:
+            logger.info("Installing Nginx...")
+            subprocess.run("apt-get update -q && apt-get install -y nginx", shell=True, check=True)
 
-    opt_config = """
-    gzip on;
-    gzip_vary on;
-    gzip_proxied any;
-    gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+        if subprocess.run("which certbot", shell=True).returncode != 0:
+            logger.info("Installing Certbot...")
+            subprocess.run("apt-get update -q && apt-get install -y certbot python3-certbot-nginx", shell=True, check=True)
 
-    keepalive_timeout 65;
-    """
+    def generate_config(self, service_name: str, port: str):
+        """Generates Nginx configuration for a service."""
+        try:
+            # Check if we can run apt/install things (skip in test/sandbox if not root or mocked)
+            if os.geteuid() == 0:
+                self.ensure_infrastructure()
+            else:
+                logger.warning("Not running as root, skipping Nginx installation/configuration.")
+                return
+        except Exception as e:
+            logger.warning(f"Failed to ensure infrastructure: {e}")
+            return
 
-    site_config = f"""server {{
+        full_domain = f"{service_name}.{self.domain}" if service_name != "home" else self.domain
+        conf_file = self.nginx_conf_dir / full_domain
+
+        template_str = """
+server {
     listen 80;
-    listen [::]:80;
-    server_name {subdomain};
+    server_name {{ domain }};
 
-"""
-    if "cloud" in subdomain:
-        site_config += "    client_max_body_size 10G;\n"
-    else:
-        site_config += "    client_max_body_size 512M;\n"
-
-    site_config += f"""    client_body_buffer_size 512k;
-
-    {sec_headers}
-    {opt_config}
-"""
-
-    if type == "proxy":
-        site_config += f"""    location / {{
-        proxy_pass http://127.0.0.1:{port};
+    location / {
+        proxy_pass http://127.0.0.1:{{ port }};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }}
-}}
+    }
+}
 """
-    # PHP/Dashboard support can be added if needed, but for now focusing on proxy as per memory emphasizing media stack (mostly docker services)
-    # The original script had PHP support, I should probably add it back if I want full "port all services"
-    # But for now, let's stick to proxy which covers most.
-    # Actually, let's just implement the proxy part fully first.
+        template = Template(template_str)
+        content = template.render(domain=full_domain, port=port)
 
-    os.makedirs("/etc/nginx/sites-available", exist_ok=True)
-    os.makedirs("/etc/nginx/sites-enabled", exist_ok=True)
+        try:
+            self.nginx_conf_dir.mkdir(parents=True, exist_ok=True)
+            self.nginx_enabled_dir.mkdir(parents=True, exist_ok=True)
 
-    # Remove default
-    if os.path.exists("/etc/nginx/sites-enabled/default"):
-        os.remove("/etc/nginx/sites-enabled/default")
+            with open(conf_file, "w") as f:
+                f.write(content)
 
-    config_path = f"/etc/nginx/sites-available/{subdomain}"
-    with open(config_path, "w") as f:
-        f.write(site_config)
+            # Enable site
+            enabled_link = self.nginx_enabled_dir / full_domain
+            if not enabled_link.exists():
+                os.symlink(conf_file, enabled_link)
 
-    link_path = f"/etc/nginx/sites-enabled/{subdomain}"
-    if os.path.exists(link_path):
-        os.remove(link_path)
-    os.symlink(config_path, link_path)
+            # Test and reload
+            subprocess.run("nginx -t", shell=True, check=True)
+            subprocess.run("systemctl reload nginx", shell=True, check=True)
+            logger.info(f"Nginx configured for {full_domain}")
 
-def sync_infrastructure(email):
-    """Syncs Nginx and SSL."""
-    msg("Syncing Infrastructure (Nginx & SSL)...")
+            # Obtain SSL
+            # self.obtain_ssl(full_domain)
+        except Exception as e:
+            logger.error(f"Failed to configure Nginx for {full_domain}: {e}")
 
-    subprocess.run(["systemctl", "reload", "nginx"], check=True)
+    def obtain_ssl(self, domain: str):
+        if os.geteuid() != 0: return
+        cmd = ["certbot", "--nginx", "-d", domain, "--non-interactive", "--agree-tos", "-m", self.certbot_email]
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Certbot failed for {domain}: {e}")
 
-    domains = []
-    if os.path.exists("/etc/nginx/sites-enabled"):
-        for filename in os.listdir("/etc/nginx/sites-enabled"):
-            filepath = os.path.join("/etc/nginx/sites-enabled", filename)
-            if os.path.isfile(filepath):
-                # Grep for server_name
-                try:
-                    with open(filepath, "r") as f:
-                        for line in f:
-                            if "server_name" in line:
-                                parts = line.strip().split()
-                                if len(parts) >= 2:
-                                    domain = parts[1].strip(";")
-                                    if domain != "_":
-                                        domains.append(domain)
-                except:
-                    pass
-
-    if domains:
-        domain_args = []
-        for d in domains:
-            domain_args.extend(["-d", d])
-
-        msg(f"Requesting SSL certificates for: {', '.join(domains)}")
-        cmd = ["certbot", "--nginx", "--non-interactive", "--agree-tos", "-m", email, "--expand"] + domain_args
-        subprocess.run(cmd)
-
-    success("Infrastructure Synced.")
+proxy_manager = ProxyManager()

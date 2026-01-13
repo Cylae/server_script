@@ -1,54 +1,52 @@
+from typing import Optional
+from pathlib import Path
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
 import os
 
-# Constants
-CONFIG_FILE = "/etc/cyl_manager.conf"
-AUTH_FILE = "/root/.auth_details"
-LOG_FILE = "/var/log/server_manager.log"
+# Load .env file from /etc/cylae/ or current directory
+ENV_PATH = Path("/etc/cylae/.env")
+if not ENV_PATH.exists():
+    ENV_PATH = Path(os.getcwd()) / ".env"
 
-# Default configuration
-DEFAULT_CONFIG = {
-    "DOMAIN": "example.com",
-    "EMAIL": "admin@example.com",
-    "DOCKER_NET": "server-net"
-}
+load_dotenv(dotenv_path=ENV_PATH)
 
-_config_cache = {}
+class Config:
+    DOMAIN: str = os.getenv("DOMAIN", "example.com")
+    EMAIL: str = os.getenv("EMAIL", "admin@example.com")
+    DOCKER_NET: str = os.getenv("DOCKER_NET", "server-net")
+    DATA_ROOT: str = os.getenv("DATA_ROOT", "/opt")
+    BACKUP_ROOT: str = os.getenv("BACKUP_ROOT", "/var/backups/cylae")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
-def load_config():
-    """Loads configuration from the config file."""
-    global _config_cache
-    config = DEFAULT_CONFIG.copy()
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            for line in f:
-                if "=" in line:
-                    key, value = line.strip().split("=", 1)
-                    config[key] = value
-    _config_cache = config
-    return config
+    @classmethod
+    def save(cls, key: str, value: str):
+        """Updates a configuration value in the .env file."""
+        # Create directory if it doesn't exist
+        if str(ENV_PATH) == "/etc/cylae/.env":
+            Path("/etc/cylae").mkdir(parents=True, exist_ok=True)
 
-def get(key):
-    """Gets a configuration value."""
-    if not _config_cache:
-        load_config()
-    return _config_cache.get(key)
+        lines = []
+        if ENV_PATH.exists():
+            with open(ENV_PATH, "r") as f:
+                lines = f.readlines()
 
-def set_config(key, value):
-    """Sets a configuration value and saves it."""
-    if not _config_cache:
-        load_config()
-    _config_cache[key] = value
-    save_config()
+        updated = False
+        new_lines = []
+        for line in lines:
+            if line.startswith(f"{key}="):
+                new_lines.append(f"{key}={value}\n")
+                updated = True
+            else:
+                new_lines.append(line)
 
-def save_config():
-    """Saves the current configuration to the config file."""
-    with open(CONFIG_FILE, "w") as f:
-        for key, value in _config_cache.items():
-            f.write(f"{key}={value}\n")
+        if not updated:
+            new_lines.append(f"{key}={value}\n")
 
-def get_auth_details():
-    """Reads auth details from .auth_details file."""
-    if os.path.exists(AUTH_FILE):
-        with open(AUTH_FILE, "r") as f:
-            return f.read()
-    return ""
+        with open(ENV_PATH, "w") as f:
+            f.writelines(new_lines)
+
+        # Update current environment variable as well
+        os.environ[key] = value
+
+config = Config()

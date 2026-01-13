@@ -1,308 +1,76 @@
-from .base import BaseService
-from ..core.docker import deploy_service, remove_service
-import os
-import subprocess
+from ..services.base import BaseService
+from ..core.registry import registry
+from ..core.config import config
 
-class TautulliService(BaseService):
-    name = "tautulli"
-    pretty_name = "Tautulli"
-    port = "8181"
+@registry.register
+class PlexService(BaseService):
+    @property
+    def name(self): return "plex"
 
-    def install(self):
-        subdomain = f"tautulli.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True) # ensure media dir
+    @property
+    def pretty_name(self): return "Plex Media Server"
 
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
+    @property
+    def image(self): return "lscr.io/linuxserver/plex:latest"
 
-        compose_content = f"""
-services:
-  tautulli:
-    image: lscr.io/linuxserver/tautulli:latest
-    container_name: tautulli
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-    volumes:
-      - /opt/tautulli/config:/config
-    ports:
-      - "8181:8181"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
+    @property
+    def ports(self):
+        return {"32400": "32400"}
 
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
+    @property
+    def volumes(self):
+        return {
+            f"{self.data_dir}/config": "/config",
+            "/opt/media/tv": "/tv",
+            "/opt/media/movies": "/movies"
+        }
 
-    def remove(self):
-        subdomain = f"tautulli.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
+    @property
+    def env_vars(self):
+        vars = super().env_vars
+        vars["VERSION"] = "docker"
+        return vars
 
+@registry.register
 class SonarrService(BaseService):
-    name = "sonarr"
-    pretty_name = "Sonarr"
-    port = "8989"
+    @property
+    def name(self): return "sonarr"
 
-    def install(self):
-        subdomain = f"sonarr.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True)
+    @property
+    def pretty_name(self): return "Sonarr"
 
-        mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
+    @property
+    def image(self): return "lscr.io/linuxserver/sonarr:latest"
 
-        compose_content = f"""
-services:
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-    volumes:
-      - /opt/sonarr/config:/config
-      - /opt/media:/data
-    ports:
-      - "8989:8989"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
+    @property
+    def ports(self):
+        return {"8989": "8989"}
 
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
+    @property
+    def volumes(self):
+        return {
+            f"{self.data_dir}/config": "/config",
+            "/opt/media": "/data" # Unified media path
+        }
 
-    def remove(self):
-        subdomain = f"sonarr.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
-
+@registry.register
 class RadarrService(BaseService):
-    name = "radarr"
-    pretty_name = "Radarr"
-    port = "7878"
+    @property
+    def name(self): return "radarr"
 
-    def install(self):
-        subdomain = f"radarr.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True)
+    @property
+    def pretty_name(self): return "Radarr"
 
-        mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
+    @property
+    def image(self): return "lscr.io/linuxserver/radarr:latest"
 
-        compose_content = f"""
-services:
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    container_name: radarr
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-    volumes:
-      - /opt/radarr/config:/config
-      - /opt/media:/data
-    ports:
-      - "7878:7878"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
+    @property
+    def ports(self):
+        return {"7878": "7878"}
 
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
-
-    def remove(self):
-        subdomain = f"radarr.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
-
-class ProwlarrService(BaseService):
-    name = "prowlarr"
-    pretty_name = "Prowlarr"
-    port = "9696"
-
-    def install(self):
-        subdomain = f"prowlarr.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True)
-
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
-
-        compose_content = f"""
-services:
-  prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
-    container_name: prowlarr
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-    volumes:
-      - /opt/prowlarr/config:/config
-    ports:
-      - "9696:9696"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
-
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
-
-    def remove(self):
-        subdomain = f"prowlarr.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
-
-class JackettService(BaseService):
-    name = "jackett"
-    pretty_name = "Jackett"
-    port = "9117"
-
-    def install(self):
-        subdomain = f"jackett.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True)
-
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
-
-        compose_content = f"""
-services:
-  jackett:
-    image: lscr.io/linuxserver/jackett:latest
-    container_name: jackett
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-      - AUTO_UPDATE=true
-    volumes:
-      - /opt/jackett/config:/config
-      - /opt/media:/data
-    ports:
-      - "9117:9117"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
-
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
-
-    def remove(self):
-        subdomain = f"jackett.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
-
-class OverseerrService(BaseService):
-    name = "overseerr"
-    pretty_name = "Overseerr"
-    port = "5055"
-
-    def install(self):
-        subdomain = f"request.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True)
-
-        mem_limit = self.get_resource_limit(default_high="1024M", default_low="256M")
-
-        compose_content = f"""
-services:
-  overseerr:
-    image: lscr.io/linuxserver/overseerr:latest
-    container_name: overseerr
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-    volumes:
-      - /opt/overseerr/config:/config
-    ports:
-      - "5055:5055"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
-
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
-
-    def remove(self):
-        subdomain = f"request.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
-
-class QbittorrentService(BaseService):
-    name = "qbittorrent"
-    pretty_name = "qBittorrent"
-    port = "8080" # WebUI port
-
-    def install(self):
-        subdomain = f"qbittorrent.{self.domain}"
-        os.makedirs("/opt/media", exist_ok=True)
-
-        mem_limit = self.get_resource_limit(default_high="2048M", default_low="512M")
-
-        compose_content = f"""
-services:
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent
-    environment:
-      - PUID=${{SUDO_UID:-$(id -u)}}
-      - PGID=${{SUDO_GID:-$(getent group docker | cut -d: -f3)}}
-      - TZ=$(cat /etc/timezone)
-      - WEBUI_PORT=8080
-    volumes:
-      - /opt/qbittorrent/config:/config
-      - /opt/media:/data
-    ports:
-      - "8080:8080"
-      - "6881:6881"
-      - "6881:6881/udp"
-    networks:
-      - server-net
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: {mem_limit}
-
-networks:
-  server-net:
-    external: true
-"""
-        deploy_service(self.name, self.pretty_name, compose_content.strip(), subdomain, self.port)
-        subprocess.run("ufw allow 6881", shell=True, stdout=subprocess.DEVNULL)
-
-    def remove(self):
-        subdomain = f"qbittorrent.{self.domain}"
-        remove_service(self.name, self.pretty_name, subdomain, self.port)
-        subprocess.run("ufw delete allow 6881", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    @property
+    def volumes(self):
+        return {
+            f"{self.data_dir}/config": "/config",
+            "/opt/media": "/data"
+        }

@@ -1,169 +1,117 @@
-import sys
-import concurrent.futures
-from .core.system import check_root, check_os, determine_profile, check_disk_space
-from .core.install_system import init_system_resources
-from .core.docker import init_docker
-from .core.security import harden_system
-from .core.config import load_config, get, set_config
-from .core.utils import ask, msg, header_art
-from .services.plex import PlexService
-from .services.portainer import PortainerService
-from .services.gitea import GiteaService
-from .services.misc import NextcloudService, VaultwardenService, UptimeKumaService, WireGuardService, FileBrowserService, YourlsService
-from .services.more_services import MailService, NetdataService, FTPService, GLPIService
-from .services.media_services import TautulliService, SonarrService, RadarrService, ProwlarrService, JackettService, OverseerrService, QbittorrentService
-from .core.proxy import sync_infrastructure
-from .core.backup import manage_backup, manage_restore
+import typer
+from rich.console import Console
+from rich.table import Table
+from rich.prompt import Prompt, Confirm
+from .core.registry import registry
+from .core.config import config
+from .core.docker_manager import docker_manager
+from .core.system import check_root, get_hardware_specs
+# Import services to register them
+from .services import media_services # This will now work without circular dependency via __init__
 
-def status_str(service):
-    return "INSTALLED" if service.is_installed() else "NOT INSTALLED"
+app = typer.Typer()
+console = Console()
 
-def manage_service(service_class):
-    svc = service_class()
-    if svc.is_installed():
-        if ask(f"Uninstall {svc.pretty_name}? (y/n)") == "y":
-            svc.remove()
-    else:
-        svc.install()
+def check_init():
+    """Initial checks."""
+    try:
+        check_root()
+        docker_manager.ensure_docker_installed()
+        docker_manager.ensure_network()
+    except Exception as e:
+        console.print(f"[red]Initialization Error: {e}[/red]")
+        raise typer.Exit(code=1)
 
-def install_service_wrapper(service_class):
-    """Wrapper for concurrent installation."""
-    svc = service_class()
-    if not svc.is_installed():
-        msg(f"Installing {svc.pretty_name}...")
-        svc.install()
-        return f"{svc.pretty_name} Installed"
-    return f"{svc.pretty_name} Already Installed"
+@app.command()
+def list():
+    """List all available services and their status."""
+    check_init()
+    table = Table(title="Available Services")
+    table.add_column("Service", style="cyan")
+    table.add_column("Status", style="green")
+    table.add_column("URL", style="blue")
 
-def install_all_media_services():
-    """Installs all media services with concurrency based on profile."""
-    profile = determine_profile()
-    services = [
-        PlexService, TautulliService, SonarrService, RadarrService,
-        ProwlarrService, JackettService, OverseerrService, QbittorrentService
-    ]
+    services = registry.get_all_services()
+    for name, service in services.items():
+        status = "[green]Installed[/green]" if service.is_installed() else "[yellow]Not Installed[/yellow]"
+        # Port detection is basic here
+        port = next(iter(service.ports.keys()), "N/A") if service.ports else "N/A"
+        url = f"http://{config.DOMAIN}:{port}" if port != "N/A" else "N/A"
+        table.add_row(service.pretty_name, status, url)
 
-    msg(f"Starting Bulk Installation. Hardware Profile: {profile}")
+    console.print(table)
 
-    # Check disk space before bulk install
-    check_disk_space()
+@app.command()
+def install(service_name: str):
+    """Install a specific service."""
+    check_init()
+    try:
+        service = registry.get_service(service_name)
+        service.install()
+    except ValueError:
+        console.print(f"[red]Service '{service_name}' not found.[/red]")
 
-    if profile == "HIGH":
-        msg("High Performance Profile: Installing in PARALLEL (Max 3 workers)")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            future_to_svc = {executor.submit(install_service_wrapper, svc): svc for svc in services}
-            for future in concurrent.futures.as_completed(future_to_svc):
-                try:
-                    result = future.result()
-                    msg(result)
-                except Exception as e:
-                    print(f"Service installation failed: {e}")
-    else:
-        msg("Low Spec Profile: Installing SEQUENTIALLY to prevent freeze")
-        for svc_class in services:
-            try:
-                msg(install_service_wrapper(svc_class))
-            except Exception as e:
-                print(f"Service installation failed: {e}")
+@app.command()
+def remove(service_name: str, delete_data: bool = False):
+    """Remove a specific service."""
+    check_init()
+    try:
+        service = registry.get_service(service_name)
+        if delete_data or Confirm.ask(f"Delete data for {service.pretty_name}?"):
+            service.remove(delete_data=True)
+        else:
+            service.remove(delete_data=False)
+    except ValueError:
+        console.print(f"[red]Service '{service_name}' not found.[/red]")
 
-    if ask("Apply changes now (Update SSL/Nginx)? (y/n)") == "y":
-        sync_infrastructure(get("EMAIL"))
+@app.command()
+def info():
+    """Show system info."""
+    specs = get_hardware_specs()
+    console.print(specs)
 
-def media_menu():
-    while True:
-        print("\n=== MEDIA STACK MANAGER ===")
-        print(f"1. Manage Plex            [{status_str(PlexService())}]")
-        print(f"2. Manage Tautulli        [{status_str(TautulliService())}]")
-        print(f"3. Manage Sonarr (TV)     [{status_str(SonarrService())}]")
-        print(f"4. Manage Radarr (Movies) [{status_str(RadarrService())}]")
-        print(f"5. Manage Prowlarr (Index)[{status_str(ProwlarrService())}]")
-        print(f"6. Manage Jackett         [{status_str(JackettService())}]")
-        print(f"7. Manage Overseerr       [{status_str(OverseerrService())}]")
-        print(f"8. Manage qBittorrent     [{status_str(QbittorrentService())}]")
-        print("---------------------------------")
-        print("99. Install ALL Media Services (Optimized)")
-        print("0. Return to Main Menu")
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context):
+    """
+    Cylae Server Manager
+    """
+    if ctx.invoked_subcommand is None:
+        # Interactive Mode
+        while True:
+            console.clear()
+            console.print("[bold blue]Cylae Server Manager[/bold blue]")
 
-        choice = ask("Select >")
+            # Re-implement list logic here to avoid clearing screen
+            table = Table(title="Available Services")
+            table.add_column("Service", style="cyan")
+            table.add_column("Status", style="green")
+            table.add_column("URL", style="blue")
 
-        if choice == "1": manage_service(PlexService)
-        elif choice == "2": manage_service(TautulliService)
-        elif choice == "3": manage_service(SonarrService)
-        elif choice == "4": manage_service(RadarrService)
-        elif choice == "5": manage_service(ProwlarrService)
-        elif choice == "6": manage_service(JackettService)
-        elif choice == "7": manage_service(OverseerrService)
-        elif choice == "8": manage_service(QbittorrentService)
-        elif choice == "99": install_all_media_services()
-        elif choice == "0": break
+            services = registry.get_all_services()
+            for name, service in services.items():
+                status = "[green]Installed[/green]" if service.is_installed() else "[yellow]Not Installed[/yellow]"
+                port = next(iter(service.ports.keys()), "N/A") if service.ports else "N/A"
+                url = f"http://{config.DOMAIN}:{port}" if port != "N/A" else "N/A"
+                table.add_row(service.pretty_name, status, url)
+            console.print(table)
 
-        if choice in [str(i) for i in range(1, 9)]:
-            if ask("Apply changes now (Update SSL/Nginx)? (y/n)") == "y":
-                sync_infrastructure(get("EMAIL"))
+            console.print("\n[bold]Actions:[/bold]")
+            console.print("1. Install Service")
+            console.print("2. Remove Service")
+            console.print("0. Exit")
 
-def main():
-    check_root()
-    check_os()
-    load_config()
-    init_system_resources()
-    harden_system()
+            choice = Prompt.ask("Select an action", choices=["1", "2", "0"])
 
-    # Initial hardware check on startup
-    check_disk_space()
-
-    # Ensure domain is set
-    if get("DOMAIN") == "example.com":
-        domain = ask("Enter your domain name (e.g., example.com)")
-        set_config("DOMAIN", domain)
-        email = ask("Enter your email for SSL alerts")
-        set_config("EMAIL", email)
-
-    while True:
-        header_art()
-        print(f"Domain: {get('DOMAIN')}")
-        print("---------------------------------")
-        print(f" 1. Manage Gitea           [{status_str(GiteaService())}]")
-        print(f" 2. Manage Nextcloud       [{status_str(NextcloudService())}]")
-        print(f" 3. Manage Portainer       [{status_str(PortainerService())}]")
-        print(f" 4. Manage Netdata         [{status_str(NetdataService())}]")
-        print(f" 5. Manage Mail Server     [{status_str(MailService())}]")
-        print(f" 6. Manage YOURLS          [{status_str(YourlsService())}]")
-        print(f" 7. Manage FTP             [{status_str(FTPService())}]")
-        print(f" 8. Manage Vaultwarden     [{status_str(VaultwardenService())}]")
-        print(f" 9. Manage Uptime Kuma     [{status_str(UptimeKumaService())}]")
-        print(f"10. Manage WireGuard       [{status_str(WireGuardService())}]")
-        print(f"11. Manage FileBrowser     [{status_str(FileBrowserService())}]")
-        print(f"12. Manage GLPI (Ticket)   [{status_str(GLPIService())}]")
-        print(f"13. Manage Media Stack ->")
-        print("---------------------------------")
-        print(" b. Backup Data")
-        print(" x. Restore Data")
-        print(" r. Refresh Infrastructure (Nginx/SSL)")
-        print(" 0. Exit")
-
-        choice = ask("Select >")
-
-        if choice == "1": manage_service(GiteaService)
-        elif choice == "2": manage_service(NextcloudService)
-        elif choice == "3": manage_service(PortainerService)
-        elif choice == "4": manage_service(NetdataService)
-        elif choice == "5": manage_service(MailService)
-        elif choice == "6": manage_service(YourlsService)
-        elif choice == "7": manage_service(FTPService)
-        elif choice == "8": manage_service(VaultwardenService)
-        elif choice == "9": manage_service(UptimeKumaService)
-        elif choice == "10": manage_service(WireGuardService)
-        elif choice == "11": manage_service(FileBrowserService)
-        elif choice == "12": manage_service(GLPIService)
-        elif choice == "13": media_menu()
-        elif choice == "b": manage_backup()
-        elif choice == "x": manage_restore()
-        elif choice == "r": sync_infrastructure(get("EMAIL"))
-        elif choice == "0": break
-
-        if choice in [str(i) for i in range(1, 13)]:
-            if ask("Apply changes now (Update SSL/Nginx)? (y/n)") == "y":
-                sync_infrastructure(get("EMAIL"))
+            if choice == "0":
+                raise typer.Exit()
+            elif choice == "1":
+                name = Prompt.ask("Enter service name (e.g., plex)")
+                install(name)
+                Prompt.ask("Press Enter to continue...")
+            elif choice == "2":
+                name = Prompt.ask("Enter service name (e.g., plex)")
+                remove(name)
+                Prompt.ask("Press Enter to continue...")
 
 if __name__ == "__main__":
-    main()
+    app()
