@@ -3,6 +3,7 @@ import secrets
 import string
 import subprocess
 from .config import get_auth_details
+from .utils import fatal
 
 AUTH_FILE = "/root/.auth_details"
 
@@ -77,11 +78,11 @@ ALTER USER '{username}'@'%' IDENTIFIED BY '{password}';
         sql_file_path = sql_file.name
 
     try:
-        subprocess.run(f"mysql --defaults-extra-file='{temp_cnf_path}' < '{sql_file_path}'", shell=True, check=True)
-    except subprocess.CalledProcessError:
-        # If it fails, maybe root password changed or something.
-        # In a rewrite we should be more robust but for now we follow the script logic.
-        raise Exception(f"Database operation failed for {db_name}")
+        subprocess.run(f"mysql --defaults-extra-file='{temp_cnf_path}' < '{sql_file_path}'", shell=True, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        if "No space left on device" in e.stderr:
+            fatal(f"Disk full. Cannot create database '{db_name}'. Please free up space.")
+        raise Exception(f"Database operation failed for {db_name}: {e.stderr}")
     finally:
         os.remove(temp_cnf_path)
         os.remove(sql_file_path)
