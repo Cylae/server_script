@@ -2,6 +2,7 @@ import sys
 import shutil
 import logging
 import time
+import socket
 
 # ANSI Color Codes
 GREEN = "\033[0;32m"
@@ -25,6 +26,10 @@ def log_error(message):
 def msg(message):
     print(f"{GREEN}[INFO]{NC} {message}")
     log_info(message)
+
+def success(message):
+    print(f"{GREEN}[SUCCESS]{NC} {message}")
+    log_info(f"SUCCESS: {message}")
 
 def warn(message):
     print(f"{YELLOW}[WARN]{NC} {message}")
@@ -58,6 +63,11 @@ def ask(question, default=None):
 def check_command(command):
     """Checks if a command exists in the path."""
     return shutil.which(command) is not None
+
+def is_port_open(port):
+    """Checks if a port is open (in use) on localhost."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', int(port))) == 0
 
 def header_art():
     print(f"""{CYAN}
