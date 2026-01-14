@@ -14,6 +14,14 @@ from cyl_manager.core.orchestrator import InstallationOrchestrator
 
 class TestArchitect(unittest.TestCase):
 
+    def setUp(self):
+        # Reset cache before each test
+        SystemManager._hardware_profile = None
+
+    def tearDown(self):
+        # Reset cache after each test
+        SystemManager._hardware_profile = None
+
     @patch("cyl_manager.core.system.psutil")
     def test_hardware_profile_low(self, mock_psutil):
         # Mock 2GB RAM, 2 Cores

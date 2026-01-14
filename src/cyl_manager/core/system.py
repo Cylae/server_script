@@ -15,6 +15,8 @@ class SystemManager:
     Responsible for interrogating the host environment to determine capability tiers.
     """
 
+    _hardware_profile: HardwareProfile | None = None
+
     @staticmethod
     def check_root() -> None:
         """Enforces execution with elevated privileges (root)."""
@@ -55,6 +57,9 @@ class SystemManager:
         - LOW: < 4GB RAM OR <= 2 CPU Cores OR < 1GB Swap (if RAM < 8GB)
         - HIGH: Anything else
         """
+        if SystemManager._hardware_profile is not None:
+            return SystemManager._hardware_profile
+
         ram_gb, cpu_cores, swap_gb = SystemManager.get_system_specs()
 
         profile: HardwareProfile = "HIGH"
@@ -68,6 +73,7 @@ class SystemManager:
             logger.debug("Profiling: Detected Limited CPU (<= 2 Cores).")
 
         logger.info(f"Hardware Logic: RAM={ram_gb:.2f}GB, Cores={cpu_cores}, Swap={swap_gb:.2f}GB -> Profile={profile}")
+        SystemManager._hardware_profile = profile
         return profile
 
     @staticmethod

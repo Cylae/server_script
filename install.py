@@ -11,11 +11,13 @@ def check_docker():
             # Install Docker using the convenience script
             subprocess.run("curl -fsSL https://get.docker.com -o get-docker.sh", shell=True, check=True)
             subprocess.run("sh get-docker.sh", shell=True, check=True)
-            os.remove("get-docker.sh")
             print("Docker installed successfully.")
         except subprocess.CalledProcessError:
             print("Failed to install Docker. Please install Docker manually.")
             sys.exit(1)
+        finally:
+            if os.path.exists("get-docker.sh"):
+                os.remove("get-docker.sh")
     else:
         print("Docker is already installed.")
 
@@ -46,9 +48,10 @@ def main():
     subprocess.run([pip_cmd, "install", "-e", "."], check=True)
 
     print("Creating symlink...")
-    if os.path.exists("/usr/local/bin/cyl-manager"):
-        os.remove("/usr/local/bin/cyl-manager")
-    os.symlink(os.path.abspath(".venv/bin/cyl-manager"), "/usr/local/bin/cyl-manager")
+    link_path = "/usr/local/bin/cyl-manager"
+    if os.path.exists(link_path) or os.path.islink(link_path):
+        os.remove(link_path)
+    os.symlink(os.path.abspath(".venv/bin/cyl-manager"), link_path)
 
     print("\nInstallation Complete!")
     print("Run 'cyl-manager menu' to start.")

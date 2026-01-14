@@ -54,7 +54,8 @@ class BaseService(ABC):
             cmd = ["docker", "compose", "-f", str(compose_path), "up", "-d"]
             subprocess.run(cmd, check=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to deploy compose file: {e.stderr.decode()}")
+            error_msg = e.stderr.decode() if e.stderr else str(e)
+            logger.error(f"Failed to deploy compose file: {error_msg}")
             raise ServiceError(f"Deployment failed for {self.name}")
 
     def get_common_env(self) -> Dict[str, str]:
