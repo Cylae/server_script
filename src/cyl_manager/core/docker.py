@@ -5,11 +5,18 @@ from .logging import logger
 from .config import settings
 
 class DockerManager:
+    _client_instance = None
+
     def __init__(self):
-        try:
-            self.client = docker.from_env()
-        except DockerException as e:
-            raise ServiceError(f"Could not connect to Docker: {e}")
+        # Optimization: Reuse the Docker client connection (Singleton pattern)
+        # to avoid expensive re-initialization (socket connection, env parsing)
+        # on every service instantiation.
+        if DockerManager._client_instance is None:
+            try:
+                DockerManager._client_instance = docker.from_env()
+            except DockerException as e:
+                raise ServiceError(f"Could not connect to Docker: {e}")
+        self.client = DockerManager._client_instance
 
     def is_installed(self, container_name: str) -> bool:
         try:
