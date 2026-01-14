@@ -1,6 +1,10 @@
 import os
+import threading
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENV_FILE_PATH = Path(os.getenv("CYLAE_ENV_FILE", "/etc/cylae/.env"))
+_CONFIG_LOCK = threading.Lock()
 
 class Settings(BaseSettings):
     DOMAIN: str = "example.com"
@@ -17,32 +21,41 @@ class Settings(BaseSettings):
     DATA_DIR: str = "/opt/cylae"
 
     model_config = SettingsConfigDict(
-        env_file=(".env", "/etc/cylae/.env"),
+        env_file=(".env", str(ENV_FILE_PATH)),
         env_file_encoding="utf-8",
         extra="ignore"
     )
 
 settings = Settings()
 
-def save_settings(key: str, value: str):
-    """Updates a setting in the /etc/cylae/.env file."""
-    env_path = Path("/etc/cylae/.env")
-    env_path.parent.mkdir(parents=True, exist_ok=True)
+def save_settings(key: str, value: str, env_path: Path = None):
+    """Updates a setting in the environment file."""
+    if env_path is None:
+        env_path = ENV_FILE_PATH
 
-    lines = []
-    if env_path.exists():
-        lines = env_path.read_text().splitlines()
+    with _CONFIG_LOCK:
+        env_path.parent.mkdir(parents=True, exist_ok=True)
 
-    updated = False
-    new_lines = []
-    for line in lines:
-        if line.startswith(f"{key}="):
+        lines = []
+        if env_path.exists():
+            lines = env_path.read_text().splitlines()
+
+        updated = False
+        new_lines = []
+        for line in lines:
+            if line.startswith(f"{key}="):
+                new_lines.append(f"{key}={value}")
+                updated = True
+            else:
+                new_lines.append(line)
+
+        if not updated:
             new_lines.append(f"{key}={value}")
-            updated = True
-        else:
-            new_lines.append(line)
 
-    if not updated:
-        new_lines.append(f"{key}={value}")
+        env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
-    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+        # Also update the in-memory settings
+        os.environ[key] = value
+        # Refresh settings
+        # Note: This doesn't auto-reload 'settings' object unless we re-instantiate,
+        # but environment variable update helps for subsequent subprocesses or lookups

@@ -20,7 +20,7 @@ class NextcloudService(BaseService):
                     "volumes": [
                         f"{settings.DATA_DIR}/nextcloud:/var/www/html"
                     ],
-                    "ports": ["8080:80"],
+                    "ports": ["8084:80"],
                     "networks": [settings.DOCKER_NET],
                     "deploy": self.get_resource_limits(high_mem="2G", low_mem="1G")
                 }
