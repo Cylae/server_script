@@ -1,123 +1,158 @@
 import os
-import psutil
-import distro
+import subprocess
+import shutil
 import platform
 from pathlib import Path
-from typing import Tuple, Literal
-from .exceptions import SystemRequirementError
-from .logging import logger
+from typing import Tuple, Optional, Final, Union, List
+import psutil
+import distro
 
-HardwareProfile = Literal["LOW", "HIGH"]
+from cyl_manager.core.logging import logger
 
 class SystemManager:
     """
-    Advanced System Analysis and Hardware Profiling Manager.
-    Responsible for interrogating the host environment to determine capability tiers.
+    Manager for system-level operations and checks.
     """
 
-    @staticmethod
-    def check_root() -> None:
-        """Enforces execution with elevated privileges (root)."""
-        if os.geteuid() != 0:
-            raise SystemRequirementError("Insufficient privileges. This operation requires root access.")
+    # Constants for Hardware Profiles
+    PROFILE_LOW: Final[str] = "LOW"
+    PROFILE_HIGH: Final[str] = "HIGH"
 
     @staticmethod
-    def check_os() -> None:
-        """Verifies OS compatibility (Debian/Ubuntu/Derivatives)."""
-        os_name = distro.id()
-        if os_name not in ["debian", "ubuntu", "raspbian", "linuxmint"]:
-             # warning but allow, as it might work on other debian-based distros
-            logger.warning(f"Detected OS: {distro.name(pretty=True)} ({os_name}). strict support is for Debian/Ubuntu.")
-        else:
-            logger.info(f"OS Verified: {distro.name(pretty=True)}")
-
-    @staticmethod
-    def get_system_specs() -> Tuple[float, int, float]:
+    def get_hardware_profile() -> str:
         """
-        Retrieves raw system specifications.
-        Returns: (RAM in GB, Logical CPU Cores, Swap in GB)
+        Determines the hardware profile based on system resources.
+
+        Returns:
+            str: 'LOW' if resources are constrained, else 'HIGH'.
         """
-        mem = psutil.virtual_memory()
-        swap = psutil.swap_memory()
-        cpu_cores = psutil.cpu_count(logical=True) or 1
+        try:
+            mem = psutil.virtual_memory()
+            swap = psutil.swap_memory()
+            cpu_count = psutil.cpu_count() or 1
 
-        ram_gb = mem.total / (1024**3)
-        swap_gb = swap.total / (1024**3)
+            # Criteria for LOW profile:
+            # < 4GB RAM OR <= 2 Cores OR < 1GB Swap
+            is_low_ram = mem.total < (4 * 1024**3)
+            is_low_cpu = cpu_count <= 2
+            is_low_swap = swap.total < (1 * 1024**3)
 
-        return ram_gb, cpu_cores, swap_gb
+            if is_low_ram or is_low_cpu or is_low_swap:
+                return SystemManager.PROFILE_LOW
+            return SystemManager.PROFILE_HIGH
 
-    @staticmethod
-    def get_hardware_profile() -> HardwareProfile:
-        """
-        Deterministically categorizes the host hardware into a capability profile.
-
-        Logic:
-        - LOW: < 4GB RAM OR <= 2 CPU Cores OR < 1GB Swap (if RAM < 8GB)
-        - HIGH: Anything else
-        """
-        ram_gb, cpu_cores, swap_gb = SystemManager.get_system_specs()
-
-        profile: HardwareProfile = "HIGH"
-
-        # Strict Low-Spec Criteria
-        if ram_gb < 3.8: # Allowing some overhead for "4GB" VPS which might show 3.8
-            profile = "LOW"
-            logger.debug("Profiling: Detected Low RAM (< 4GB).")
-        elif cpu_cores <= 2:
-            profile = "LOW"
-            logger.debug("Profiling: Detected Limited CPU (<= 2 Cores).")
-
-        logger.info(f"Hardware Logic: RAM={ram_gb:.2f}GB, Cores={cpu_cores}, Swap={swap_gb:.2f}GB -> Profile={profile}")
-        return profile
+        except Exception as e:
+            logger.warning(f"Failed to detect hardware profile, defaulting to LOW: {e}")
+            return SystemManager.PROFILE_LOW
 
     @staticmethod
     def get_concurrency_limit() -> int:
         """
-        Returns the optimal number of concurrent installation workers based on the profile.
-
-        LOW Profile -> Serial execution (1 worker) to prevent OOM/Freeze.
-        HIGH Profile -> Parallel execution (4 workers) for speed.
+        Returns the recommended concurrency limit for operations.
         """
-        profile = SystemManager.get_hardware_profile()
-        if profile == "LOW":
-            return 1
-        return 4
-
-    @staticmethod
-    def check_disk_space(min_gb=10) -> None:
-        """Validates available storage capacity."""
-        disk = psutil.disk_usage("/")
-        free_gb = disk.free / (1024**3)
-
-        logger.debug(f"Storage Analysis: {free_gb:.2f} GB available on root.")
-        if free_gb < 5:
-            raise SystemRequirementError(f"CRITICAL STORAGE DEFICIT: {free_gb:.2f}GB free. Minimum 5GB required.")
-        elif free_gb < min_gb:
-            logger.warning(f"Storage Warning: Only {free_gb:.2f}GB free. Recommendation: >{min_gb}GB.")
+        return 1 if SystemManager.get_hardware_profile() == SystemManager.PROFILE_LOW else 4
 
     @staticmethod
     def get_uid_gid() -> Tuple[str, str]:
         """
-        Resolves the appropriate UID/GID for container permissions.
-        Prioritizes SUDO_UID/GID to map to the invoking user.
+        Retrieves the user's UID and GID.
+        If running via sudo, returns the original user's ID to preserve file permissions.
+
+        Returns:
+            Tuple[str, str]: (UID, GID)
         """
-        uid = os.environ.get("SUDO_UID", str(os.getuid()))
         try:
-            import grp
-            # Attempt to find docker group, otherwise fall back to user's group or 1000
-            gid = os.environ.get("SUDO_GID")
-            if not gid:
-                gid = str(os.getgid())
-        except Exception:
-            gid = "1000"
-        return uid, gid
+            # If running under sudo, use the original user's ID
+            sudo_uid = os.getenv("SUDO_UID")
+            sudo_gid = os.getenv("SUDO_GID")
+
+            if sudo_uid and sudo_gid:
+                return sudo_uid, sudo_gid
+
+            return str(os.getuid()), str(os.getgid())
+        except AttributeError:
+            # Fallback for non-POSIX systems (e.g., Windows development)
+            return "1000", "1000"
 
     @staticmethod
     def get_timezone() -> str:
-        """Detects system timezone for container synchronization."""
-        if os.path.exists("/etc/timezone"):
-            return Path("/etc/timezone").read_text().strip()
-        if os.path.exists("/etc/localtime"):
-             # Basic resolution if /etc/timezone is missing
+        """
+        Retrieves the system timezone.
+
+        Returns:
+            str: Timezone string (e.g., 'Europe/Paris') or 'UTC' on failure.
+        """
+        try:
+            # Check /etc/timezone first
+            tz_file = Path("/etc/timezone")
+            if tz_file.exists():
+                return tz_file.read_text(encoding="utf-8").strip()
+
+            # Check symlink at /etc/localtime
+            localtime = Path("/etc/localtime")
+            if localtime.exists() and localtime.is_symlink():
+                return str(localtime.resolve()).replace("/usr/share/zoneinfo/", "")
+
             return "UTC"
-        return "UTC"
+        except Exception as e:
+            logger.warning(f"Could not determine timezone: {e}. Defaulting to UTC.")
+            return "UTC"
+
+    @staticmethod
+    def check_root() -> None:
+        """
+        Ensures the script is running with root privileges.
+
+        Raises:
+            PermissionError: If not running as root.
+        """
+        if os.geteuid() != 0:
+            raise PermissionError("This script must be run as root!")
+
+    @staticmethod
+    def check_os() -> None:
+        """
+        Checks if the operating system is supported.
+        Currently supports Debian/Ubuntu based systems.
+        """
+        try:
+            os_id = distro.id()
+            if os_id not in ["debian", "ubuntu", "raspbian", "linuxmint"]:
+                logger.warning(f"Untested OS detected: {os_id}. Proceeding with caution.")
+        except Exception:
+            logger.warning("Could not detect OS distribution.")
+
+    @staticmethod
+    def check_command(command: str) -> bool:
+        """
+        Checks if a system command is available.
+
+        Args:
+            command: The command to check (e.g., 'docker').
+
+        Returns:
+            bool: True if available, False otherwise.
+        """
+        return shutil.which(command) is not None
+
+    @staticmethod
+    def run_command(command: Union[List[str], str], check: bool = True, shell: bool = False) -> subprocess.CompletedProcess:
+        """
+        Runs a shell command safely.
+
+        Args:
+            command: The command to execute (list of args preferred).
+            check: Whether to raise an exception on non-zero exit code.
+            shell: Whether to run via shell (default: False for security).
+
+        Returns:
+            subprocess.CompletedProcess: The result of the command.
+        """
+        logger.debug(f"Executing: {command}")
+        return subprocess.run(
+            command,
+            shell=shell,
+            check=check,
+            text=True,
+            capture_output=True
+        )

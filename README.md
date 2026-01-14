@@ -1,77 +1,42 @@
-# Cylae Server Manager: The Ultimate Optimized Media Stack Architect
+# Cylae Server Manager 🚀
 
-**Version:** 2.1.0 (Refactored "Clean Slate" Edition)
-**Architecture:** Modular Python Framework
-**Orchestration:** Docker Compose via Python Subprocess & ThreadPoolExecutor
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://python.org)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://docker.com)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+🇬🇧 **English** | [🇫🇷 Français](#-gestionnaire-de-serveur-cylae)
 
 ---
 
-*   **Modular Architecture:** Services are defined as independent modules.
-*   **Dynamic Configuration:** Uses environment variables and `.env` files.
-*   **Hardware Awareness:** Automatically detects system resources and adjusts service profiles.
-*   **Media Stack:** Plex, *Arr suite, Overseerr, etc.
-*   **Utility Stack:** Portainer, Gitea, Nextcloud, WireGuard, and more.
-*   **Modern CLI:** Built with `typer` and `rich` for a great user experience (with pretty status tables).
-*   **Interactive Menu:** Easy-to-use TUI for managing services.
+## 🇬🇧 Cylae Server Manager
 
-Cylae Server Manager is not just a "script"; it is a **dynamic infrastructure orchestration engine** designed to deploy a production-grade media server stack on hardware ranging from low-end VPS (2 vCPU / 4GB RAM) to high-performance dedicated bare-metal servers.
+**The Ultimate Self-Hosted Media Ecosystem Deployer.**
 
-Unlike static deployment scripts, Cylae implements **Global Dynamic Hardware Detection**. It interrogates the host kernel for CPU topology, memory pressure, and I/O capability, then deterministically selects a deployment profile (`LOW` or `HIGH`). This profile dictates:
-1.  **Concurrency limits** during installation (Serial vs. Parallel).
-2.  **Service-level optimizations** (e.g., enabling/disabling AV scanning in Mailserver).
-3.  **Resource Limits** (cgroups) applied to every container.
-4.  **Operational Tunables** (Transcoding buffers in RAM vs Disk).
+Cylae Server Manager is a production-grade, modular Python framework designed to deploy, manage, and optimize a complete self-hosted media and infrastructure stack. Built with an obsession for clean code, performance, and security.
 
-## 2. Architecture & Internals
+### 🔥 Features
 
-### 2.1. Global Dynamic Hardware Detection (`core/system.py`)
+*   **Intelligent Orchestration:** Automatically adjusts deployment concurrency based on your hardware profile (CPU/RAM/Swap).
+*   **Hardware Profiling:** Dynamically tunes service configurations (e.g., Plex transcoding to RAM on high-end systems, disabled heavy mail filters on low-end VPS).
+*   **Modular Architecture:** Strictly typed, PEP 8 compliant, and extensible service registry.
+*   **Zero-Downtime:** Uses Docker Compose for idempotent deployments.
+*   **Interactive CLI:** Beautiful `rich` text user interface for easy management.
 
-The engine classifies the host into one of two profiles:
+### 🛠️ Tech Stack
 
-*   **LOW Profile (Low-Spec/VPS)**
-    *   **Criteria:** RAM < 4GB **OR** Logical Cores <= 2.
-    *   **Behavior:**
-        *   **Orchestration:** `InstallationOrchestrator` forces **Serial Execution** (max_workers=1). This prevents IOPS saturation and OOM hangs during the heavy `docker image load` / `docker compose up` phase.
-        *   **Mailserver:** Automatically disables `ClamAV` and `SpamAssassin` (saves ~1.5GB RAM).
-        *   **Plex:** Maps transcoding buffers to **Disk** (preserves RAM).
-        *   **Limits:** Strict memory caps on all containers (e.g., MariaDB capped at 512MB).
+*   **Core:** Python 3.9+, `pydantic`, `typer`, `rich`
+*   **Infrastructure:** Docker, Docker Compose
+*   **Services:** Plex, *Arr Suite, Gitea, Nextcloud, MailServer, and more.
 
-*   **HIGH Profile (Performance)**
-    *   **Criteria:** RAM >= 4GB **AND** Logical Cores > 2.
-    *   **Behavior:**
-        *   **Orchestration:** **Parallel Execution** (max_workers=4). Services deploy concurrently for rapid provisioning.
-        *   **Mailserver:** Enables full security suite (ClamAV + SpamAssassin).
-        *   **Plex:** Maps transcoding buffers to `/tmp` (RAM) for minimal latency and disk wear.
-        *   **Limits:** Generous resource allocation (e.g., Plex allowed 8GB RAM).
+### 🚀 Getting Started
 
-### 2.2. Installation Orchestrator (`core/orchestrator.py`)
+#### Prerequisites
 
-The core engine uses `concurrent.futures.ThreadPoolExecutor` to manage deployments.
-*   **Idempotency:** Services check state before attempting deployment.
-*   **Fault Tolerance:** Failure in one service is logged but does not panic the entire stack (unless critical).
-*   **Logging:** All operations are piped to `rich` console output and persistent logs.
+*   A Linux server (Debian/Ubuntu recommended)
+*   Root privileges
 
-### 2.3. Service Registry & Modularity
-
-Services are defined in `src/cyl_manager/services/` and inherit from `BaseService`.
-*   **Registry:** Decorator-based registration (`@ServiceRegistry.register`) allows for decoupled service additions.
-*   **Polymorphism:** `BaseService` provides the `generate_compose()` contract. Each implementation adapts its YAML generation based on `self.is_low_spec()`.
-
-## 3. Supported Services (The Stack)
-
-*   **Infrastructure:** Portainer, Gitea, MariaDB, Nginx Proxy Manager, Docker Mailserver.
-*   **Media Core:** Plex Media Server, Tautulli.
-*   **The "Arr" Suite:** Sonarr, Radarr, Prowlarr, Jackett, Overseerr.
-*   **Download:** qBittorrent.
-*   **Utilities:** GLPI, Nextcloud.
-
-## 4. Installation & Usage
-
-### Prerequisites
-*   **OS:** Debian 11/12 or Ubuntu 20.04/22.04/24.04 (LTS recommended).
-*   **User:** Root privileges required (for Docker socket access).
-
-### Deployment
+#### Installation
 
 ```bash
 git clone https://github.com/Cylae/server_script.git
@@ -79,38 +44,71 @@ cd server_script
 sudo ./install.sh
 ```
 
-### CLI Operations
+#### Usage
 
-**The Interactive Hub:**
+Launch the interactive menu:
+
 ```bash
 sudo cyl-manager menu
 ```
-*Select "Full Stack Install" (Option A) to trigger the orchestrated deployment.*
 
-**Direct CLI Commands:**
+Or use the CLI directly:
+
 ```bash
-# Analyze hardware and deploy everything
-sudo cyl-manager install-all
-
-# Check Status
-sudo cyl-manager status
-
-# Deploy specific module
 sudo cyl-manager install plex
+sudo cyl-manager status
+sudo cyl-manager install-all
 ```
 
-## 5. Technical Verification & Benchmarks
-
-This architecture has been validated against the "2 vCPU" Benchmark:
-*   **Test Environment:** 2 vCPU, 4GB RAM VPS.
-*   **Result:** Stable deployment.
-*   **Why?** The `LOW` profile correctly serialized the install (preventing freeze) and disabled Mailserver's heavy processes (preventing the "Waiting for mailserver" infinite loop caused by startup timeouts).
-
-## 6. Development
-
-The project uses `pyproject.toml` for modern packaging.
-*   **Dependencies:** `typer`, `rich`, `docker`, `psutil`, `pydantic-settings`.
-*   **Code Style:** PEP 8, Type Hinted.
-
 ---
-*Architected by Jules.*
+
+## 🇫🇷 Gestionnaire de Serveur Cylae
+
+**L'outil ultime de déploiement d'écosystème média auto-hébergé.**
+
+Cylae Server Manager est un framework Python modulaire de qualité production conçu pour déployer, gérer et optimiser une pile complète de médias et d'infrastructure. Construit avec une obsession pour le code propre, la performance et la sécurité.
+
+### 🔥 Fonctionnalités
+
+*   **Orchestration Intelligente :** Ajuste automatiquement la concomitance du déploiement en fonction de votre profil matériel (CPU/RAM/Swap).
+*   **Profilage Matériel :** Ajuste dynamiquement les configurations des services (ex: transcodage Plex en RAM sur les systèmes puissants, filtres mail lourds désactivés sur les VPS modestes).
+*   **Architecture Modulaire :** Typage strict, conformité PEP 8 et registre de services extensible.
+*   **Zéro Interruption :** Utilise Docker Compose pour des déploiements idempotents.
+*   **CLI Interactive :** Interface utilisateur magnifique basée sur `rich`.
+
+### 🛠️ Stack Technique
+
+*   **Cœur :** Python 3.9+, `pydantic`, `typer`, `rich`
+*   **Infrastructure :** Docker, Docker Compose
+*   **Services :** Plex, Suite *Arr, Gitea, Nextcloud, MailServer, et plus.
+
+### 🚀 Démarrage
+
+#### Prérequis
+
+*   Un serveur Linux (Debian/Ubuntu recommandé)
+*   Privilèges Root
+
+#### Installation
+
+```bash
+git clone https://github.com/Cylae/server_script.git
+cd server_script
+sudo ./install.sh
+```
+
+#### Utilisation
+
+Lancer le menu interactif :
+
+```bash
+sudo cyl-manager menu
+```
+
+Ou utiliser la CLI directement :
+
+```bash
+sudo cyl-manager install plex
+sudo cyl-manager status
+sudo cyl-manager install-all
+```
