@@ -28,6 +28,6 @@ cyl-manager = "cyl_manager.main:app"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = "src"
 testpaths = ["tests"]
-addopts = "--ignore=legacy"
+norecursedirs = ["legacy"]
