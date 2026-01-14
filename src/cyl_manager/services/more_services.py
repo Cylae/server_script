@@ -9,7 +9,9 @@ class MailService(BaseService):
     pretty_name = "Mail Server (Docker Mailserver)"
 
     def generate_compose(self) -> Dict[str, Any]:
-        is_high_perf = "1" if self.profile == "HIGH" else "0"
+        # Optimization: Disable heavy processes on low-spec hardware
+        # This prevents startup timeouts and infinite "Waiting for mailserver" loops
+        enable_heavy_procs = "1" if not self.is_low_spec() else "0"
 
         return {
             "version": "3",
@@ -23,12 +25,15 @@ class MailService(BaseService):
                     "stop_grace_period": "1m",
                     "cap_add": ["NET_ADMIN"],
                     "environment": {
-                        "ENABLE_SPAMASSASSIN": is_high_perf,
-                        "ENABLE_CLAMAV": is_high_perf,
+                        "ENABLE_SPAMASSASSIN": enable_heavy_procs,
+                        "ENABLE_CLAMAV": enable_heavy_procs,
                         "ENABLE_FAIL2BAN": "1",
                         "ENABLE_POSTGREY": "0",
                         "ONE_DIR": "1",
-                        "DMS_DEBUG": "0"
+                        "DMS_DEBUG": "0",
+                        # Optimizations for low memory environments
+                        "CLAMAV_MESSAGE_SIZE_LIMIT": "20M",
+                        "VIRUSMAILS_DELETE_DELAY": "7"
                     },
                     "volumes": [
                         f"{settings.DATA_DIR}/mail/data:/var/mail",
@@ -71,7 +76,10 @@ class GLPIService(BaseService):
                     ],
                     "ports": ["8090:80"],
                     "networks": [settings.DOCKER_NET],
-                    "deploy": self.get_resource_limits()
+                    "deploy": self.get_resource_limits(
+                        high_mem="1G", high_cpu="0.5",
+                        low_mem="512M", low_cpu="0.5"
+                    )
                 }
             },
             "networks": {settings.DOCKER_NET: {"external": True}}

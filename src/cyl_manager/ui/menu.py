@@ -6,6 +6,7 @@ from rich.prompt import Prompt
 from ..services.registry import ServiceRegistry
 from ..services.base import BaseService
 from ..core.system import SystemManager
+from ..core.orchestrator import InstallationOrchestrator
 from ..core.config import settings, save_settings
 from ..core.logging import print_header, logger
 
@@ -32,10 +33,12 @@ class Menu:
         menu.add_column("Action")
         menu.add_column("Status")
 
+        # Special Action
+        menu.add_row("A", "[bold green]Full Stack Install[/bold green]", "Automated")
+
         i = 1
         service_map = {}
         for name, service_cls in self.services.items():
-             # Quick check without instantiating fully if possible, but for now instantiate
             svc = service_cls()
             status = "[green]INSTALLED[/green]" if svc.is_installed else "[red]NOT INSTALLED[/red]"
             menu.add_row(str(i), f"Manage {svc.pretty_name}", status)
@@ -48,29 +51,46 @@ class Menu:
 
         return service_map
 
+    def sanitize_input(self, text: str) -> str:
+        """Sanitizes input to remove surrogates and invalid characters."""
+        if not text:
+            return ""
+        return text.encode("utf-8", "ignore").decode("utf-8").strip()
+
     def configure_settings(self):
         console.clear()
         console.print(Panel("[bold]Configuration[/bold]", style="cyan"))
 
         console.print(f"Current Domain: {settings.DOMAIN}")
         new_domain = Prompt.ask("Enter Domain Name", default=settings.DOMAIN)
+        new_domain = self.sanitize_input(new_domain)
 
         console.print(f"Current Email: {settings.EMAIL}")
         new_email = Prompt.ask("Enter Admin Email", default=settings.EMAIL)
+        new_email = self.sanitize_input(new_email)
 
         if new_domain != settings.DOMAIN or new_email != settings.EMAIL:
             save_settings("DOMAIN", new_domain)
             save_settings("EMAIL", new_email)
-
-            # Update current settings object in memory
             settings.DOMAIN = new_domain
             settings.EMAIL = new_email
-
             console.print("[green]Settings saved successfully![/green]")
         else:
             console.print("[yellow]No changes made.[/yellow]")
 
         Prompt.ask("Press Enter to continue")
+
+    def run_full_stack_install(self):
+        console.clear()
+        console.print(Panel("[bold green]Full Stack Installation[/bold green]", style="cyan"))
+        console.print("This will install ALL services using the intelligent orchestrator.")
+
+        if Prompt.ask("Are you sure?", choices=["y", "n"], default="y") == "y":
+            services = [cls() for cls in self.services.values()]
+            InstallationOrchestrator.install_services(services)
+            console.print("[bold green]Full Stack Installation Process Completed.[/bold green]")
+
+        Prompt.ask("Press Enter to return to menu")
 
     def run(self):
         # First Run Check
@@ -88,6 +108,8 @@ class Menu:
                 break
             elif choice == "c":
                 self.configure_settings()
+            elif choice.upper() == "A":
+                self.run_full_stack_install()
             elif choice in service_map:
                 self.manage_service(service_map[choice])
             else:
