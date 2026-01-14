@@ -6,7 +6,13 @@
 
 ---
 
-## 1. Executive Summary
+*   **Modular Architecture:** Services are defined as independent modules.
+*   **Dynamic Configuration:** Uses environment variables and `.env` files.
+*   **Hardware Awareness:** Automatically detects system resources and adjusts service profiles.
+*   **Media Stack:** Plex, *Arr suite, Overseerr, etc.
+*   **Utility Stack:** Portainer, Gitea, Nextcloud, WireGuard, and more.
+*   **Modern CLI:** Built with `typer` and `rich` for a great user experience (with pretty status tables).
+*   **Interactive Menu:** Easy-to-use TUI for managing services.
 
 Cylae Server Manager is not just a "script"; it is a **dynamic infrastructure orchestration engine** designed to deploy a production-grade media server stack on hardware ranging from low-end VPS (2 vCPU / 4GB RAM) to high-performance dedicated bare-metal servers.
 
