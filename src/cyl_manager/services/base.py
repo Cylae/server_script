@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import subprocess
-import tempfile
 import yaml
 from pathlib import Path
 from ..core.docker import DockerManager
@@ -80,6 +79,9 @@ class BaseService(ABC):
                     }
                 }
             }
+
+    def is_low_spec(self) -> bool:
+        return self.profile == "LOW"
 
     @abstractmethod
     def generate_compose(self) -> Dict[str, Any]:
