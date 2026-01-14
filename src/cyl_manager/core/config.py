@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     # Database
     MYSQL_ROOT_PASSWORD: str = ""
+    MYSQL_USER_PASSWORD: str = ""
 
     # Paths
     CONFIG_DIR: str = "/etc/cylae"
@@ -44,4 +45,4 @@ def save_settings(key: str, value: str):
     if not updated:
         new_lines.append(f"{key}={value}")
 
-    env_path.write_text("\n".join(new_lines) + "\n")
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")

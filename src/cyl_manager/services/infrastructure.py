@@ -15,11 +15,16 @@ class MariaDBService(BaseService):
         return ''.join(secrets.choice(alphabet) for i in range(length))
 
     def generate_compose(self) -> Dict[str, Any]:
-        # Get or generate root password
+        # Get or generate passwords
         root_password = settings.MYSQL_ROOT_PASSWORD
         if not root_password:
             root_password = self._generate_password()
             save_settings("MYSQL_ROOT_PASSWORD", root_password)
+
+        user_password = settings.MYSQL_USER_PASSWORD
+        if not user_password:
+            user_password = self._generate_password()
+            save_settings("MYSQL_USER_PASSWORD", user_password)
 
         return {
             "version": "3",
@@ -33,7 +38,7 @@ class MariaDBService(BaseService):
                         "MYSQL_ROOT_PASSWORD": root_password,
                         "MYSQL_DATABASE": "cylae",
                         "MYSQL_USER": "cylae",
-                        "MYSQL_PASSWORD": "password"
+                        "MYSQL_PASSWORD": user_password
                     },
                     "volumes": [
                         f"{settings.DATA_DIR}/mariadb:/config"

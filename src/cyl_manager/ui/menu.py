@@ -51,15 +51,23 @@ class Menu:
 
         return service_map
 
+    def sanitize_input(self, text: str) -> str:
+        """Sanitizes input to remove surrogates and invalid characters."""
+        if not text:
+            return ""
+        return text.encode("utf-8", "ignore").decode("utf-8").strip()
+
     def configure_settings(self):
         console.clear()
         console.print(Panel("[bold]Configuration[/bold]", style="cyan"))
 
         console.print(f"Current Domain: {settings.DOMAIN}")
         new_domain = Prompt.ask("Enter Domain Name", default=settings.DOMAIN)
+        new_domain = self.sanitize_input(new_domain)
 
         console.print(f"Current Email: {settings.EMAIL}")
         new_email = Prompt.ask("Enter Admin Email", default=settings.EMAIL)
+        new_email = self.sanitize_input(new_email)
 
         if new_domain != settings.DOMAIN or new_email != settings.EMAIL:
             save_settings("DOMAIN", new_domain)
