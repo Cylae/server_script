@@ -56,6 +56,9 @@ def save_settings(key: str, value: str, env_path: Path = None):
 
         # Also update the in-memory settings
         os.environ[key] = value
-        # Refresh settings
-        # Note: This doesn't auto-reload 'settings' object unless we re-instantiate,
-        # but environment variable update helps for subsequent subprocesses or lookups
+
+        # Reload settings object
+        # Since pydantic settings are immutable by default, we just re-instantiate the global object
+        # Note: This only affects this process.
+        global settings
+        settings = Settings()

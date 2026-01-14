@@ -29,6 +29,12 @@ class BaseService(ABC):
         self._deploy_compose(compose_content)
         logger.info(f"{self.pretty_name} installed successfully.")
 
+    def wait_for_health(self, retries=30, delay=2) -> bool:
+        """
+        Polls the container status to check for health.
+        """
+        return self.docker.wait_for_health(self.name, retries=retries, delay=delay)
+
     def remove(self):
         logger.info(f"Removing {self.pretty_name}...")
         self.docker.stop_and_remove(self.name)

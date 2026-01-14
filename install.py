@@ -27,8 +27,12 @@ def main():
 
     print("Checking system dependencies...")
     # Install pip and venv if missing (redundant if install.sh did its job but safe)
-    subprocess.run(["apt-get", "update", "-q"], check=False)
-    subprocess.run(["apt-get", "install", "-y", "python3", "python3-pip", "python3-venv", "git", "curl"], check=True)
+    try:
+        subprocess.run(["apt-get", "update", "-q"], check=True)
+        subprocess.run(["apt-get", "install", "-y", "python3", "python3-pip", "python3-venv", "git", "curl"], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error installing dependencies: {e}")
+        sys.exit(1)
 
     check_docker()
 

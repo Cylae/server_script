@@ -30,18 +30,8 @@ class InstallationOrchestrator:
             future_to_service = {
                 executor.submit(service.install): service
                 for service in services
-                if not service.is_installed # Skip if already installed? Or maybe reinstall?
-                # The prompt implies "Install... services".
-                # BaseService.install() usually handles idempotency or we should check here.
-                # BaseService check: "if svc.is_installed: logger.info... else: svc.install()"
-                # But BaseService.install() implementation in base.py does NOT check if installed.
-                # It just overwrites.
-                # Let's check is_installed here to avoid unnecessary work,
-                # but maybe the user wants to force update?
-                # For "Clean Slate", let's assume if it's in the list, we want to ensure it's up.
-                # But if it's already running, maybe we shouldn't restart it unless necessary.
-                # Let's assume we proceed with install() which basically does `docker compose up -d`
-                # which is idempotent if config hasn't changed.
+                # We do NOT skip if installed, because "install" ensures the configuration is up-to-date.
+                # docker compose up -d is idempotent.
             }
 
             for future in as_completed(future_to_service):

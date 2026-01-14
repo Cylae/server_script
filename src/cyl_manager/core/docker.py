@@ -35,6 +35,37 @@ class DockerManager:
             logger.info(f"Creating Docker network: {settings.DOCKER_NET}")
             self.client.networks.create(settings.DOCKER_NET, driver="bridge")
 
+    def wait_for_health(self, container_name: str, retries=30, delay=2) -> bool:
+        """
+        Polls the container status to check for health.
+        """
+        import time
+        logger.info(f"Waiting for {container_name} to be healthy...")
+        for _ in range(retries):
+            try:
+                container = self.client.containers.get(container_name)
+                # Check for health status if available, otherwise check if running
+                if container.status == "running":
+                    # If healthcheck is defined, check it
+                    health = container.attrs.get("State", {}).get("Health", {}).get("Status")
+                    if health:
+                        if health == "healthy":
+                            logger.info(f"{container_name} is healthy.")
+                            return True
+                    else:
+                        # No healthcheck defined, assume running means healthy
+                        logger.info(f"{container_name} is running (no healthcheck).")
+                        return True
+            except docker.errors.NotFound:
+                pass
+            except APIError as e:
+                logger.warning(f"Error checking health for {container_name}: {e}")
+
+            time.sleep(delay)
+
+        logger.warning(f"Timeout waiting for {container_name} to be healthy.")
+        return False
+
     def stop_and_remove(self, container_name: str):
         try:
             container = self.client.containers.get(container_name)
