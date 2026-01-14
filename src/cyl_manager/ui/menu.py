@@ -1,51 +1,63 @@
 import typer
+from typing import Dict, Optional, List
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Prompt
-from ..services.registry import ServiceRegistry
-from ..services.base import BaseService
-from ..core.system import SystemManager
-from ..core.orchestrator import InstallationOrchestrator
-from ..core.config import settings, save_settings
-from ..core.logging import print_header, logger
 
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.services.base import BaseService
+from cyl_manager.core.system import SystemManager
+from cyl_manager.core.orchestrator import InstallationOrchestrator
+from cyl_manager.core.config import settings, save_settings
+from cyl_manager.core.logging import print_header, logger
+
+# Initialize Rich Console
 console = Console()
 
 class Menu:
-    def __init__(self):
+    """
+    Interactive CLI Menu for Cylae Server Manager.
+    """
+    def __init__(self) -> None:
         self.services = ServiceRegistry.get_all()
 
-    def display_main_menu(self):
+    def display_main_menu(self) -> Dict[str, BaseService]:
+        """
+        Displays the main menu and returns a map of keys to service instances.
+        """
         print_header()
 
-        # System Info
+        # System Info Panel
         profile = SystemManager.get_hardware_profile()
-        table = Table(show_header=False, box=None)
-        table.add_row(f"[bold cyan]Domain:[/bold cyan] {settings.DOMAIN}")
-        table.add_row(f"[bold cyan]Email:[/bold cyan] {settings.EMAIL}")
-        table.add_row(f"[bold cyan]Profile:[/bold cyan] {profile}")
-        console.print(Panel(table, title="System Info", expand=False))
+        info_table = Table(show_header=False, box=None)
+        info_table.add_row(f"[bold cyan]Domain:[/bold cyan] {settings.DOMAIN}")
+        info_table.add_row(f"[bold cyan]Email:[/bold cyan] {settings.EMAIL}")
+        info_table.add_row(f"[bold cyan]Profile:[/bold cyan] {profile}")
+        console.print(Panel(info_table, title="System Info", expand=False))
 
-        # Menu
-        menu = Table(title="Main Menu", show_header=True, header_style="bold magenta")
-        menu.add_column("Key", style="cyan", justify="center")
-        menu.add_column("Action")
-        menu.add_column("Status")
+        # Main Menu Table
+        menu_table = Table(title="Main Menu", show_header=True, header_style="bold magenta")
+        menu_table.add_column("Key", style="cyan", justify="center")
+        menu_table.add_column("Action")
+        menu_table.add_column("Status")
 
-        # Special Action
-        menu.add_row("A", "[bold green]Full Stack Install[/bold green]", "Automated")
+        # Global Actions
+        menu_table.add_row("A", "[bold green]Full Stack Install[/bold green]", "Automated")
 
+        # Service List
         i = 1
-        service_map = {}
-        for name, service_cls in self.services.items():
+        service_map: Dict[str, BaseService] = {}
+        for _, service_cls in self.services.items():
+            # Instantiate lightly to check status
+            # Ideally, is_installed shouldn't be too heavy.
             svc = service_cls()
             status = "[green]INSTALLED[/green]" if svc.is_installed else "[red]NOT INSTALLED[/red]"
-            menu.add_row(str(i), f"Manage {svc.pretty_name}", status)
+            menu_table.add_row(str(i), f"Manage {svc.pretty_name}", status)
             service_map[str(i)] = svc
             i += 1
 
-        console.print(menu)
+        console.print(menu_table)
         console.print("\n[bold]c.[/bold] Configuration")
         console.print("[bold]0.[/bold] Exit")
 
@@ -55,9 +67,15 @@ class Menu:
         """Sanitizes input to remove surrogates and invalid characters."""
         if not text:
             return ""
-        return text.encode("utf-8", "ignore").decode("utf-8").strip()
+        try:
+            return text.encode("utf-8", "ignore").decode("utf-8").strip()
+        except UnicodeError:
+            return ""
 
-    def configure_settings(self):
+    def configure_settings(self) -> None:
+        """
+        Interactive configuration wizard.
+        """
         console.clear()
         console.print(Panel("[bold]Configuration[/bold]", style="cyan"))
 
@@ -72,15 +90,17 @@ class Menu:
         if new_domain != settings.DOMAIN or new_email != settings.EMAIL:
             save_settings("DOMAIN", new_domain)
             save_settings("EMAIL", new_email)
-            settings.DOMAIN = new_domain
-            settings.EMAIL = new_email
+            # No need to manually update settings object here as save_settings reloads it
             console.print("[green]Settings saved successfully![/green]")
         else:
             console.print("[yellow]No changes made.[/yellow]")
 
         Prompt.ask("Press Enter to continue")
 
-    def run_full_stack_install(self):
+    def run_full_stack_install(self) -> None:
+        """
+        Triggers the installation of all services.
+        """
         console.clear()
         console.print(Panel("[bold green]Full Stack Installation[/bold green]", style="cyan"))
         console.print("This will install ALL services using the intelligent orchestrator.")
@@ -92,7 +112,29 @@ class Menu:
 
         Prompt.ask("Press Enter to return to menu")
 
-    def run(self):
+    def manage_service(self, service: BaseService) -> None:
+        """
+        Sub-menu for managing a specific service.
+        """
+        console.clear()
+        console.print(Panel(f"[bold]{service.pretty_name}[/bold]", style="cyan"))
+
+        status = "Installed" if service.is_installed else "Not Installed"
+        console.print(f"Status: [bold]{status}[/bold]")
+
+        if service.is_installed:
+            if Prompt.ask("Uninstall?", choices=["y", "n"], default="n") == "y":
+                service.remove()
+        else:
+            if Prompt.ask("Install?", choices=["y", "n"], default="y") == "y":
+                service.install()
+
+        Prompt.ask("Press Enter to return to menu")
+
+    def run(self) -> None:
+        """
+        Main loop for the interactive menu.
+        """
         # First Run Check
         if settings.DOMAIN == "example.com":
             console.print("[bold yellow]First Setup Detected![/bold yellow]")
@@ -105,6 +147,7 @@ class Menu:
             choice = Prompt.ask("Select an option", default="0")
 
             if choice == "0":
+                console.print("[bold cyan]Goodbye![/bold cyan]")
                 break
             elif choice == "c":
                 self.configure_settings()
@@ -115,19 +158,3 @@ class Menu:
             else:
                 console.print("[red]Invalid selection[/red]")
                 Prompt.ask("Press Enter to continue")
-
-    def manage_service(self, service: BaseService):
-        console.clear()
-        console.print(Panel(f"[bold]{service.pretty_name}[/bold]", style="cyan"))
-
-        status = "Installed" if service.is_installed else "Not Installed"
-        console.print(f"Status: [bold]{status}[/bold]")
-
-        if service.is_installed:
-            if Prompt.ask("Uninstall? (y/n)", default="n") == "y":
-                service.remove()
-        else:
-            if Prompt.ask("Install? (y/n)", default="y") == "y":
-                service.install()
-
-        Prompt.ask("Press Enter to return to menu")

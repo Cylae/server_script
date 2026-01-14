@@ -1,79 +1,131 @@
+from typing import Optional, Final
+import time
+import threading
 import docker
 from docker.errors import DockerException, APIError
-from .exceptions import ServiceError
-from .logging import logger
-from .config import settings
+from docker.models.containers import Container
+
+from cyl_manager.core.exceptions import ServiceError
+from cyl_manager.core.logging import logger
+from cyl_manager.core.config import settings
 
 class DockerManager:
-    _client_instance = None
+    """
+    Singleton manager for Docker client interactions.
+    Handles container queries, network management, and health checks.
+    """
+    _instance: Optional['DockerManager'] = None
+    _client: Optional[docker.DockerClient] = None
+    _network_lock = threading.Lock()
 
-    def __init__(self):
-        # Optimization: Reuse the Docker client connection (Singleton pattern)
-        # to avoid expensive re-initialization (socket connection, env parsing)
-        # on every service instantiation.
-        if DockerManager._client_instance is None:
+    def __new__(cls) -> 'DockerManager':
+        if cls._instance is None:
+            cls._instance = super(DockerManager, cls).__new__(cls)
             try:
-                DockerManager._client_instance = docker.from_env()
+                # Initialize the client only once
+                cls._client = docker.from_env()
             except DockerException as e:
-                raise ServiceError(f"Could not connect to Docker: {e}")
-        self.client = DockerManager._client_instance
+                # Critical error, cannot proceed without Docker
+                raise ServiceError(f"Could not connect to Docker Daemon: {e}. Is Docker running?") from e
+        return cls._instance
+
+    @property
+    def client(self) -> docker.DockerClient:
+        """Safe access to the Docker client instance."""
+        if self._client is None:
+             # Should be caught in __new__, but for type safety:
+             raise ServiceError("Docker client is not initialized.")
+        return self._client
 
     def is_installed(self, container_name: str) -> bool:
+        """
+        Checks if a container exists (running or stopped).
+        """
         try:
             self.client.containers.get(container_name)
             return True
         except docker.errors.NotFound:
             return False
         except APIError as e:
-            logger.error(f"Error checking container {container_name}: {e}")
+            logger.error(f"Docker API Error checking container '{container_name}': {e}")
             return False
 
-    def ensure_network(self):
-        try:
-            self.client.networks.get(settings.DOCKER_NET)
-        except docker.errors.NotFound:
-            logger.info(f"Creating Docker network: {settings.DOCKER_NET}")
-            self.client.networks.create(settings.DOCKER_NET, driver="bridge")
+    def ensure_network(self) -> None:
+        """
+        Ensures the configured Docker network exists.
+        Thread-safe to prevent race conditions during parallel orchestration.
+        """
+        network_name = settings.DOCKER_NET
 
-    def wait_for_health(self, container_name: str, retries=30, delay=2) -> bool:
+        with self._network_lock:
+            try:
+                self.client.networks.get(network_name)
+            except docker.errors.NotFound:
+                logger.info(f"Creating Docker network: {network_name}")
+                try:
+                    self.client.networks.create(network_name, driver="bridge")
+                except APIError as e:
+                    # Double check in case of race condition despite lock (e.g. external process)
+                    try:
+                        self.client.networks.get(network_name)
+                    except docker.errors.NotFound:
+                        raise ServiceError(f"Failed to create network '{network_name}': {e}") from e
+
+    def wait_for_health(self, container_name: str, retries: int = 30, delay: int = 2) -> bool:
         """
         Polls the container status to check for health.
+
+        Args:
+            container_name: Name of the container.
+            retries: Number of retries.
+            delay: Delay in seconds between retries.
+
+        Returns:
+            bool: True if healthy or running (if no healthcheck), False on timeout/error.
         """
-        import time
-        logger.info(f"Waiting for {container_name} to be healthy...")
-        for _ in range(retries):
+        logger.info(f"Waiting for '{container_name}' to become healthy...")
+
+        for attempt in range(retries):
             try:
-                container = self.client.containers.get(container_name)
-                # Check for health status if available, otherwise check if running
+                container: Container = self.client.containers.get(container_name)
+
                 if container.status == "running":
-                    # If healthcheck is defined, check it
-                    health = container.attrs.get("State", {}).get("Health", {}).get("Status")
+                    # Check for healthcheck status if available
+                    state = container.attrs.get("State", {})
+                    health = state.get("Health", {}).get("Status")
+
                     if health:
                         if health == "healthy":
-                            logger.info(f"{container_name} is healthy.")
+                            logger.info(f"Container '{container_name}' is healthy.")
                             return True
+                        # If starting or unhealthy, continue waiting
                     else:
                         # No healthcheck defined, assume running means healthy
-                        logger.info(f"{container_name} is running (no healthcheck).")
+                        logger.info(f"Container '{container_name}' is running (no healthcheck defined).")
                         return True
+
             except docker.errors.NotFound:
+                # Container might not be created yet, continue waiting
                 pass
             except APIError as e:
-                logger.warning(f"Error checking health for {container_name}: {e}")
+                logger.warning(f"Docker API error checking health for '{container_name}': {e}")
 
             time.sleep(delay)
 
-        logger.warning(f"Timeout waiting for {container_name} to be healthy.")
+        logger.warning(f"Timeout waiting for '{container_name}' to be healthy after {retries * delay} seconds.")
         return False
 
-    def stop_and_remove(self, container_name: str):
+    def stop_and_remove(self, container_name: str) -> None:
+        """
+        Stops and removes a container if it exists.
+        """
         try:
-            container = self.client.containers.get(container_name)
-            logger.info(f"Stopping {container_name}...")
+            container: Container = self.client.containers.get(container_name)
+            logger.info(f"Stopping container '{container_name}'...")
             container.stop()
-            logger.info(f"Removing {container_name}...")
+            logger.info(f"Removing container '{container_name}'...")
             container.remove()
         except docker.errors.NotFound:
-            pass
+            pass # Already gone
         except APIError as e:
-            raise ServiceError(f"Failed to remove {container_name}: {e}")
+            raise ServiceError(f"Failed to remove container '{container_name}': {e}") from e

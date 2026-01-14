@@ -1,12 +1,12 @@
-from typing import Dict, Any
-from .base import BaseService
-from .registry import ServiceRegistry
-from ..core.config import settings
+from typing import Dict, Any, Final
+from cyl_manager.services.base import BaseService
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.core.config import settings
 
 @ServiceRegistry.register
 class PortainerService(BaseService):
-    name = "portainer"
-    pretty_name = "Portainer"
+    name: str = "portainer"
+    pretty_name: str = "Portainer"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -23,7 +23,8 @@ class PortainerService(BaseService):
                         f"{settings.DATA_DIR}/portainer:/data"
                     ],
                     "ports": ["9000:9000"],
-                    "networks": [settings.DOCKER_NET]
+                    "networks": [settings.DOCKER_NET],
+                    "deploy": self.get_resource_limits(high_mem="512M", low_mem="256M")
                 }
             },
             "networks": {

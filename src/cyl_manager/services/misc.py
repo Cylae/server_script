@@ -1,12 +1,12 @@
-from typing import Dict, Any
-from .base import BaseService
-from .registry import ServiceRegistry
-from ..core.config import settings
+from typing import Dict, Any, Final
+from cyl_manager.services.base import BaseService
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.core.config import settings
 
 @ServiceRegistry.register
 class NextcloudService(BaseService):
-    name = "nextcloud"
-    pretty_name = "Nextcloud"
+    name: str = "nextcloud"
+    pretty_name: str = "Nextcloud"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -32,8 +32,8 @@ class NextcloudService(BaseService):
 
 @ServiceRegistry.register
 class VaultwardenService(BaseService):
-    name = "vaultwarden"
-    pretty_name = "Vaultwarden"
+    name: str = "vaultwarden"
+    pretty_name: str = "Vaultwarden"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -56,8 +56,8 @@ class VaultwardenService(BaseService):
 
 @ServiceRegistry.register
 class UptimeKumaService(BaseService):
-    name = "uptime-kuma"
-    pretty_name = "Uptime Kuma"
+    name: str = "uptime-kuma"
+    pretty_name: str = "Uptime Kuma"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -82,8 +82,8 @@ class UptimeKumaService(BaseService):
 
 @ServiceRegistry.register
 class WireGuardService(BaseService):
-    name = "wireguard"
-    pretty_name = "WireGuard"
+    name: str = "wireguard"
+    pretty_name: str = "WireGuard"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -118,8 +118,8 @@ class WireGuardService(BaseService):
 
 @ServiceRegistry.register
 class FileBrowserService(BaseService):
-    name = "filebrowser"
-    pretty_name = "FileBrowser"
+    name: str = "filebrowser"
+    pretty_name: str = "FileBrowser"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -144,11 +144,10 @@ class FileBrowserService(BaseService):
             }
         }
 
-# Simplified implementations for brevity but functionality preserved
 @ServiceRegistry.register
 class YourlsService(BaseService):
-    name = "yourls"
-    pretty_name = "YOURLS"
+    name: str = "yourls"
+    pretty_name: str = "YOURLS"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -169,8 +168,8 @@ class YourlsService(BaseService):
 
 @ServiceRegistry.register
 class NetdataService(BaseService):
-    name = "netdata"
-    pretty_name = "Netdata"
+    name: str = "netdata"
+    pretty_name: str = "Netdata"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {

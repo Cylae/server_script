@@ -1,12 +1,12 @@
-from typing import Dict, Any
-from .base import BaseService
-from .registry import ServiceRegistry
-from ..core.config import settings
+from typing import Dict, Any, Final
+from cyl_manager.services.base import BaseService
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.core.config import settings
 
 @ServiceRegistry.register
 class GiteaService(BaseService):
-    name = "gitea"
-    pretty_name = "Gitea"
+    name: str = "gitea"
+    pretty_name: str = "Gitea"
 
     def generate_compose(self) -> Dict[str, Any]:
         env = self.get_common_env()
@@ -34,7 +34,8 @@ class GiteaService(BaseService):
                         "/etc/localtime:/etc/localtime:ro"
                     ],
                     "ports": ["3000:3000", "222:22"],
-                    "networks": [settings.DOCKER_NET]
+                    "networks": [settings.DOCKER_NET],
+                    "deploy": self.get_resource_limits(high_mem="1G", low_mem="512M")
                 }
             },
             "networks": {

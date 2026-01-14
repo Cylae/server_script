@@ -1,18 +1,18 @@
-from typing import Dict, Any
+from typing import Dict, Any, Final
 import secrets
 import string
-from .base import BaseService
-from .registry import ServiceRegistry
-from ..core.config import settings, save_settings
+from cyl_manager.services.base import BaseService
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.core.config import settings, save_settings
 
 @ServiceRegistry.register
 class MariaDBService(BaseService):
-    name = "mariadb"
-    pretty_name = "MariaDB Database"
+    name: str = "mariadb"
+    pretty_name: str = "MariaDB Database"
 
-    def _generate_password(self, length=24):
+    def _generate_password(self, length: int = 24) -> str:
         alphabet = string.ascii_letters + string.digits
-        return ''.join(secrets.choice(alphabet) for i in range(length))
+        return ''.join(secrets.choice(alphabet) for _ in range(length))
 
     def generate_compose(self) -> Dict[str, Any]:
         # Get or generate passwords
@@ -53,8 +53,8 @@ class MariaDBService(BaseService):
 
 @ServiceRegistry.register
 class NginxProxyService(BaseService):
-    name = "nginx-proxy"
-    pretty_name = "Nginx Proxy Manager"
+    name: str = "nginx-proxy"
+    pretty_name: str = "Nginx Proxy Manager"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {

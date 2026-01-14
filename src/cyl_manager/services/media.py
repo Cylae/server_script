@@ -1,12 +1,12 @@
-from typing import Dict, Any
-from .base import BaseService
-from .registry import ServiceRegistry
-from ..core.config import settings
+from typing import Dict, Any, Final
+from cyl_manager.services.base import BaseService
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.core.config import settings
 
 @ServiceRegistry.register
 class PlexService(BaseService):
-    name = "plex"
-    pretty_name = "Plex Media Server"
+    name: str = "plex"
+    pretty_name: str = "Plex Media Server"
 
     def generate_compose(self) -> Dict[str, Any]:
         # Optimize transcoding: Use RAM for HIGH profile, Disk for LOW profile
@@ -42,8 +42,8 @@ class PlexService(BaseService):
 
 @ServiceRegistry.register
 class TautulliService(BaseService):
-    name = "tautulli"
-    pretty_name = "Tautulli"
+    name: str = "tautulli"
+    pretty_name: str = "Tautulli"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
@@ -98,38 +98,38 @@ class ArrService(BaseService):
 
 @ServiceRegistry.register
 class SonarrService(ArrService):
-    name = "sonarr"
-    pretty_name = "Sonarr"
-    port = 8989
+    name: str = "sonarr"
+    pretty_name: str = "Sonarr"
+    port: int = 8989
 
 @ServiceRegistry.register
 class RadarrService(ArrService):
-    name = "radarr"
-    pretty_name = "Radarr"
-    port = 7878
+    name: str = "radarr"
+    pretty_name: str = "Radarr"
+    port: int = 7878
 
 @ServiceRegistry.register
 class ProwlarrService(ArrService):
-    name = "prowlarr"
-    pretty_name = "Prowlarr"
-    port = 9696
+    name: str = "prowlarr"
+    pretty_name: str = "Prowlarr"
+    port: int = 9696
 
 @ServiceRegistry.register
 class JackettService(ArrService):
-    name = "jackett"
-    pretty_name = "Jackett"
-    port = 9117
+    name: str = "jackett"
+    pretty_name: str = "Jackett"
+    port: int = 9117
 
 @ServiceRegistry.register
 class OverseerrService(ArrService):
-    name = "overseerr"
-    pretty_name = "Overseerr"
-    port = 5055
+    name: str = "overseerr"
+    pretty_name: str = "Overseerr"
+    port: int = 5055
 
 @ServiceRegistry.register
 class QbittorrentService(BaseService):
-    name = "qbittorrent"
-    pretty_name = "qBittorrent"
+    name: str = "qbittorrent"
+    pretty_name: str = "qBittorrent"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
