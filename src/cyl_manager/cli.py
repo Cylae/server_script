@@ -2,6 +2,7 @@ import typer
 from typing import Optional
 from .core.logging import setup_logging, logger
 from .core.system import SystemManager
+from .core.orchestrator import InstallationOrchestrator
 from .ui.menu import Menu
 from .services.registry import ServiceRegistry
 from .core.config import settings
@@ -29,6 +30,13 @@ def install(service_name: str):
         logger.info(f"{svc.pretty_name} is already installed.")
     else:
         svc.install()
+
+@app.command()
+def install_all():
+    """Install ALL services using the intelligent orchestrator."""
+    services = [cls() for cls in ServiceRegistry.get_all().values()]
+    logger.info("Initiating Full Stack Installation...")
+    InstallationOrchestrator.install_services(services)
 
 @app.command()
 def remove(service_name: str):
@@ -65,6 +73,8 @@ def main(verbose: bool = False):
     setup_logging(level)
     try:
         SystemManager.check_root()
+        # Optional: Check OS on startup
+        SystemManager.check_os()
     except Exception as e:
         logger.error(str(e))
         raise typer.Exit(1)

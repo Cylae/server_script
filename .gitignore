@@ -1,3 +1,9 @@
 .auth_details
 *.pyc
 __pycache__/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.env
+.venv
