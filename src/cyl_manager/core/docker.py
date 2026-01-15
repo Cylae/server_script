@@ -16,17 +16,20 @@ class DockerManager:
     """
     _instance: Optional['DockerManager'] = None
     _client: Optional[docker.DockerClient] = None
+    _init_lock = threading.Lock()
     _network_lock = threading.Lock()
 
     def __new__(cls) -> 'DockerManager':
         if cls._instance is None:
-            cls._instance = super(DockerManager, cls).__new__(cls)
-            try:
-                # Initialize the client only once
-                cls._client = docker.from_env()
-            except DockerException as e:
-                # Critical error, cannot proceed without Docker
-                raise ServiceError(f"Could not connect to Docker Daemon: {e}. Is Docker running?") from e
+            with cls._init_lock:
+                if cls._instance is None:
+                    cls._instance = super(DockerManager, cls).__new__(cls)
+                    try:
+                        # Initialize the client only once
+                        cls._client = docker.from_env()
+                    except DockerException as e:
+                        # Critical error, cannot proceed without Docker
+                        raise ServiceError(f"Could not connect to Docker Daemon: {e}. Is Docker running?") from e
         return cls._instance
 
     @property
@@ -40,6 +43,12 @@ class DockerManager:
     def is_installed(self, container_name: str) -> bool:
         """
         Checks if a container exists (running or stopped).
+
+        Args:
+            container_name: The name of the container to check.
+
+        Returns:
+            bool: True if container exists, False otherwise.
         """
         try:
             self.client.containers.get(container_name)
@@ -118,6 +127,9 @@ class DockerManager:
     def stop_and_remove(self, container_name: str) -> None:
         """
         Stops and removes a container if it exists.
+
+        Args:
+            container_name: The name of the container to remove.
         """
         try:
             container: Container = self.client.containers.get(container_name)

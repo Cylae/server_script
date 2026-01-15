@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import subprocess
 import yaml
 from pathlib import Path
 from cyl_manager.core.docker import DockerManager
 from cyl_manager.core.system import SystemManager
+from cyl_manager.core.firewall import FirewallManager
 from cyl_manager.core.config import settings
 from cyl_manager.core.logging import logger
 from cyl_manager.core.exceptions import ServiceError
@@ -19,6 +20,7 @@ class BaseService(ABC):
 
     def __init__(self) -> None:
         self.docker = DockerManager()
+        self.firewall = FirewallManager()
         self.profile = SystemManager.get_hardware_profile()
 
     @property
@@ -28,12 +30,45 @@ class BaseService(ABC):
         """
         return self.docker.is_installed(self.name)
 
+    def configure(self) -> None:
+        """
+        Optional hook to interactively prompt the user for configuration.
+        This is called before installation.
+        """
+        pass
+
+    def get_install_summary(self) -> Optional[str]:
+        """
+        Optional hook to return a summary string after installation.
+        Useful for displaying passwords, URLs, or next steps.
+        """
+        return None
+
+    def get_url(self) -> Optional[str]:
+        """
+        Optional hook to return the primary URL or Subdomain for the service.
+        Used for display in the main menu.
+        """
+        return None
+
+    def get_ports(self) -> List[str]:
+        """
+        Returns a list of ports/protocols to open in the firewall.
+        Format: "80/tcp", "53/udp", etc. Default assumes TCP if omitted by ufw.
+        """
+        return []
+
     def install(self) -> None:
         """
         Installs or updates the service via Docker Compose.
         """
         logger.info(f"Installing {self.pretty_name}...")
         self.docker.ensure_network()
+
+        # Configure Firewall
+        for port in self.get_ports():
+            self.firewall.allow_port(port, f"Allow {self.name}")
+
         compose_content = self.generate_compose()
         self._deploy_compose(compose_content)
         logger.info(f"{self.pretty_name} installed successfully.")
@@ -57,6 +92,13 @@ class BaseService(ABC):
         """
         logger.info(f"Removing {self.pretty_name}...")
         self.docker.stop_and_remove(self.name)
+
+        # Optional: Remove firewall rules?
+        # Typically safer not to auto-close ports as they might be shared or re-used.
+        # But for strict cleanup:
+        # for port in self.get_ports():
+        #     self.firewall.deny_port(port)
+
         logger.info(f"{self.pretty_name} removed.")
 
     def _deploy_compose(self, compose_content: Dict[str, Any]) -> None:
@@ -95,9 +137,13 @@ class BaseService(ABC):
             SystemManager.run_command(cmd, check=True)
 
         except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode() if e.stderr else str(e)
+            error_msg = e.stderr if e.stderr else str(e)
+            # Ensure error_msg is a string before logging/raising
+            if isinstance(error_msg, bytes):
+                error_msg = error_msg.decode('utf-8', errors='replace')
+
             logger.error(f"Failed to deploy compose file: {error_msg}")
-            raise ServiceError(f"Deployment failed for {self.name}")
+            raise ServiceError(f"Deployment failed for {self.name}: {error_msg}")
 
     def get_common_env(self) -> Dict[str, str]:
         """

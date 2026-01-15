@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional, List
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -30,6 +30,18 @@ class NextcloudService(BaseService):
             }
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"URL: http://{settings.DOMAIN}:8084\n"
+            "Create your admin account on first login."
+        )
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8084"
+
+    def get_ports(self) -> List[str]:
+        return ["8084/tcp"]
+
 @ServiceRegistry.register
 class VaultwardenService(BaseService):
     name: str = "vaultwarden"
@@ -53,6 +65,15 @@ class VaultwardenService(BaseService):
                 settings.DOCKER_NET: {"external": True}
             }
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:8081"
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8081"
+
+    def get_ports(self) -> List[str]:
+        return ["8081/tcp"]
 
 @ServiceRegistry.register
 class UptimeKumaService(BaseService):
@@ -79,6 +100,15 @@ class UptimeKumaService(BaseService):
                 settings.DOCKER_NET: {"external": True}
             }
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:3001"
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:3001"
+
+    def get_ports(self) -> List[str]:
+        return ["3001/tcp"]
 
 @ServiceRegistry.register
 class WireGuardService(BaseService):
@@ -116,6 +146,18 @@ class WireGuardService(BaseService):
             }
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"VPN Endpoint: vpn.{settings.DOMAIN}:51820\n"
+            "Client config: Located in data directory (check logs)"
+        )
+
+    def get_url(self) -> Optional[str]:
+        return f"vpn.{settings.DOMAIN}"
+
+    def get_ports(self) -> List[str]:
+        return ["51820/udp"]
+
 @ServiceRegistry.register
 class FileBrowserService(BaseService):
     name: str = "filebrowser"
@@ -144,6 +186,18 @@ class FileBrowserService(BaseService):
             }
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"URL: http://{settings.DOMAIN}:8082\n"
+            "Default User/Pass: admin / admin"
+        )
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8082"
+
+    def get_ports(self) -> List[str]:
+        return ["8082/tcp"]
+
 @ServiceRegistry.register
 class YourlsService(BaseService):
     name: str = "yourls"
@@ -165,6 +219,15 @@ class YourlsService(BaseService):
             },
              "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://link.{settings.DOMAIN}:8083"
+
+    def get_url(self) -> Optional[str]:
+        return f"link.{settings.DOMAIN}"
+
+    def get_ports(self) -> List[str]:
+        return ["8083/tcp"]
 
 @ServiceRegistry.register
 class NetdataService(BaseService):
@@ -188,3 +251,12 @@ class NetdataService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:19999"
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:19999"
+
+    def get_ports(self) -> List[str]:
+        return ["19999/tcp"]

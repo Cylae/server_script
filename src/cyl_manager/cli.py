@@ -2,6 +2,7 @@ import typer
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 
 # Core & Services
 from cyl_manager.core.logging import setup_logging, logger
@@ -33,14 +34,33 @@ def install(service_name: str):
     if svc.is_installed:
         logger.info(f"{svc.pretty_name} is already installed.")
     else:
+        # CLI install is non-interactive by default for now
+        # Call configure to set defaults/randoms if not set
+        svc.configure()
         svc.install()
+
+        summary = svc.get_install_summary()
+        if summary:
+            console.print(Panel(summary, title=f"{svc.pretty_name} Installed", border_style="green"))
 
 @app.command()
 def install_all():
     """Install ALL services using the intelligent orchestrator."""
-    services = [cls() for cls in ServiceRegistry.get_all().values()]
+    services = []
+    # Pre-configure
+    for cls in ServiceRegistry.get_all().values():
+        svc = cls()
+        svc.configure()
+        services.append(svc)
+
     logger.info("Initiating Full Stack Installation...")
     InstallationOrchestrator.install_services(services)
+
+    console.print("\n[bold cyan]Installation Summary:[/bold cyan]")
+    for svc in services:
+        summary = svc.get_install_summary()
+        if summary:
+            console.print(Panel(summary, title=svc.pretty_name, border_style="green"))
 
 @app.command()
 def remove(service_name: str):
@@ -62,11 +82,13 @@ def status():
     table = Table(title="Service Status")
     table.add_column("Service Name", style="cyan", no_wrap=True)
     table.add_column("Status", style="magenta")
+    table.add_column("URL", style="blue")
 
     for name, cls in ServiceRegistry.get_all().items():
         svc = cls()
         status_text = "[green]Installed[/green]" if svc.is_installed else "[red]Not Installed[/red]"
-        table.add_row(name, status_text)
+        url = svc.get_url() if svc.is_installed else ""
+        table.add_row(name, status_text, url)
 
     console.print(table)
 
@@ -84,13 +106,7 @@ def main(verbose: bool = False):
         # Check privileges and OS compatibility
         try:
             SystemManager.check_root()
-        except PermissionError as e:
-            # Allow non-root for development/testing if needed, but warn heavily
-            # or just exit as per requirement.
-            # logger.error(str(e))
-            # raise typer.Exit(1)
-            # For now, we just warn if not root during development,
-            # but in prod strict check is better.
+        except Exception as e:
             # Re-raising for production grade strictness.
             logger.error(str(e))
             raise typer.Exit(1)
