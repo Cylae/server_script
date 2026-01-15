@@ -106,9 +106,22 @@ class Menu:
         console.print("This will install ALL services using the intelligent orchestrator.")
 
         if Prompt.ask("Are you sure?", choices=["y", "n"], default="y") == "y":
-            services = [cls() for cls in self.services.values()]
+            services = []
+            # Pre-configure all services if possible/needed
+            for cls in self.services.values():
+                svc = cls()
+                svc.configure() # Allow interactive config before batch install
+                services.append(svc)
+
             InstallationOrchestrator.install_services(services)
             console.print("[bold green]Full Stack Installation Process Completed.[/bold green]")
+
+            # Print summaries for all installed services
+            console.print("\n[bold cyan]Installation Summary:[/bold cyan]")
+            for svc in services:
+                summary = svc.get_install_summary()
+                if summary:
+                    console.print(Panel(summary, title=svc.pretty_name, border_style="green"))
 
         Prompt.ask("Press Enter to return to menu")
 
@@ -127,7 +140,13 @@ class Menu:
                 service.remove()
         else:
             if Prompt.ask("Install?", choices=["y", "n"], default="y") == "y":
+                service.configure()
                 service.install()
+
+                # Show summary
+                summary = service.get_install_summary()
+                if summary:
+                    console.print(Panel(summary, title="Installation Summary", border_style="green"))
 
         Prompt.ask("Press Enter to return to menu")
 

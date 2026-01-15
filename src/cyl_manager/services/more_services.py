@@ -2,6 +2,7 @@ from typing import Dict, Any, Final
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
+from cyl_manager.core.system import SystemManager
 
 @ServiceRegistry.register
 class MailService(BaseService):
@@ -67,7 +68,7 @@ class GLPIService(BaseService):
                     "container_name": self.name,
                     "restart": "always",
                     "environment": {
-                        "TIMEZONE": self.system.get_timezone()
+                        "TIMEZONE": SystemManager.get_timezone()
                     },
                     "volumes": [
                         f"{settings.DATA_DIR}/glpi/conf:/var/www/html/config",

@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -42,3 +42,10 @@ class GiteaService(BaseService):
                 settings.DOCKER_NET: {"external": True}
             }
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"URL: http://{settings.DOMAIN}:3000\n"
+            f"SSH Port: 222\n"
+            "Note: Create your first user via the web interface."
+        )

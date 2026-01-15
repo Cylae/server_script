@@ -1,6 +1,8 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional
 import secrets
 import string
+from rich.prompt import Prompt, Confirm
+
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings, save_settings
@@ -14,8 +16,32 @@ class MariaDBService(BaseService):
         alphabet = string.ascii_letters + string.digits
         return ''.join(secrets.choice(alphabet) for _ in range(length))
 
+    def configure(self) -> None:
+        """
+        Configure MariaDB passwords.
+        """
+        # Check if passwords are already set, ask if user wants to change them
+        if settings.MYSQL_ROOT_PASSWORD or settings.MYSQL_USER_PASSWORD:
+             if not Confirm.ask("MariaDB passwords are already configured. Do you want to change them?", default=False):
+                 return
+
+        if Confirm.ask("Do you want to manually set MariaDB passwords? (Otherwise random ones will be generated)", default=False):
+            root_pw = Prompt.ask("Enter MariaDB Root Password", password=True)
+            if root_pw:
+                save_settings("MYSQL_ROOT_PASSWORD", root_pw)
+
+            user_pw = Prompt.ask("Enter MariaDB User 'cylae' Password", password=True)
+            if user_pw:
+                save_settings("MYSQL_USER_PASSWORD", user_pw)
+        else:
+             # If user chooses random (or defaults), generate them now if missing so summary works
+             if not settings.MYSQL_ROOT_PASSWORD:
+                 save_settings("MYSQL_ROOT_PASSWORD", self._generate_password())
+             if not settings.MYSQL_USER_PASSWORD:
+                 save_settings("MYSQL_USER_PASSWORD", self._generate_password())
+
     def generate_compose(self) -> Dict[str, Any]:
-        # Get or generate passwords
+        # Get or generate passwords (if not configured via configure hook, double check here)
         root_password = settings.MYSQL_ROOT_PASSWORD
         if not root_password:
             root_password = self._generate_password()
@@ -51,6 +77,15 @@ class MariaDBService(BaseService):
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"Host: {self.name}\n"
+            f"Port: 3306\n"
+            f"Root Password: {settings.MYSQL_ROOT_PASSWORD}\n"
+            f"User: cylae\n"
+            f"User Password: {settings.MYSQL_USER_PASSWORD}"
+        )
+
 @ServiceRegistry.register
 class NginxProxyService(BaseService):
     name: str = "nginx-proxy"
@@ -83,3 +118,10 @@ class NginxProxyService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"Admin Interface: http://{settings.DOMAIN}:81\n"
+            "Default Email: admin@example.com\n"
+            "Default Password: changeme"
+        )
