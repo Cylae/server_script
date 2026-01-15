@@ -86,6 +86,9 @@ class MariaDBService(BaseService):
             f"User Password: {settings.MYSQL_USER_PASSWORD}"
         )
 
+    def get_url(self) -> Optional[str]:
+        return "Internal: 3306"
+
 @ServiceRegistry.register
 class NginxProxyService(BaseService):
     name: str = "nginx-proxy"
@@ -125,3 +128,6 @@ class NginxProxyService(BaseService):
             "Default Email: admin@example.com\n"
             "Default Password: changeme"
         )
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:81"

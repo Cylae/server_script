@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -54,6 +54,9 @@ class MailService(BaseService):
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
 
+    def get_url(self) -> Optional[str]:
+        return f"mail.{settings.DOMAIN}"
+
 @ServiceRegistry.register
 class GLPIService(BaseService):
     name: str = "glpi"
@@ -85,3 +88,6 @@ class GLPIService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8090"

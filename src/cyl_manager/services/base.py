@@ -42,6 +42,13 @@ class BaseService(ABC):
         """
         return None
 
+    def get_url(self) -> Optional[str]:
+        """
+        Optional hook to return the primary URL or Subdomain for the service.
+        Used for display in the main menu.
+        """
+        return None
+
     def install(self) -> None:
         """
         Installs or updates the service via Docker Compose.

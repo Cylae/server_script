@@ -49,3 +49,6 @@ class GiteaService(BaseService):
             f"SSH Port: 222\n"
             "Note: Create your first user via the web interface."
         )
+
+    def get_url(self) -> Optional[str]:
+        return f"https://git.{settings.DOMAIN}"

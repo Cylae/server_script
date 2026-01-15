@@ -36,6 +36,9 @@ class NextcloudService(BaseService):
             "Create your admin account on first login."
         )
 
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8084"
+
 @ServiceRegistry.register
 class VaultwardenService(BaseService):
     name: str = "vaultwarden"
@@ -62,6 +65,9 @@ class VaultwardenService(BaseService):
 
     def get_install_summary(self) -> Optional[str]:
         return f"URL: http://{settings.DOMAIN}:8081"
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8081"
 
 @ServiceRegistry.register
 class UptimeKumaService(BaseService):
@@ -91,6 +97,9 @@ class UptimeKumaService(BaseService):
 
     def get_install_summary(self) -> Optional[str]:
         return f"URL: http://{settings.DOMAIN}:3001"
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:3001"
 
 @ServiceRegistry.register
 class WireGuardService(BaseService):
@@ -130,9 +139,12 @@ class WireGuardService(BaseService):
 
     def get_install_summary(self) -> Optional[str]:
         return (
-            "VPN Endpoint: vpn.{settings.DOMAIN}:51820\n"
+            f"VPN Endpoint: vpn.{settings.DOMAIN}:51820\n"
             "Client config: Located in data directory (check logs)"
         )
+
+    def get_url(self) -> Optional[str]:
+        return f"vpn.{settings.DOMAIN}"
 
 @ServiceRegistry.register
 class FileBrowserService(BaseService):
@@ -168,6 +180,9 @@ class FileBrowserService(BaseService):
             "Default User/Pass: admin / admin"
         )
 
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8082"
+
 @ServiceRegistry.register
 class YourlsService(BaseService):
     name: str = "yourls"
@@ -192,6 +207,9 @@ class YourlsService(BaseService):
 
     def get_install_summary(self) -> Optional[str]:
         return f"URL: http://link.{settings.DOMAIN}:8083"
+
+    def get_url(self) -> Optional[str]:
+        return f"link.{settings.DOMAIN}"
 
 @ServiceRegistry.register
 class NetdataService(BaseService):
@@ -218,3 +236,6 @@ class NetdataService(BaseService):
 
     def get_install_summary(self) -> Optional[str]:
         return f"URL: http://{settings.DOMAIN}:19999"
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:19999"
