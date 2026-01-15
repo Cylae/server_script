@@ -41,9 +41,10 @@ class Menu:
         menu_table.add_column("Key", style="cyan", justify="center")
         menu_table.add_column("Action")
         menu_table.add_column("Status")
+        menu_table.add_column("URL / Subdomain", style="blue")
 
         # Global Actions
-        menu_table.add_row("A", "[bold green]Full Stack Install[/bold green]", "Automated")
+        menu_table.add_row("A", "[bold green]Full Stack Install[/bold green]", "Automated", "")
 
         # Service List
         i = 1
@@ -53,12 +54,20 @@ class Menu:
             # Ideally, is_installed shouldn't be too heavy.
             svc = service_cls()
             status = "[green]INSTALLED[/green]" if svc.is_installed else "[red]NOT INSTALLED[/red]"
-            menu_table.add_row(str(i), f"Manage {svc.pretty_name}", status)
+
+            url_display = ""
+            if svc.is_installed:
+                url = svc.get_url()
+                if url:
+                    url_display = f"[link={url}]{url}[/link]"
+
+            menu_table.add_row(str(i), f"Manage {svc.pretty_name}", status, url_display)
             service_map[str(i)] = svc
             i += 1
 
         console.print(menu_table)
         console.print("\n[bold]c.[/bold] Configuration")
+        console.print("[bold]s.[/bold] Service Credentials")
         console.print("[bold]0.[/bold] Exit")
 
         return service_map
@@ -97,6 +106,34 @@ class Menu:
 
         Prompt.ask("Press Enter to continue")
 
+    def show_credentials_summary(self) -> None:
+        """
+        Displays a summary of credentials for all installed services.
+        """
+        console.clear()
+        console.print(Panel("[bold cyan]Service Credentials Summary[/bold cyan]", style="cyan"))
+
+        installed_services = []
+        for service_cls in self.services.values():
+            svc = service_cls()
+            if svc.is_installed:
+                installed_services.append(svc)
+
+        if not installed_services:
+            console.print("[yellow]No services installed.[/yellow]")
+        else:
+            for svc in installed_services:
+                summary = svc.get_install_summary()
+                if summary:
+                    console.print(Panel(summary, title=svc.pretty_name, border_style="green"))
+                else:
+                    # Fallback if no summary, at least show URL
+                    url = svc.get_url()
+                    if url:
+                         console.print(Panel(f"URL: {url}", title=svc.pretty_name, border_style="blue"))
+
+        Prompt.ask("Press Enter to return to menu")
+
     def run_full_stack_install(self) -> None:
         """
         Triggers the installation of all services.
@@ -106,9 +143,22 @@ class Menu:
         console.print("This will install ALL services using the intelligent orchestrator.")
 
         if Prompt.ask("Are you sure?", choices=["y", "n"], default="y") == "y":
-            services = [cls() for cls in self.services.values()]
+            services = []
+            # Pre-configure all services if possible/needed
+            for cls in self.services.values():
+                svc = cls()
+                svc.configure() # Allow interactive config before batch install
+                services.append(svc)
+
             InstallationOrchestrator.install_services(services)
             console.print("[bold green]Full Stack Installation Process Completed.[/bold green]")
+
+            # Print summaries for all installed services
+            console.print("\n[bold cyan]Installation Summary:[/bold cyan]")
+            for svc in services:
+                summary = svc.get_install_summary()
+                if summary:
+                    console.print(Panel(summary, title=svc.pretty_name, border_style="green"))
 
         Prompt.ask("Press Enter to return to menu")
 
@@ -127,7 +177,13 @@ class Menu:
                 service.remove()
         else:
             if Prompt.ask("Install?", choices=["y", "n"], default="y") == "y":
+                service.configure()
                 service.install()
+
+                # Show summary
+                summary = service.get_install_summary()
+                if summary:
+                    console.print(Panel(summary, title="Installation Summary", border_style="green"))
 
         Prompt.ask("Press Enter to return to menu")
 
@@ -151,6 +207,8 @@ class Menu:
                 break
             elif choice == "c":
                 self.configure_settings()
+            elif choice == "s":
+                self.show_credentials_summary()
             elif choice.upper() == "A":
                 self.run_full_stack_install()
             elif choice in service_map:
