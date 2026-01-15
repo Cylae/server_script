@@ -7,6 +7,7 @@ from rich.panel import Panel
 # Core & Services
 from cyl_manager.core.logging import setup_logging, logger
 from cyl_manager.core.system import SystemManager
+from cyl_manager.core.docker import DockerManager
 from cyl_manager.core.orchestrator import InstallationOrchestrator
 from cyl_manager.ui.menu import Menu
 from cyl_manager.services.registry import ServiceRegistry
@@ -84,10 +85,19 @@ def status():
     table.add_column("Status", style="magenta")
     table.add_column("URL", style="blue")
 
+    # Optimization: Instantiate DockerManager once and avoid Service instantiation for uninstalled services
+    docker_manager = DockerManager()
+
     for name, cls in ServiceRegistry.get_all().items():
-        svc = cls()
-        status_text = "[green]Installed[/green]" if svc.is_installed else "[red]Not Installed[/red]"
-        url = svc.get_url() if svc.is_installed else ""
+        is_installed = docker_manager.is_installed(name)
+        status_text = "[green]Installed[/green]" if is_installed else "[red]Not Installed[/red]"
+
+        url = ""
+        if is_installed:
+            # Only instantiate service object if installed (to get URL)
+            svc = cls()
+            url = svc.get_url() or ""
+
         table.add_row(name, status_text, url)
 
     console.print(table)

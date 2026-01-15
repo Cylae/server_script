@@ -16,6 +16,11 @@ def mock_system_manager():
         mock.check_root.return_value = True
         yield mock
 
+@pytest.fixture
+def mock_docker_manager():
+    with patch("cyl_manager.cli.DockerManager") as mock:
+        yield mock
+
 def test_install_service_not_found(mock_registry, mock_system_manager):
     mock_registry.get.return_value = None
     result = runner.invoke(app, ["install", "unknown_service"])
@@ -26,6 +31,8 @@ def test_install_service_success(mock_registry, mock_system_manager):
     mock_service_instance = mock_service_cls.return_value
     mock_service_instance.is_installed = False
     mock_service_instance.pretty_name = "My Service"
+    # Fix: Ensure get_install_summary returns a string
+    mock_service_instance.get_install_summary.return_value = "Success"
     mock_registry.get.return_value = mock_service_cls
 
     result = runner.invoke(app, ["install", "myservice"])
@@ -55,10 +62,17 @@ def test_remove_service_success(mock_registry, mock_system_manager):
     assert result.exit_code == 0
     mock_service_instance.remove.assert_called_once()
 
-def test_status_command(mock_registry, mock_system_manager):
+def test_status_command(mock_registry, mock_system_manager, mock_docker_manager):
     mock_service_cls = MagicMock()
     mock_service_instance = mock_service_cls.return_value
+    # mock_service_instance.is_installed is used if instantiated, but my opt uses docker_manager
     mock_service_instance.is_installed = True
+    # Fix: Ensure get_url returns a string
+    mock_service_instance.get_url.return_value = "http://localhost"
+
+    # Configure DockerManager mock for optimization
+    mock_docker_instance = mock_docker_manager.return_value
+    mock_docker_instance.is_installed.return_value = True
 
     mock_registry.get_all.return_value = {"myservice": mock_service_cls}
 
