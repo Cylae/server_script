@@ -16,6 +16,7 @@ Cylae Server Manager is a **production-grade** automation framework designed to 
 *   **🔌 Plug & Play:** Automated installation of Docker, dependencies, and network setup.
 *   **🧠 Intelligent Hardware Profiling:** Automatically detects system resources (RAM, CPU) and adjusts container limits (`LOW` vs `HIGH` profile).
 *   **🛡️ Secure by Default:** Strict permission management, random password generation, and non-root container execution where possible.
+*   **🔑 Credentials Management:** View access URLs and credentials summary directly from the menu.
 *   **⚡ Concurrency Control:** optimized parallel deployment for high-end systems, serial safety for low-end boxes.
 *   **📦 Modular Architecture:** Easily extensible Python-based service registry.
 
@@ -45,12 +46,17 @@ Or use the CLI directly:
 # Install specific service
 cyl-manager install plex
 
-# Check status
+# Check status (now includes URLs)
 cyl-manager status
 
 # Install everything
 cyl-manager install-all
 ```
+
+**New in v2.1:**
+- **Service Configuration:** Interactive prompts for services like MariaDB.
+- **Credentials Summary:** View all your service URLs and initial credentials in the "Service Credentials" menu.
+- **URL Display:** Main menu now shows the active URL/Subdomain for running services.
 
 ---
 
@@ -63,6 +69,7 @@ Cylae Server Manager est un framework d'automatisation de **niveau production** 
 *   **🔌 Plug & Play :** Installation automatisée de Docker, des dépendances et de la configuration réseau.
 *   **🧠 Profilage Matériel Intelligent :** Détecte automatiquement les ressources système (RAM, CPU) et ajuste les limites des conteneurs (profil `LOW` vs `HIGH`).
 *   **🛡️ Sécurisé par Défaut :** Gestion stricte des permissions, génération de mots de passe aléatoires et exécution de conteneurs non-root lorsque c'est possible.
+*   **🔑 Gestion des Identifiants :** Visualisez les URLs d'accès et le résumé des identifiants directement depuis le menu.
 *   **⚡ Contrôle de Concurrence :** Déploiement parallèle optimisé pour les systèmes performants, sécurité sérielle pour les machines modestes.
 *   **📦 Architecture Modulaire :** Registre de services basé sur Python facilement extensible.
 
@@ -92,12 +99,17 @@ Ou utilisez directement la CLI :
 # Installer un service spécifique
 cyl-manager install plex
 
-# Vérifier le statut
+# Vérifier le statut (inclut maintenant les URLs)
 cyl-manager status
 
 # Tout installer
 cyl-manager install-all
 ```
+
+**Nouveauté v2.1 :**
+- **Configuration des Services :** Invites interactives pour des services comme MariaDB.
+- **Résumé des Identifiants :** Visualisez toutes vos URLs de service et identifiants initiaux dans le menu "Service Credentials".
+- **Affichage URL :** Le menu principal affiche maintenant l'URL/Sous-domaine actif pour les services en cours d'exécution.
 
 ---
 
