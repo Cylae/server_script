@@ -95,9 +95,13 @@ class BaseService(ABC):
             SystemManager.run_command(cmd, check=True)
 
         except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode() if e.stderr else str(e)
+            error_msg = e.stderr if e.stderr else str(e)
+            # Ensure error_msg is a string before logging/raising
+            if isinstance(error_msg, bytes):
+                error_msg = error_msg.decode('utf-8', errors='replace')
+
             logger.error(f"Failed to deploy compose file: {error_msg}")
-            raise ServiceError(f"Deployment failed for {self.name}")
+            raise ServiceError(f"Deployment failed for {self.name}: {error_msg}")
 
     def get_common_env(self) -> Dict[str, str]:
         """
