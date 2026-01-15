@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final, Optional
+from typing import Dict, Any, Final, Optional, List
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -43,6 +43,9 @@ class PlexService(BaseService):
     def get_url(self) -> Optional[str]:
         return "http://localhost:32400/web"
 
+    def get_ports(self) -> List[str]:
+        return ["32400/tcp"]
+
 @ServiceRegistry.register
 class TautulliService(BaseService):
     name: str = "tautulli"
@@ -70,6 +73,9 @@ class TautulliService(BaseService):
 
     def get_url(self) -> Optional[str]:
         return f"http://{settings.DOMAIN}:8181"
+
+    def get_ports(self) -> List[str]:
+        return ["8181/tcp"]
 
 class ArrService(BaseService):
     """Base class for *Arr services to reduce duplication."""
@@ -104,6 +110,9 @@ class ArrService(BaseService):
 
     def get_url(self) -> Optional[str]:
         return f"http://{settings.DOMAIN}:{self.port}"
+
+    def get_ports(self) -> List[str]:
+        return [f"{self.port}/tcp"]
 
 @ServiceRegistry.register
 class SonarrService(ArrService):
@@ -168,3 +177,6 @@ class QbittorrentService(BaseService):
 
     def get_url(self) -> Optional[str]:
         return f"http://{settings.DOMAIN}:8080"
+
+    def get_ports(self) -> List[str]:
+        return ["8080/tcp", "6881/tcp", "6881/udp"]

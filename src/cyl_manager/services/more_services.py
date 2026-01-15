@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final, Optional
+from typing import Dict, Any, Final, Optional, List
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -57,6 +57,9 @@ class MailService(BaseService):
     def get_url(self) -> Optional[str]:
         return f"mail.{settings.DOMAIN}"
 
+    def get_ports(self) -> List[str]:
+        return ["25/tcp", "143/tcp", "587/tcp", "993/tcp"]
+
 @ServiceRegistry.register
 class GLPIService(BaseService):
     name: str = "glpi"
@@ -91,3 +94,6 @@ class GLPIService(BaseService):
 
     def get_url(self) -> Optional[str]:
         return f"http://{settings.DOMAIN}:8090"
+
+    def get_ports(self) -> List[str]:
+        return ["8090/tcp"]

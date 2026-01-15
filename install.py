@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Optional
 
 # --- Constants ---
-REQUIRED_PACKAGES = ["python3", "python3-venv", "python3-pip", "git", "curl"]
+REQUIRED_PACKAGES = ["python3", "python3-venv", "python3-pip", "git", "curl", "ufw"]
 DOCKER_INSTALL_URL = "https://get.docker.com"
 VENV_DIR = ".venv"
 CLI_LINK_PATH = "/usr/local/bin/cyl-manager"
@@ -29,6 +29,9 @@ def print_success(msg: str) -> None:
 
 def print_error(msg: str) -> None:
     print(f"\033[31m✖ Error:\033[0m {msg}", file=sys.stderr)
+
+def print_warning(msg: str) -> None:
+    print(f"\033[33m⚠ Warning:\033[0m {msg}")
 
 def run_cmd(cmd: List[str], check: bool = True, shell: bool = False) -> subprocess.CompletedProcess:
     """Runs a subprocess command safely."""
@@ -65,6 +68,36 @@ def install_system_deps() -> None:
     except RuntimeError as e:
         print_error(str(e))
         sys.exit(1)
+
+def configure_firewall() -> None:
+    """Ensures basic firewall security."""
+    print_header("Configuring Firewall")
+
+    if not shutil.which("ufw"):
+        print_warning("ufw not found. Skipping firewall configuration.")
+        return
+
+    try:
+        # Only configure if inactive or first run to avoid locking out
+        res = run_cmd(["ufw", "status"], check=False)
+        if "Status: active" in res.stdout:
+            print_info("Firewall is already active.")
+            return
+
+        print_info("Setting up basic firewall rules...")
+        run_cmd(["ufw", "default", "deny", "incoming"])
+        run_cmd(["ufw", "default", "allow", "outgoing"])
+        run_cmd(["ufw", "allow", "ssh"])
+        run_cmd(["ufw", "allow", "22/tcp"])
+
+        # Enable without prompt
+        # We use a piped input 'y' or force flag if available, but ufw force enable is safer
+        print_info("Enabling firewall...")
+        subprocess.run("echo 'y' | ufw enable", shell=True, check=True, stdout=subprocess.DEVNULL)
+
+        print_success("Firewall configured and enabled.")
+    except Exception as e:
+        print_error(f"Failed to configure firewall: {e}")
 
 def check_and_install_docker() -> None:
     """Checks for Docker and installs if missing."""
@@ -143,14 +176,27 @@ def create_symlink() -> None:
         print_error(f"Failed to create symlink: {e}")
         sys.exit(1)
 
+def cloud_provider_warning() -> None:
+    """Displays a warning about Cloud Firewalls."""
+    print("\n" + "="*60)
+    print_warning("Cloud Provider Detected (or assumed)")
+    print("If you are running this on Google Cloud (GCP), AWS, or Azure:")
+    print("You MUST configure your VPC Firewall Rules to allow traffic")
+    print("on the ports used by your services (e.g., 80, 443, 81, etc.).")
+    print("The script has configured the local OS firewall (ufw),")
+    print("but it cannot modify your cloud provider's network firewall.")
+    print("="*60 + "\n")
+
 def main() -> None:
     """Main entry point."""
     try:
         check_root()
         install_system_deps()
+        configure_firewall()
         check_and_install_docker()
         setup_virtual_environment()
         create_symlink()
+        cloud_provider_warning()
 
         print("\n" + "="*50)
         print_success("Installation Complete! 🚀")

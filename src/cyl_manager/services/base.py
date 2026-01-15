@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import subprocess
 import yaml
 from pathlib import Path
 from cyl_manager.core.docker import DockerManager
 from cyl_manager.core.system import SystemManager
+from cyl_manager.core.firewall import FirewallManager
 from cyl_manager.core.config import settings
 from cyl_manager.core.logging import logger
 from cyl_manager.core.exceptions import ServiceError
@@ -19,6 +20,7 @@ class BaseService(ABC):
 
     def __init__(self) -> None:
         self.docker = DockerManager()
+        self.firewall = FirewallManager()
         self.profile = SystemManager.get_hardware_profile()
 
     @property
@@ -49,12 +51,24 @@ class BaseService(ABC):
         """
         return None
 
+    def get_ports(self) -> List[str]:
+        """
+        Returns a list of ports/protocols to open in the firewall.
+        Format: "80/tcp", "53/udp", etc. Default assumes TCP if omitted by ufw.
+        """
+        return []
+
     def install(self) -> None:
         """
         Installs or updates the service via Docker Compose.
         """
         logger.info(f"Installing {self.pretty_name}...")
         self.docker.ensure_network()
+
+        # Configure Firewall
+        for port in self.get_ports():
+            self.firewall.allow_port(port, f"Allow {self.name}")
+
         compose_content = self.generate_compose()
         self._deploy_compose(compose_content)
         logger.info(f"{self.pretty_name} installed successfully.")
@@ -78,6 +92,13 @@ class BaseService(ABC):
         """
         logger.info(f"Removing {self.pretty_name}...")
         self.docker.stop_and_remove(self.name)
+
+        # Optional: Remove firewall rules?
+        # Typically safer not to auto-close ports as they might be shared or re-used.
+        # But for strict cleanup:
+        # for port in self.get_ports():
+        #     self.firewall.deny_port(port)
+
         logger.info(f"{self.pretty_name} removed.")
 
     def _deploy_compose(self, compose_content: Dict[str, Any]) -> None:

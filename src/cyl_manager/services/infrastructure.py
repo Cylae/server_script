@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final, Optional
+from typing import Dict, Any, Final, Optional, List
 import secrets
 import string
 from rich.prompt import Prompt, Confirm
@@ -89,6 +89,9 @@ class MariaDBService(BaseService):
     def get_url(self) -> Optional[str]:
         return "Internal: 3306"
 
+    def get_ports(self) -> List[str]:
+        return ["3306/tcp"]
+
 @ServiceRegistry.register
 class NginxProxyService(BaseService):
     name: str = "nginx-proxy"
@@ -131,3 +134,6 @@ class NginxProxyService(BaseService):
 
     def get_url(self) -> Optional[str]:
         return f"http://{settings.DOMAIN}:81"
+
+    def get_ports(self) -> List[str]:
+        return ["80/tcp", "443/tcp", "81/tcp"]

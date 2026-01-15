@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final, Optional
+from typing import Dict, Any, Final, Optional, List
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -52,3 +52,6 @@ class GiteaService(BaseService):
 
     def get_url(self) -> Optional[str]:
         return f"https://git.{settings.DOMAIN}"
+
+    def get_ports(self) -> List[str]:
+        return ["3000/tcp", "222/tcp"]
