@@ -1,12 +1,12 @@
-from typing import Dict, Any
-from .base import BaseService
-from .registry import ServiceRegistry
-from ..core.config import settings
+from typing import Dict, Any, Final
+from cyl_manager.services.base import BaseService
+from cyl_manager.services.registry import ServiceRegistry
+from cyl_manager.core.config import settings
 
 @ServiceRegistry.register
 class MailService(BaseService):
-    name = "mailserver"
-    pretty_name = "Mail Server (Docker Mailserver)"
+    name: str = "mailserver"
+    pretty_name: str = "Mail Server (Docker Mailserver)"
 
     def generate_compose(self) -> Dict[str, Any]:
         # Optimization: Disable heavy processes on low-spec hardware
@@ -55,8 +55,8 @@ class MailService(BaseService):
 
 @ServiceRegistry.register
 class GLPIService(BaseService):
-    name = "glpi"
-    pretty_name = "GLPI (IT Asset Management)"
+    name: str = "glpi"
+    pretty_name: str = "GLPI (IT Asset Management)"
 
     def generate_compose(self) -> Dict[str, Any]:
         return {

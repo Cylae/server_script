@@ -1,8 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Type
-from .system import SystemManager
-from .logging import logger
-from ..services.base import BaseService
+from typing import List, Dict
+from cyl_manager.core.system import SystemManager
+from cyl_manager.core.logging import logger
+from cyl_manager.core.docker import DockerManager
 
 class InstallationOrchestrator:
     """
@@ -11,7 +11,7 @@ class InstallationOrchestrator:
     """
 
     @staticmethod
-    def install_services(services: List[BaseService]) -> None:
+    def install_services(services: List['BaseService']) -> None:
         """
         Installs a list of services respecting the hardware profile.
 
@@ -23,15 +23,25 @@ class InstallationOrchestrator:
 
         logger.info(f"Starting orchestration. Profile: {profile}. Concurrency: {concurrency} worker(s).")
 
-        failed_services = []
+        failed_services: List[str] = []
+
+        if not services:
+            logger.info("No services provided to install.")
+            return
+
+        # Pre-flight check: Ensure network exists ONCE before spawning threads
+        # This prevents race conditions and redundant API calls
+        try:
+            DockerManager().ensure_network()
+        except Exception as e:
+             logger.error(f"Failed to initialize network: {e}")
+             return
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            # Map futures to service names for error reporting
+            # Map futures to service instances for error reporting
             future_to_service = {
                 executor.submit(service.install): service
                 for service in services
-                # We do NOT skip if installed, because "install" ensures the configuration is up-to-date.
-                # docker compose up -d is idempotent.
             }
 
             for future in as_completed(future_to_service):

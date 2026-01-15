@@ -2,14 +2,15 @@ import typer
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
-from .core.logging import setup_logging, logger
-from .core.system import SystemManager
-from .core.orchestrator import InstallationOrchestrator
-from .ui.menu import Menu
-from .services.registry import ServiceRegistry
-from .core.config import settings
 
-# Import services to register them
+# Core & Services
+from cyl_manager.core.logging import setup_logging, logger
+from cyl_manager.core.system import SystemManager
+from cyl_manager.core.orchestrator import InstallationOrchestrator
+from cyl_manager.ui.menu import Menu
+from cyl_manager.services.registry import ServiceRegistry
+
+# Import services to ensure they are registered
 import cyl_manager.services.portainer
 import cyl_manager.services.gitea
 import cyl_manager.services.misc
@@ -18,6 +19,7 @@ import cyl_manager.services.more_services
 import cyl_manager.services.infrastructure
 
 app = typer.Typer(help="Cylae Server Manager CLI")
+console = Console()
 
 @app.command()
 def install(service_name: str):
@@ -57,15 +59,14 @@ def remove(service_name: str):
 @app.command()
 def status():
     """List status of all services."""
-    console = Console()
     table = Table(title="Service Status")
     table.add_column("Service Name", style="cyan", no_wrap=True)
     table.add_column("Status", style="magenta")
 
     for name, cls in ServiceRegistry.get_all().items():
         svc = cls()
-        status = "[green]Installed[/green]" if svc.is_installed else "[red]Not Installed[/red]"
-        table.add_row(name, status)
+        status_text = "[green]Installed[/green]" if svc.is_installed else "[red]Not Installed[/red]"
+        table.add_row(name, status_text)
 
     console.print(table)
 
@@ -80,11 +81,24 @@ def main(verbose: bool = False):
     level = "DEBUG" if verbose else "INFO"
     setup_logging(level)
     try:
-        SystemManager.check_root()
-        # Optional: Check OS on startup
+        # Check privileges and OS compatibility
+        try:
+            SystemManager.check_root()
+        except PermissionError as e:
+            # Allow non-root for development/testing if needed, but warn heavily
+            # or just exit as per requirement.
+            # logger.error(str(e))
+            # raise typer.Exit(1)
+            # For now, we just warn if not root during development,
+            # but in prod strict check is better.
+            # Re-raising for production grade strictness.
+            logger.error(str(e))
+            raise typer.Exit(1)
+
         SystemManager.check_os()
+
     except Exception as e:
-        logger.error(str(e))
+        logger.error(f"Initialization error: {e}")
         raise typer.Exit(1)
 
 if __name__ == "__main__":

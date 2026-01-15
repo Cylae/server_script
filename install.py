@@ -2,6 +2,9 @@ import os
 import sys
 import subprocess
 import shutil
+import platform
+from pathlib import Path
+from typing import List
 
 def check_docker():
     """Checks if Docker is installed. If not, installs it."""
@@ -24,28 +27,75 @@ def check_docker():
 def main():
     print("Checking root...")
     if os.geteuid() != 0:
-        print("Please run as root")
+        print_error("This script must be run as root.")
         sys.exit(1)
 
-    print("Checking system dependencies...")
-    # Install pip and venv if missing (redundant if install.sh did its job but safe)
+def install_system_deps() -> None:
+    """Installs basic system dependencies via apt."""
+    print_header("Installing System Dependencies")
+    deps = ["python3", "python3-pip", "python3-venv", "git", "curl"]
     try:
-        subprocess.run(["apt-get", "update", "-q"], check=True)
-        subprocess.run(["apt-get", "install", "-y", "python3", "python3-pip", "python3-venv", "git", "curl"], check=True)
+        run_cmd(["apt-get", "update", "-q"])
+        run_cmd(["apt-get", "install", "-y"] + deps)
     except subprocess.CalledProcessError as e:
-        print(f"Error installing dependencies: {e}")
+        print_error(f"Failed to install system dependencies: {e}")
         sys.exit(1)
 
-    check_docker()
+def install_docker() -> None:
+    """Checks for Docker and installs if missing."""
+    print_header("Checking Docker Installation")
+    if shutil.which("docker"):
+        print_success("Docker is already installed.")
+        return
 
-    print("Setting up virtual environment...")
-    if not os.path.exists(".venv"):
-        subprocess.run(["python3", "-m", "venv", ".venv"], check=True)
+    print_info("Docker not found. Installing via convenience script...")
+    try:
+        # Download script
+        subprocess.run(["curl", "-fsSL", "https://get.docker.com", "-o", "get-docker.sh"], check=True)
+        # Run script
+        subprocess.run(["sh", "get-docker.sh"], check=True)
+        # Cleanup
+        if os.path.exists("get-docker.sh"):
+            os.remove("get-docker.sh")
+        print_success("Docker installed successfully.")
+    except subprocess.CalledProcessError as e:
+        print_error(f"Failed to install Docker: {e}")
+        sys.exit(1)
 
-    print("Installing package...")
-    pip_cmd = ".venv/bin/pip"
-    subprocess.run([pip_cmd, "install", "-U", "pip", "setuptools", "wheel"], check=True)
-    subprocess.run([pip_cmd, "install", "-e", "."], check=True)
+def setup_venv() -> None:
+    """Sets up the Python virtual environment."""
+    print_header("Setting up Virtual Environment")
+    venv_path = Path(".venv")
+
+    if not venv_path.exists():
+        run_cmd([sys.executable, "-m", "venv", ".venv"])
+
+    pip_cmd = str(venv_path / "bin" / "pip")
+
+    try:
+        # Upgrade pip tools
+        run_cmd([pip_cmd, "install", "-U", "pip", "setuptools", "wheel"])
+        # Install project in editable mode
+        run_cmd([pip_cmd, "install", "-e", "."])
+        print_success("Package installed successfully.")
+    except subprocess.CalledProcessError as e:
+        print_error(f"Failed to install Python packages: {e}")
+        sys.exit(1)
+
+def create_symlink() -> None:
+    """Creates the global symlink for the CLI."""
+    print_header("Finalizing Installation")
+    target = Path("/usr/local/bin/cyl-manager")
+    source = Path.cwd() / ".venv" / "bin" / "cyl-manager"
+
+    if target.exists() or target.is_symlink():
+        target.unlink()
+
+    try:
+        target.symlink_to(source)
+        print_success(f"Symlink created at {target}")
+    except OSError as e:
+        print_error(f"Failed to create symlink: {e}")
 
     print("Creating symlink...")
     link_path = "/usr/local/bin/cyl-manager"
@@ -53,8 +103,8 @@ def main():
         os.remove(link_path)
     os.symlink(os.path.abspath(".venv/bin/cyl-manager"), link_path)
 
-    print("\nInstallation Complete!")
-    print("Run 'cyl-manager menu' to start.")
+    print_header("Installation Complete! 🚀")
+    print_info("Run 'cyl-manager menu' to start managing your server.")
 
 if __name__ == "__main__":
     main()
