@@ -6,28 +6,26 @@ import platform
 from pathlib import Path
 from typing import List
 
-# Attempt to use rich if installed (unlikely on fresh bootstrap, but good practice)
-try:
-    from rich.console import Console
-    from rich.panel import Panel
-    console = Console()
-    def print_info(msg: str): console.print(f"[bold cyan]INFO:[/bold cyan] {msg}")
-    def print_success(msg: str): console.print(f"[bold green]SUCCESS:[/bold green] {msg}")
-    def print_error(msg: str): console.print(f"[bold red]ERROR:[/bold red] {msg}")
-    def print_header(msg: str): console.print(Panel(f"[bold magenta]{msg}[/bold magenta]", expand=False))
-except ImportError:
-    def print_info(msg: str): print(f"INFO: {msg}")
-    def print_success(msg: str): print(f"SUCCESS: {msg}")
-    def print_error(msg: str): print(f"ERROR: {msg}")
-    def print_header(msg: str): print(f"\n=== {msg} ===\n")
+def check_docker():
+    """Checks if Docker is installed. If not, installs it."""
+    if shutil.which("docker") is None:
+        print("Docker not found. Installing Docker...")
+        try:
+            # Install Docker using the convenience script
+            subprocess.run("curl -fsSL https://get.docker.com -o get-docker.sh", shell=True, check=True)
+            subprocess.run("sh get-docker.sh", shell=True, check=True)
+            print("Docker installed successfully.")
+        except subprocess.CalledProcessError:
+            print("Failed to install Docker. Please install Docker manually.")
+            sys.exit(1)
+        finally:
+            if os.path.exists("get-docker.sh"):
+                os.remove("get-docker.sh")
+    else:
+        print("Docker is already installed.")
 
-def run_cmd(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
-    """Runs a command safely without shell=True."""
-    print_info(f"Running: {' '.join(cmd)}")
-    return subprocess.run(cmd, check=check, text=True, capture_output=False)
-
-def check_root() -> None:
-    """Ensures script runs as root."""
+def main():
+    print("Checking root...")
     if os.geteuid() != 0:
         print_error("This script must be run as root.")
         sys.exit(1)
@@ -99,13 +97,11 @@ def create_symlink() -> None:
     except OSError as e:
         print_error(f"Failed to create symlink: {e}")
 
-def main() -> None:
-    """Main installation routine."""
-    check_root()
-    install_system_deps()
-    install_docker()
-    setup_venv()
-    create_symlink()
+    print("Creating symlink...")
+    link_path = "/usr/local/bin/cyl-manager"
+    if os.path.exists(link_path) or os.path.islink(link_path):
+        os.remove(link_path)
+    os.symlink(os.path.abspath(".venv/bin/cyl-manager"), link_path)
 
     print_header("Installation Complete! 🚀")
     print_info("Run 'cyl-manager menu' to start managing your server.")

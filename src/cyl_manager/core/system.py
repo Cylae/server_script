@@ -14,9 +14,13 @@ class SystemManager:
     Manager for system-level operations and checks.
     """
 
-    # Constants for Hardware Profiles
-    PROFILE_LOW: Final[str] = "LOW"
-    PROFILE_HIGH: Final[str] = "HIGH"
+    _hardware_profile: HardwareProfile | None = None
+
+    @staticmethod
+    def check_root() -> None:
+        """Enforces execution with elevated privileges (root)."""
+        if os.geteuid() != 0:
+            raise SystemRequirementError("Insufficient privileges. This operation requires root access.")
 
     @staticmethod
     def get_hardware_profile() -> str:
@@ -55,8 +59,10 @@ class SystemManager:
     @staticmethod
     def get_uid_gid() -> Tuple[str, str]:
         """
-        Retrieves the user's UID and GID.
-        If running via sudo, returns the original user's ID to preserve file permissions.
+        if SystemManager._hardware_profile is not None:
+            return SystemManager._hardware_profile
+
+        ram_gb, cpu_cores, swap_gb = SystemManager.get_system_specs()
 
         Returns:
             Tuple[str, str]: (UID, GID)
@@ -69,10 +75,9 @@ class SystemManager:
             if sudo_uid and sudo_gid:
                 return sudo_uid, sudo_gid
 
-            return str(os.getuid()), str(os.getgid())
-        except AttributeError:
-            # Fallback for non-POSIX systems (e.g., Windows development)
-            return "1000", "1000"
+        logger.info(f"Hardware Logic: RAM={ram_gb:.2f}GB, Cores={cpu_cores}, Swap={swap_gb:.2f}GB -> Profile={profile}")
+        SystemManager._hardware_profile = profile
+        return profile
 
     @staticmethod
     def get_timezone() -> str:

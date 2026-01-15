@@ -3,6 +3,12 @@ from unittest.mock import patch, MagicMock
 from cyl_manager.core.system import SystemManager
 from cyl_manager.core.exceptions import SystemRequirementError
 
+@pytest.fixture(autouse=True)
+def reset_system_manager():
+    SystemManager._hardware_profile = None
+    yield
+    SystemManager._hardware_profile = None
+
 def test_check_root_failure():
     with patch("os.geteuid", return_value=1000):
         with pytest.raises(SystemRequirementError):
@@ -17,8 +23,12 @@ def test_hardware_profile():
         with patch("psutil.cpu_count") as mock_cpu:
             mock_mem.return_value.total = 8 * (1024**3) # 8GB
             mock_cpu.return_value = 4
+            # Reset cache before calling
+            SystemManager._hardware_profile = None
             assert SystemManager.get_hardware_profile() == "HIGH"
 
             mock_mem.return_value.total = 2 * (1024**3) # 2GB
             mock_cpu.return_value = 2
+            # Reset cache before calling again, otherwise it returns cached "HIGH"
+            SystemManager._hardware_profile = None
             assert SystemManager.get_hardware_profile() == "LOW"
