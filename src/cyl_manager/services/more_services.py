@@ -47,7 +47,7 @@ class MailService(BaseService):
                     "networks": [settings.DOCKER_NET],
                     "deploy": self.get_resource_limits(
                         high_mem="2G", high_cpu="1.0",
-                        low_mem="1G", low_cpu="0.5"
+                        low_mem="1G", low_cpu="1.0"
                     )
                 }
             },
