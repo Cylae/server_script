@@ -28,6 +28,20 @@ class BaseService(ABC):
         """
         return self.docker.is_installed(self.name)
 
+    def configure(self) -> None:
+        """
+        Optional hook to interactively prompt the user for configuration.
+        This is called before installation.
+        """
+        pass
+
+    def get_install_summary(self) -> Optional[str]:
+        """
+        Optional hook to return a summary string after installation.
+        Useful for displaying passwords, URLs, or next steps.
+        """
+        return None
+
     def install(self) -> None:
         """
         Installs or updates the service via Docker Compose.

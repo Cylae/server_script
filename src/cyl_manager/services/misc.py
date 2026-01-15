@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -30,6 +30,12 @@ class NextcloudService(BaseService):
             }
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"URL: http://{settings.DOMAIN}:8084\n"
+            "Create your admin account on first login."
+        )
+
 @ServiceRegistry.register
 class VaultwardenService(BaseService):
     name: str = "vaultwarden"
@@ -53,6 +59,9 @@ class VaultwardenService(BaseService):
                 settings.DOCKER_NET: {"external": True}
             }
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:8081"
 
 @ServiceRegistry.register
 class UptimeKumaService(BaseService):
@@ -79,6 +88,9 @@ class UptimeKumaService(BaseService):
                 settings.DOCKER_NET: {"external": True}
             }
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:3001"
 
 @ServiceRegistry.register
 class WireGuardService(BaseService):
@@ -116,6 +128,12 @@ class WireGuardService(BaseService):
             }
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            "VPN Endpoint: vpn.{settings.DOMAIN}:51820\n"
+            "Client config: Located in data directory (check logs)"
+        )
+
 @ServiceRegistry.register
 class FileBrowserService(BaseService):
     name: str = "filebrowser"
@@ -144,6 +162,12 @@ class FileBrowserService(BaseService):
             }
         }
 
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"URL: http://{settings.DOMAIN}:8082\n"
+            "Default User/Pass: admin / admin"
+        )
+
 @ServiceRegistry.register
 class YourlsService(BaseService):
     name: str = "yourls"
@@ -165,6 +189,9 @@ class YourlsService(BaseService):
             },
              "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://link.{settings.DOMAIN}:8083"
 
 @ServiceRegistry.register
 class NetdataService(BaseService):
@@ -188,3 +215,6 @@ class NetdataService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:19999"
