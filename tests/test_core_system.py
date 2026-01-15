@@ -2,6 +2,12 @@ import pytest
 from unittest.mock import MagicMock, patch
 from cyl_manager.core.system import SystemManager
 
+@pytest.fixture(autouse=True)
+def reset_hardware_profile():
+    SystemManager._hardware_profile = None
+    yield
+    SystemManager._hardware_profile = None
+
 @patch("cyl_manager.core.system.psutil")
 def test_hardware_profile_low(mock_psutil):
     # Mock < 4GB RAM

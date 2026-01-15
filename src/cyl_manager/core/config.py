@@ -1,7 +1,7 @@
 import os
 import threading
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
@@ -53,11 +53,10 @@ class SettingsProxy:
         """Reloads the underlying settings object from environment/files."""
         self._settings = Settings()
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._settings, name)
 
-    # Allow updating attributes directly on the proxy (not recommended vs save_settings but supported)
-    def __setattr__(self, name: str, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         if name == "_settings":
             super().__setattr__(name, value)
         else:
@@ -78,13 +77,19 @@ def save_settings(key: str, value: str, env_path: Optional[Path] = None) -> None
         key: The configuration key to update.
         value: The new value for the configuration key.
         env_path: Optional path to the environment file. Defaults to ENV_FILE_PATH.
+
+    Raises:
+        RuntimeError: If writing to the file fails.
     """
     target_path = env_path if env_path is not None else ENV_FILE_PATH
 
     with _CONFIG_LOCK:
         # Ensure parent directory exists
         if not target_path.parent.exists():
-            target_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                raise RuntimeError(f"Failed to create directory {target_path.parent}: {e}") from e
 
         lines: List[str] = []
         if target_path.exists():
