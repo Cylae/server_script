@@ -21,14 +21,17 @@ def test_check_root_success():
 def test_hardware_profile():
     with patch("psutil.virtual_memory") as mock_mem:
         with patch("psutil.cpu_count") as mock_cpu:
-            mock_mem.return_value.total = 8 * (1024**3) # 8GB
-            mock_cpu.return_value = 4
-            # Reset cache before calling
-            SystemManager._hardware_profile = None
-            assert SystemManager.get_hardware_profile() == "HIGH"
+            with patch("psutil.swap_memory") as mock_swap:
+                mock_mem.return_value.total = 8 * (1024**3) # 8GB
+                mock_cpu.return_value = 4
+                mock_swap.return_value.total = 4 * (1024**3) # 4GB Swap
 
-            mock_mem.return_value.total = 2 * (1024**3) # 2GB
-            mock_cpu.return_value = 2
-            # Reset cache before calling again, otherwise it returns cached "HIGH"
-            SystemManager._hardware_profile = None
-            assert SystemManager.get_hardware_profile() == "LOW"
+                # Reset cache before calling
+                SystemManager._hardware_profile = None
+                assert SystemManager.get_hardware_profile() == "HIGH"
+
+                mock_mem.return_value.total = 2 * (1024**3) # 2GB
+                mock_cpu.return_value = 2
+                # Reset cache before calling again, otherwise it returns cached "HIGH"
+                SystemManager._hardware_profile = None
+                assert SystemManager.get_hardware_profile() == "LOW"
