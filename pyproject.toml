@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cyl-manager"
-version = "2.1.0"
+version = "3.0.0"
 description = "A modular Python-based framework to deploy and manage a self-hosted media ecosystem."
 authors = [{name = "Cylae"}]
 license = {text = "MIT"}
