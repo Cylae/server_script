@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -40,6 +40,9 @@ class PlexService(BaseService):
             }
         }
 
+    def get_url(self) -> Optional[str]:
+        return "http://localhost:32400/web"
+
 @ServiceRegistry.register
 class TautulliService(BaseService):
     name: str = "tautulli"
@@ -64,6 +67,9 @@ class TautulliService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8181"
 
 class ArrService(BaseService):
     """Base class for *Arr services to reduce duplication."""
@@ -95,6 +101,9 @@ class ArrService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:{self.port}"
 
 @ServiceRegistry.register
 class SonarrService(ArrService):
@@ -156,3 +165,6 @@ class QbittorrentService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8080"

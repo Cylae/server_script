@@ -1,114 +1,118 @@
 # Cylae Server Manager 🚀
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://python.org)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://docker.com)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+![Cylae Banner](https://img.shields.io/badge/Status-Stable-brightgreen?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.9%2B-blue?style=for-the-badge&logo=python) ![Docker](https://img.shields.io/badge/Docker-Enabled-blue?style=for-the-badge&logo=docker)
 
-🇬🇧 **English** | [🇫🇷 Français](#-gestionnaire-de-serveur-cylae)
+> **The Ultimate Self-Hosted Media & Service Ecosystem Manager.**
+> *Robust. Modular. Secure.*
 
 ---
 
-## 🇬🇧 Cylae Server Manager
+## 🇬🇧 English Documentation
 
-**The Ultimate Self-Hosted Media Ecosystem Deployer.**
+### Overview
+Cylae Server Manager is a **production-grade** automation framework designed to deploy and manage a complete self-hosted ecosystem (Plex, Sonarr, Radarr, Nextcloud, etc.) on Debian/Ubuntu systems. It leverages **Docker Compose** for isolation and reproducibility, ensuring your server remains clean and stable.
 
-Cylae Server Manager is a production-grade, modular Python framework designed to deploy, manage, and optimize a complete self-hosted media and infrastructure stack. Built with an obsession for clean code, performance, and security.
+### Key Features
+*   **🔌 Plug & Play:** Automated installation of Docker, dependencies, and network setup.
+*   **🧠 Intelligent Hardware Profiling:** Automatically detects system resources (RAM, CPU) and adjusts container limits (`LOW` vs `HIGH` profile).
+*   **🛡️ Secure by Default:** Strict permission management, random password generation, and non-root container execution where possible.
+*   **🔑 Credentials Management:** View access URLs and credentials summary directly from the menu.
+*   **⚡ Concurrency Control:** optimized parallel deployment for high-end systems, serial safety for low-end boxes.
+*   **📦 Modular Architecture:** Easily extensible Python-based service registry.
 
-### 🔥 Features
-
-*   **Intelligent Orchestration:** Automatically adjusts deployment concurrency based on your hardware profile (CPU/RAM/Swap).
-*   **Hardware Profiling:** Dynamically tunes service configurations (e.g., Plex transcoding to RAM on high-end systems, disabled heavy mail filters on low-end VPS).
-*   **Modular Architecture:** Strictly typed, PEP 8 compliant, and extensible service registry.
-*   **Zero-Downtime:** Uses Docker Compose for idempotent deployments.
-*   **Interactive CLI:** Beautiful `rich` text user interface for easy management.
-
-### 🛠️ Tech Stack
-
-*   **Core:** Python 3.9+, `pydantic`, `typer`, `rich`
-*   **Infrastructure:** Docker, Docker Compose
-*   **Services:** Plex, *Arr Suite, Gitea, Nextcloud, MailServer, and more.
-
-### 🚀 Getting Started
-
-#### Prerequisites
-
-*   A Linux server (Debian/Ubuntu recommended)
-*   Root privileges
-
-#### Installation
+### Installation
+Run the following command as root:
 
 ```bash
-git clone https://github.com/Cylae/server_script.git
-cd server_script
-sudo ./install.sh
+sudo ./install.py
 ```
 
-#### Usage
+This will:
+1.  Check for root privileges.
+2.  Install system dependencies (Python, Git, Docker).
+3.  Set up a virtual environment.
+4.  Install the CLI tool globally as `cyl-manager`.
 
-Launch the interactive menu:
+### Usage
+Once installed, access the interactive menu:
 
 ```bash
-sudo cyl-manager menu
+cyl-manager menu
 ```
 
 Or use the CLI directly:
 
 ```bash
-sudo cyl-manager install plex
-sudo cyl-manager status
-sudo cyl-manager install-all
+# Install specific service
+cyl-manager install plex
+
+# Check status (now includes URLs)
+cyl-manager status
+
+# Install everything
+cyl-manager install-all
 ```
+
+**New in v2.1:**
+- **Service Configuration:** Interactive prompts for services like MariaDB.
+- **Credentials Summary:** View all your service URLs and initial credentials in the "Service Credentials" menu.
+- **URL Display:** Main menu now shows the active URL/Subdomain for running services.
 
 ---
 
-## 🇫🇷 Gestionnaire de Serveur Cylae
+## 🇫🇷 Documentation Française
 
-**L'outil ultime de déploiement d'écosystème média auto-hébergé.**
+### Vue d'ensemble
+Cylae Server Manager est un framework d'automatisation de **niveau production** conçu pour déployer et gérer un écosystème auto-hébergé complet (Plex, Sonarr, Radarr, Nextcloud, etc.) sur des systèmes Debian/Ubuntu. Il utilise **Docker Compose** pour l'isolation et la reproductibilité, garantissant que votre serveur reste propre et stable.
 
-Cylae Server Manager est un framework Python modulaire de qualité production conçu pour déployer, gérer et optimiser une pile complète de médias et d'infrastructure. Construit avec une obsession pour le code propre, la performance et la sécurité.
+### Fonctionnalités Clés
+*   **🔌 Plug & Play :** Installation automatisée de Docker, des dépendances et de la configuration réseau.
+*   **🧠 Profilage Matériel Intelligent :** Détecte automatiquement les ressources système (RAM, CPU) et ajuste les limites des conteneurs (profil `LOW` vs `HIGH`).
+*   **🛡️ Sécurisé par Défaut :** Gestion stricte des permissions, génération de mots de passe aléatoires et exécution de conteneurs non-root lorsque c'est possible.
+*   **🔑 Gestion des Identifiants :** Visualisez les URLs d'accès et le résumé des identifiants directement depuis le menu.
+*   **⚡ Contrôle de Concurrence :** Déploiement parallèle optimisé pour les systèmes performants, sécurité sérielle pour les machines modestes.
+*   **📦 Architecture Modulaire :** Registre de services basé sur Python facilement extensible.
 
-### 🔥 Fonctionnalités
-
-*   **Orchestration Intelligente :** Ajuste automatiquement la concomitance du déploiement en fonction de votre profil matériel (CPU/RAM/Swap).
-*   **Profilage Matériel :** Ajuste dynamiquement les configurations des services (ex: transcodage Plex en RAM sur les systèmes puissants, filtres mail lourds désactivés sur les VPS modestes).
-*   **Architecture Modulaire :** Typage strict, conformité PEP 8 et registre de services extensible.
-*   **Zéro Interruption :** Utilise Docker Compose pour des déploiements idempotents.
-*   **CLI Interactive :** Interface utilisateur magnifique basée sur `rich`.
-
-### 🛠️ Stack Technique
-
-*   **Cœur :** Python 3.9+, `pydantic`, `typer`, `rich`
-*   **Infrastructure :** Docker, Docker Compose
-*   **Services :** Plex, Suite *Arr, Gitea, Nextcloud, MailServer, et plus.
-
-### 🚀 Démarrage
-
-#### Prérequis
-
-*   Un serveur Linux (Debian/Ubuntu recommandé)
-*   Privilèges Root
-
-#### Installation
+### Installation
+Exécutez la commande suivante en tant que root :
 
 ```bash
-git clone https://github.com/Cylae/server_script.git
-cd server_script
-sudo ./install.sh
+sudo ./install.py
 ```
 
-#### Utilisation
+Cela va :
+1.  Vérifier les privilèges root.
+2.  Installer les dépendances système (Python, Git, Docker).
+3.  Configurer un environnement virtuel.
+4.  Installer l'outil CLI globalement sous le nom `cyl-manager`.
 
-Lancer le menu interactif :
+### Utilisation
+Une fois installé, accédez au menu interactif :
 
 ```bash
-sudo cyl-manager menu
+cyl-manager menu
 ```
 
-Ou utiliser la CLI directement :
+Ou utilisez directement la CLI :
 
 ```bash
-sudo cyl-manager install plex
-sudo cyl-manager status
-sudo cyl-manager install-all
+# Installer un service spécifique
+cyl-manager install plex
+
+# Vérifier le statut (inclut maintenant les URLs)
+cyl-manager status
+
+# Tout installer
+cyl-manager install-all
 ```
+
+**Nouveauté v2.1 :**
+- **Configuration des Services :** Invites interactives pour des services comme MariaDB.
+- **Résumé des Identifiants :** Visualisez toutes vos URLs de service et identifiants initiaux dans le menu "Service Credentials".
+- **Affichage URL :** Le menu principal affiche maintenant l'URL/Sous-domaine actif pour les services en cours d'exécution.
+
+---
+
+<p align="center">
+  Made with ❤️ by the Cylae Team
+</p>

@@ -1,4 +1,4 @@
-from typing import Dict, Any, Final
+from typing import Dict, Any, Final, Optional
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
@@ -31,3 +31,12 @@ class PortainerService(BaseService):
                 settings.DOCKER_NET: {"external": True}
             }
         }
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:9000"
+
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"URL: http://{settings.DOMAIN}:9000\n"
+            "Create your admin account on first login."
+        )

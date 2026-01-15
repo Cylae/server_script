@@ -28,6 +28,27 @@ class BaseService(ABC):
         """
         return self.docker.is_installed(self.name)
 
+    def configure(self) -> None:
+        """
+        Optional hook to interactively prompt the user for configuration.
+        This is called before installation.
+        """
+        pass
+
+    def get_install_summary(self) -> Optional[str]:
+        """
+        Optional hook to return a summary string after installation.
+        Useful for displaying passwords, URLs, or next steps.
+        """
+        return None
+
+    def get_url(self) -> Optional[str]:
+        """
+        Optional hook to return the primary URL or Subdomain for the service.
+        Used for display in the main menu.
+        """
+        return None
+
     def install(self) -> None:
         """
         Installs or updates the service via Docker Compose.
@@ -95,9 +116,13 @@ class BaseService(ABC):
             SystemManager.run_command(cmd, check=True)
 
         except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode() if e.stderr else str(e)
+            error_msg = e.stderr if e.stderr else str(e)
+            # Ensure error_msg is a string before logging/raising
+            if isinstance(error_msg, bytes):
+                error_msg = error_msg.decode('utf-8', errors='replace')
+
             logger.error(f"Failed to deploy compose file: {error_msg}")
-            raise ServiceError(f"Deployment failed for {self.name}")
+            raise ServiceError(f"Deployment failed for {self.name}: {error_msg}")
 
     def get_common_env(self) -> Dict[str, str]:
         """

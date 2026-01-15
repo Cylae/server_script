@@ -3,22 +3,30 @@ import subprocess
 import shutil
 import platform
 from pathlib import Path
-from typing import Tuple, Optional, Final, Union, List
+from typing import Tuple, Union, List, Optional
 import psutil
 import distro
 
 from cyl_manager.core.logging import logger
+from cyl_manager.core.exceptions import SystemRequirementError
 
 class SystemManager:
     """
     Manager for system-level operations and checks.
     """
 
-    _hardware_profile: HardwareProfile | None = None
+    PROFILE_LOW: str = "LOW"
+    PROFILE_HIGH: str = "HIGH"
+    _hardware_profile: Optional[str] = None
 
     @staticmethod
     def check_root() -> None:
-        """Enforces execution with elevated privileges (root)."""
+        """
+        Enforces execution with elevated privileges (root).
+
+        Raises:
+            SystemRequirementError: If not running as root.
+        """
         if os.geteuid() != 0:
             raise SystemRequirementError("Insufficient privileges. This operation requires root access.")
 
@@ -30,6 +38,9 @@ class SystemManager:
         Returns:
             str: 'LOW' if resources are constrained, else 'HIGH'.
         """
+        if SystemManager._hardware_profile is not None:
+            return SystemManager._hardware_profile
+
         try:
             mem = psutil.virtual_memory()
             swap = psutil.swap_memory()
@@ -42,11 +53,17 @@ class SystemManager:
             is_low_swap = swap.total < (1 * 1024**3)
 
             if is_low_ram or is_low_cpu or is_low_swap:
-                return SystemManager.PROFILE_LOW
-            return SystemManager.PROFILE_HIGH
+                profile = SystemManager.PROFILE_LOW
+            else:
+                profile = SystemManager.PROFILE_HIGH
+
+            logger.debug(f"Hardware Profile Detection: RAM={mem.total/1024**3:.2f}GB, Cores={cpu_count}, Swap={swap.total/1024**3:.2f}GB -> Profile={profile}")
+            SystemManager._hardware_profile = profile
+            return profile
 
         except Exception as e:
             logger.warning(f"Failed to detect hardware profile, defaulting to LOW: {e}")
+            SystemManager._hardware_profile = SystemManager.PROFILE_LOW
             return SystemManager.PROFILE_LOW
 
     @staticmethod
@@ -59,10 +76,7 @@ class SystemManager:
     @staticmethod
     def get_uid_gid() -> Tuple[str, str]:
         """
-        if SystemManager._hardware_profile is not None:
-            return SystemManager._hardware_profile
-
-        ram_gb, cpu_cores, swap_gb = SystemManager.get_system_specs()
+        Returns the UID and GID of the real user (even if running as root via sudo).
 
         Returns:
             Tuple[str, str]: (UID, GID)
@@ -75,9 +89,11 @@ class SystemManager:
             if sudo_uid and sudo_gid:
                 return sudo_uid, sudo_gid
 
-        logger.info(f"Hardware Logic: RAM={ram_gb:.2f}GB, Cores={cpu_cores}, Swap={swap_gb:.2f}GB -> Profile={profile}")
-        SystemManager._hardware_profile = profile
-        return profile
+            # Fallback to current user
+            return str(os.getuid()), str(os.getgid())
+        except Exception as e:
+            logger.warning(f"Failed to determine UID/GID, defaulting to 0/0: {e}")
+            return "0", "0"
 
     @staticmethod
     def get_timezone() -> str:
@@ -102,17 +118,6 @@ class SystemManager:
         except Exception as e:
             logger.warning(f"Could not determine timezone: {e}. Defaulting to UTC.")
             return "UTC"
-
-    @staticmethod
-    def check_root() -> None:
-        """
-        Ensures the script is running with root privileges.
-
-        Raises:
-            PermissionError: If not running as root.
-        """
-        if os.geteuid() != 0:
-            raise PermissionError("This script must be run as root!")
 
     @staticmethod
     def check_os() -> None:
