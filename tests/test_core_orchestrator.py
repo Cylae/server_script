@@ -5,11 +5,17 @@ from cyl_manager.core.orchestrator import InstallationOrchestrator
 # Mocking DockerManager to prevent real connection attempts and ServiceError
 @patch("cyl_manager.core.orchestrator.DockerManager")
 @patch("cyl_manager.core.orchestrator.SystemManager")
+@patch("cyl_manager.core.orchestrator.as_completed")
 @patch("cyl_manager.core.orchestrator.ThreadPoolExecutor")
-def test_orchestrator_concurrency(mock_executor, mock_system, mock_docker_cls):
+def test_orchestrator_concurrency(mock_executor, mock_as_completed, mock_system, mock_docker_cls):
     # Setup SystemManager mocks
     mock_system.get_concurrency_limit.return_value = 2
     mock_system.get_hardware_profile.return_value = "HIGH"
+
+    # Mock as_completed to yield immediately
+    def side_effect(futures):
+        return list(futures)
+    mock_as_completed.side_effect = side_effect
 
     # Setup DockerManager mock instance
     mock_docker_instance = MagicMock()
@@ -25,6 +31,10 @@ def test_orchestrator_concurrency(mock_executor, mock_system, mock_docker_cls):
     s2.pretty_name = "Service 2"
 
     services = [s1, s2]
+
+    # Mock executor context manager
+    mock_executor_instance = mock_executor.return_value
+    mock_executor_instance.__enter__.return_value = mock_executor_instance
 
     InstallationOrchestrator.install_services(services)
 

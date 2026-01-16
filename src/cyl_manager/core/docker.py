@@ -59,6 +59,21 @@ class DockerManager:
             logger.error(f"Docker API Error checking container '{container_name}': {e}")
             return False
 
+    def get_all_container_names(self) -> set[str]:
+        """
+        Retrieves the names of all containers (running or stopped).
+        Used for batch status checks to avoid N+1 API calls.
+
+        Returns:
+            set[str]: A set of container names.
+        """
+        try:
+            containers = self.client.containers.list(all=True)
+            return {c.name for c in containers}
+        except APIError as e:
+            logger.error(f"Docker API Error listing containers: {e}")
+            return set()
+
     def ensure_network(self) -> None:
         """
         Ensures the configured Docker network exists.
