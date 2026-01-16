@@ -8,6 +8,7 @@ from rich.panel import Panel
 from cyl_manager.core.logging import setup_logging, logger
 from cyl_manager.core.system import SystemManager
 from cyl_manager.core.orchestrator import InstallationOrchestrator
+from cyl_manager.core.docker import DockerManager
 from cyl_manager.ui.menu import Menu
 from cyl_manager.services.registry import ServiceRegistry
 
@@ -84,10 +85,18 @@ def status():
     table.add_column("Status", style="magenta")
     table.add_column("URL", style="blue")
 
+    # Optimization: Batch check all containers at once to avoid N+1 API calls
+    # Fetching list of all containers is O(1) API call vs O(N) calls for checking each service.
+    docker_manager = DockerManager()
+    installed_containers = docker_manager.get_all_container_names()
+
     for name, cls in ServiceRegistry.get_all().items():
         svc = cls()
-        status_text = "[green]Installed[/green]" if svc.is_installed else "[red]Not Installed[/red]"
-        url = svc.get_url() if svc.is_installed else ""
+        # Direct check against the pre-fetched set
+        is_installed = svc.name in installed_containers
+
+        status_text = "[green]Installed[/green]" if is_installed else "[red]Not Installed[/red]"
+        url = svc.get_url() if is_installed else ""
         table.add_row(name, status_text, url)
 
     console.print(table)
