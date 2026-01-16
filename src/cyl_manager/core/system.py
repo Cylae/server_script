@@ -13,6 +13,7 @@ from cyl_manager.core.exceptions import SystemRequirementError
 class SystemManager:
     """
     Manager for system-level operations and checks.
+    Implements Global Dynamic Hardware Detection logic.
     """
 
     PROFILE_LOW: str = "LOW"
@@ -33,7 +34,11 @@ class SystemManager:
     @staticmethod
     def get_hardware_profile() -> str:
         """
-        Determines the hardware profile based on system resources.
+        Determines the hardware profile based on system resources using the "Clean Slate" Protocol.
+
+        Logic:
+        - LOW: < 4GB RAM OR <= 2 vCPUs OR < 1GB Swap.
+        - HIGH: Anything else.
 
         Returns:
             str: 'LOW' if resources are constrained, else 'HIGH'.
@@ -46,23 +51,27 @@ class SystemManager:
             swap = psutil.swap_memory()
             cpu_count = psutil.cpu_count() or 1
 
-            # Criteria for LOW profile:
-            # < 4GB RAM OR <= 2 Cores OR < 1GB Swap
+            # Criteria for LOW profile (The "Survival Mode" Thresholds)
             is_low_ram = mem.total < (4 * 1024**3)
             is_low_cpu = cpu_count <= 2
             is_low_swap = swap.total < (1 * 1024**3)
 
             if is_low_ram or is_low_cpu or is_low_swap:
                 profile = SystemManager.PROFILE_LOW
+                logger.info("Hardware Detection: [bold yellow]LOW SPEC DETECTED[/bold yellow]")
+                if is_low_ram: logger.debug(f" - RAM: {mem.total/1024**3:.2f}GB (< 4GB)")
+                if is_low_cpu: logger.debug(f" - CPU: {cpu_count} Cores (<= 2)")
+                if is_low_swap: logger.debug(f" - SWAP: {swap.total/1024**3:.2f}GB (< 1GB)")
             else:
                 profile = SystemManager.PROFILE_HIGH
+                logger.info("Hardware Detection: [bold green]HIGH PERFORMANCE[/bold green]")
+                logger.debug(f"Stats: {mem.total/1024**3:.2f}GB RAM, {cpu_count} Cores")
 
-            logger.debug(f"Hardware Profile Detection: RAM={mem.total/1024**3:.2f}GB, Cores={cpu_count}, Swap={swap.total/1024**3:.2f}GB -> Profile={profile}")
             SystemManager._hardware_profile = profile
             return profile
 
         except Exception as e:
-            logger.warning(f"Failed to detect hardware profile, defaulting to LOW: {e}")
+            logger.warning(f"Failed to detect hardware profile, defaulting to LOW (Safe Mode): {e}")
             SystemManager._hardware_profile = SystemManager.PROFILE_LOW
             return SystemManager.PROFILE_LOW
 
@@ -70,8 +79,12 @@ class SystemManager:
     def get_concurrency_limit() -> int:
         """
         Returns the recommended concurrency limit for operations.
+        LOW: Serial (1) to prevent IO/CPU saturation.
+        HIGH: Parallel (4) for speed.
         """
-        return 1 if SystemManager.get_hardware_profile() == SystemManager.PROFILE_LOW else 4
+        limit = 1 if SystemManager.get_hardware_profile() == SystemManager.PROFILE_LOW else 4
+        logger.debug(f"Orchestrator Concurrency Limit: {limit} worker(s)")
+        return limit
 
     @staticmethod
     def get_uid_gid() -> Tuple[str, str]:

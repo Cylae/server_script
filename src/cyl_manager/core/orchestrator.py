@@ -15,9 +15,14 @@ class InstallationOrchestrator:
         """
         Installs a list of services respecting the hardware profile.
 
+        Logic:
+        - Low Spec: Installs serially (1 by 1) to avoid OOM.
+        - High Spec: Installs in parallel (4 workers).
+
         Args:
             services: List of instantiated service objects to install.
         """
+        # Dynamic Concurrency Check
         concurrency = SystemManager.get_concurrency_limit()
         profile = SystemManager.get_hardware_profile()
 

@@ -1,114 +1,130 @@
 # Cylae Server Manager 🚀
 
-![Cylae Banner](https://img.shields.io/badge/Status-Stable-brightgreen?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python) ![Docker](https://img.shields.io/badge/Docker-Enabled-blue?style=for-the-badge&logo=docker) ![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)
-
 > **The Ultimate Optimized Media Server Stack.**
-> *Architected for Performance. Scaled for Stability. Secured by Design.*
+> *L'Ultime Stack Media Server Optimisée.*
+
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Docker-v24%2B-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 ---
 
-## 🇬🇧 Technical Documentation & Architecture
+## 🇬🇧 English Documentation
 
-### 1. Executive Summary
-Cylae Server Manager is not just an installer; it is a **Python-based orchestration framework** designed to deploy a state-of-the-art self-hosted ecosystem. Unlike simple bash scripts, Cylae leverages strict typing (`Mypy`), modular architecture (`ServiceRegistry`), and object-oriented design to ensure idempotency and reliability.
+### ⚡ Overview
 
-It features **Global Dynamic Hardware Detection**, an intelligent profiling engine that analyzes host resources (CPU Instructions per Cycle capacity implied via Core count, Available RAM, Swap pressure) to dynamically tailor container configurations *before* they are instantiated.
+**Cylae Server Manager** is a next-generation, intelligent infrastructure-as-code solution designed to deploy a battle-hardened media server stack on **Debian** and **Ubuntu** systems.
 
-### 2. Core Architecture
-The system is built on a modular `src/` layout:
+Unlike dumb bash scripts, this is a fully modular **Python application** that performs **Deep System Analysis** before deployment. It dynamically adapts every service configuration to match your hardware reality—whether you're running on a potato VPS or a Threadripper beast.
 
-*   **`InstallationOrchestrator`**: The central brain. It utilizes `concurrent.futures.ThreadPoolExecutor` to manage deployment.
-    *   **High-Spec Strategy**: Launches 4 parallel workers for rapid deployment.
-    *   **Low-Spec Strategy**: Enforces strict serialization (1 worker) to prevent I/O saturation and CPU thrashing.
-*   **`SystemManager`**: A static utility class acting as the Hardware Abstraction Layer (HAL). It interfaces with `psutil` to probe system metrics.
-*   **`ServiceRegistry`**: A metaclass-driven registry that auto-discovers capabilities.
-*   **`DockerManager`**: A thread-safe Singleton (utilizing `threading.Lock`) that manages the Docker Socket connection, ensuring race-free network creation and container health checks.
+### 🧠 Intelligent Architecture (The "Nerdy" Stuff)
 
-### 3. Global Dynamic Hardware Detection
-The framework categorizes hosts into two distinct profiles based on strict resource thresholds defined in `cyl_manager.core.system`.
+This isn't just `docker-compose up`. We implemented a **Global Dynamic Hardware Detection** engine that classifies your host into profiles (`LOW` vs `HIGH`).
 
-| Metric | Condition for **LOW** Profile (VPS/RPi) | **HIGH** Profile (Dedicated/Metal) |
+#### 1. The "Low-Spec" Protocol (< 4GB RAM or <= 2 Cores)
+If your system is detected as resource-constrained (e.g., a cheap $5 VPS), the system engages **survival mode**:
+*   **Mailserver:** Automatically kills memory hogs like **ClamAV** and **Amavis**, preventing the dreaded "Infinite Start Loop" caused by OOM kills. We also tune `fail2ban` and reduce process limits.
+*   **Plex/Jellyfin:** Forces transcoding buffers to **Disk** instead of **RAM** to save precious memory. Reduces database cache size.
+*   **Concurrency:** The Orchestrator switches to **Serial Mode** (Concurrency = 1). Services are installed one-by-one to prevent system lockups during image extraction.
+
+#### 2. The "High-Performance" Protocol
+If you have the juice, we use it:
+*   **Parallel Deployment:** Spins up 4+ installers simultaneously for lightning-fast setup.
+*   **In-Memory Transcoding:** Plex is configured to transcode directly in `/tmp` (RAM) for zero-latency seeking and reduced SSD wear.
+*   **Full Security Suite:** Enables all mail security features (ClamAV, SpamAssassin, Postgrey) for maximum protection.
+
+### 📦 The Stack
+
+| Service | Category | Function |
 | :--- | :--- | :--- |
-| **RAM** | `< 4 GB` | `>= 4 GB` |
-| **CPU Cores** | `<= 2 vCPUs` | `> 2 vCPUs` |
-| **Swap** | `< 1 GB` | `>= 1 GB` |
+| **Plex** | Media | The King of Media Servers. |
+| **Tautulli** | Monitoring | Analytics and monitoring for Plex. |
+| **Sonarr** | Automation | TV Show PVR. |
+| **Radarr** | Automation | Movie PVR. |
+| **Jackett/Prowlarr** | Indexer | Indexer manager for Torrents/Usenet. |
+| **Overseerr** | Request | Beautiful media request management. |
+| **qBittorrent** | Download | Lightweight, robust torrent client. |
+| **Docker Mailserver** | Infrastructure | Full-stack email server (Postfix, Dovecot). |
+| **Nginx Proxy Manager** | Infrastructure | Reverse proxy with auto-SSL (Let's Encrypt). |
+| **Portainer** | Management | GUI for Docker container management. |
+| **MariaDB** | Database | Centralized database backend. |
 
-#### Adaptive Service Optimization
-Upon detection, the `BaseService` injects specific environment variables and `deploy.resources.limits` into the generated Docker Compose configurations.
+### 🛠️ Installation
 
-*   **MailServer (`docker-mailserver`)**:
-    *   **Low-Spec**: Automatically disables `ClamAV` (Anti-Virus) and `SpamAssassin`.
-        *   *Why?* These processes are memory vampires. Disabling them prevents the infamous "Startup Hang" and "Waiting for mailserver" loops caused by OOM kills or timeouts on 2 vCPU instances.
-    *   **Resource Limits**: Caps CPU at 1.0 (50% of 2 cores) and RAM at 1GB to ensure system responsiveness.
-*   **Plex Media Server**:
-    *   **Transcoding**:
-        *   *High-Spec*: Maps `/tmp` (RAM) to `/transcode` for ultra-fast, disk-less transcoding.
-        *   *Low-Spec*: Maps local disk, preserving RAM for the OS.
-*   **Starr Apps (Sonarr/Radarr)**:
-    *   **Optimization**: Injects `COMPlus_EnableDiagnostics=0` to disable .NET Core debugging overhead.
-    *   **Limits**: Dynamically scales heap size limits.
+**Requirements:**
+*   OS: Debian 11/12 or Ubuntu 20.04+ (LTS recommended)
+*   User: Root (or sudo)
+*   Git & Python 3 installed
 
-### 4. Security & Networking
-*   **Firewall Automation**: The `FirewallManager` interacts directly with `ufw`. It parses the `get_ports()` method of each service and opens *only* the necessary ports just-in-time during installation.
-*   **User Mapping**: `PUID` and `PGID` are auto-detected from the `SUDO_UID` environment variable, ensuring that files on the host are owned by your actual user, not `root`.
-*   **Zero-Trust Networking**: Services communicate over a dedicated bridge network (`cyl_network`), isolated from other potential containers.
-
-### 5. Installation & Usage
-
-**System Requirements:** Debian 11/12 or Ubuntu 20.04/22.04 LTS.
+**One-Liner (The Easy Way):**
 
 ```bash
-# Clone and Install (Root required for Docker/UFW checks)
-sudo ./install.py
+git clone https://github.com/YourRepo/cyl-manager.git /opt/cyl-manager
+cd /opt/cyl-manager
+sudo python3 install.py
 ```
 
-**CLI Commands:**
+After installation, the `cyl-manager` command is available globally.
+
+### 🚀 Usage
+
+Launch the interactive CLI:
+
 ```bash
-cyl-manager menu         # Interactive TUI (Text User Interface)
-cyl-manager status       # Real-time container health & URL map
-cyl-manager install plex # Targeted deployment
+sudo cyl-manager menu
 ```
+
+*   **A - Full Stack Install:** The magic button. Deploys everything based on your profile.
+*   **Service Management:** Install/Uninstall specific services.
+*   **Configuration:** Change domain, email, etc.
+*   **Service Credentials:** View generated passwords and URLs.
 
 ---
 
-## 🇫🇷 Documentation Technique & Architecture
+## 🇫🇷 Documentation Française
 
-### 1. Résumé Exécutif
-Cylae Server Manager est un **framework d'orchestration Python** conçu pour déployer un écosystème auto-hébergé de pointe. Contrairement aux scripts bash simples, Cylae exploite un typage strict, une architecture modulaire et une conception orientée objet pour garantir fiabilité et idempotence.
+### ⚡ Vue d'Ensemble
 
-Il intègre une **Détection Matérielle Dynamique Globale**, un moteur de profilage intelligent qui analyse les ressources de l'hôte pour adapter dynamiquement les configurations des conteneurs *avant* leur instanciation.
+**Cylae Server Manager** est une solution "Infrastructure-as-Code" de nouvelle génération, conçue pour déployer une stack média serveur robuste sur **Debian** et **Ubuntu**.
 
-### 2. Architecture Centrale
-Le système repose sur une structure modulaire :
+Contrairement aux scripts bash basiques, il s'agit d'une **application Python modulaire** qui effectue une **Analyse Système Profonde** avant le déploiement. Elle adapte dynamiquement la configuration de chaque service à votre matériel réel.
 
-*   **`InstallationOrchestrator`** : Le cerveau central. Utilise `ThreadPoolExecutor` pour gérer le déploiement.
-    *   *Stratégie Haute-Perf* : 4 workers parallèles.
-    *   *Stratégie Basse-Conso* : Sérialisation stricte (1 worker) pour éviter la saturation E/S.
-*   **`DockerManager`** : Un Singleton "Thread-Safe" gérant la connexion au Docker Socket.
+### 🧠 Architecture Intelligente (Le Côté Tech)
 
-### 3. Détection Matérielle Dynamique
-Le framework classe les hôtes en deux profils distincts :
+Nous avons implémenté un moteur de **Détection Matérielle Dynamique** qui classifie votre hôte (`LOW` vs `HIGH`).
 
-| Métrique | Profil **LOW** (VPS/RPi) | Profil **HIGH** (Dédié) |
-| :--- | :--- | :--- |
-| **RAM** | `< 4 Go` | `>= 4 Go` |
-| **CPU Cores** | `<= 2 vCPUs` | `> 2 vCPUs` |
+#### 1. Protocole "Low-Spec" (< 4GB RAM ou <= 2 Coeurs)
+Si votre système est limité (ex: VPS à 5€), le système active le **mode survie** :
+*   **Mailserver :** Désactive automatiquement **ClamAV** et **Amavis** pour éviter les boucles de démarrage infinies causées par le manque de RAM.
+*   **Plex :** Force le transcodage sur le **Disque** plutôt que la **RAM**.
+*   **Concurrence :** L'Orchestrateur passe en **Mode Série** (Concurrence = 1). Les services sont installés un par un pour ne pas figer le système.
 
-#### Optimisation Adaptative des Services
-*   **MailServer** :
-    *   *Low-Spec* : Désactive automatiquement `ClamAV` et `SpamAssassin` pour prévenir les boucles de démarrage infinies sur les petites instances (2 vCPUs).
-*   **Plex Media Server** :
-    *   *High-Spec* : Transcodage en RAM (`/tmp`).
-    *   *Low-Spec* : Transcodage sur disque.
+#### 2. Protocole "High-Performance"
+Si vous avez la puissance, nous l'utilisons :
+*   **Déploiement Parallèle :** Lance 4+ installateurs simultanément.
+*   **Transcodage en RAM :** Plex utilise `/tmp` pour une latence nulle.
+*   **Sécurité Maximale :** Active toute la suite de sécurité mail (ClamAV, SpamAssassin).
 
-### 4. Installation
+### 🚀 Installation & Usage
+
+**Installation Rapide :**
 
 ```bash
-sudo ./install.py
+git clone https://github.com/YourRepo/cyl-manager.git /opt/cyl-manager
+cd /opt/cyl-manager
+sudo python3 install.py
+```
+
+**Lancer le Menu :**
+
+```bash
+sudo cyl-manager menu
 ```
 
 ---
 
 <p align="center">
-  Engineering Excellence. No Compromises.
+  Made with ❤️ and Python type hints by Cylae.
+  <br>
+  <em>Zero Tolerance for Technical Debt.</em>
 </p>
