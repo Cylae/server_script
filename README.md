@@ -4,6 +4,7 @@
 
 > **The Ultimate Optimized Media Server Stack.**
 > *Architected for Performance. Scaled for Stability. Secured by Design.*
+> *Optimized for both high-end servers and resource-constrained VPS/RPi.*
 
 ---
 

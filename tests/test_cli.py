@@ -26,6 +26,7 @@ def test_install_service_success(mock_registry, mock_system_manager):
     mock_service_instance = mock_service_cls.return_value
     mock_service_instance.is_installed = False
     mock_service_instance.pretty_name = "My Service"
+    mock_service_instance.get_install_summary.return_value = "Installation successful"
     mock_registry.get.return_value = mock_service_cls
 
     result = runner.invoke(app, ["install", "myservice"])
@@ -59,6 +60,8 @@ def test_status_command(mock_registry, mock_system_manager):
     mock_service_cls = MagicMock()
     mock_service_instance = mock_service_cls.return_value
     mock_service_instance.is_installed = True
+    mock_service_instance.pretty_name = "My Service"
+    mock_service_instance.get_url.return_value = "http://localhost"
 
     mock_registry.get_all.return_value = {"myservice": mock_service_cls}
 

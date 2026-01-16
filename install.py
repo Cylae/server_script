@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import List, Optional
 
 # --- Constants ---
-REQUIRED_PACKAGES = ["python3", "python3-venv", "python3-pip", "git", "curl", "ufw"]
+REQUIRED_PACKAGES = [
+    "python3", "python3-venv", "python3-pip", "python3-dev",
+    "git", "curl", "ufw", "build-essential", "libffi-dev", "libssl-dev"
+]
 DOCKER_INSTALL_URL = "https://get.docker.com"
 VENV_DIR = ".venv"
 CLI_LINK_PATH = "/usr/local/bin/cyl-manager"
@@ -147,7 +150,7 @@ def setup_virtual_environment() -> None:
     print_info("Installing/Updating application...")
     try:
         # Upgrade pip deps
-        run_cmd([str(pip_path), "install", "-U", "pip", "setuptools", "wheel"])
+        run_cmd([str(pip_path), "install", "--no-warn-script-location", "-U", "pip", "setuptools", "wheel"])
         # Install in editable mode
         run_cmd([str(pip_path), "install", "-e", "."])
         print_success("Application installed.")
