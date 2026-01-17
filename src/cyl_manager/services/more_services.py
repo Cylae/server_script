@@ -12,7 +12,13 @@ class MailService(BaseService):
     def generate_compose(self) -> Dict[str, Any]:
         # Optimization: Disable heavy processes on low-spec hardware
         # This prevents startup timeouts and infinite "Waiting for mailserver" loops
-        enable_heavy_procs = "1" if not self.is_low_spec() else "0"
+        is_low = self.is_low_spec()
+        enable_heavy_procs = "1" if not is_low else "0"
+
+        # On low spec, we also disable Fail2Ban to save RAM, unless explicitly requested otherwise.
+        # Fail2Ban uses python/gamin and can consume 100-200MB+ which is critical on 1GB VPS.
+        # However, for security, some might want it. We'll default to 0 for LOW profile to ensure stability first.
+        enable_fail2ban = "1" if not is_low else "0"
 
         return {
             "version": "3",
@@ -28,7 +34,7 @@ class MailService(BaseService):
                     "environment": {
                         "ENABLE_SPAMASSASSIN": enable_heavy_procs,
                         "ENABLE_CLAMAV": enable_heavy_procs,
-                        "ENABLE_FAIL2BAN": "1",
+                        "ENABLE_FAIL2BAN": enable_fail2ban,
                         "ENABLE_POSTGREY": "0",
                         "ONE_DIR": "1",
                         "DMS_DEBUG": "0",

@@ -10,6 +10,7 @@ class PlexService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         # Optimize transcoding: Use RAM for HIGH profile, Disk for LOW profile
+        # This saves RAM on low-end VPS where every MB counts.
         transcode_vol = "/tmp:/transcode" if not self.is_low_spec() else f"{settings.DATA_DIR}/plex/transcode:/transcode"
 
         return {
@@ -165,7 +166,7 @@ class QbittorrentService(BaseService):
                         f"{settings.DATA_DIR}/qbittorrent:/config",
                         f"{settings.MEDIA_ROOT}/downloads:/downloads"
                     ],
-                    "ports": ["8080:8080", "6881:6881", "6881:6881/udp"],
+                    "ports": ["8080:80", "6881:6881", "6881:6881/udp"],
                     "networks": [settings.DOCKER_NET],
                     "deploy": self.get_resource_limits(
                         high_mem="2G", low_mem="512M"
