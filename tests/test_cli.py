@@ -16,12 +16,17 @@ def mock_system_manager():
         mock.check_root.return_value = True
         yield mock
 
-def test_install_service_not_found(mock_registry, mock_system_manager):
+@pytest.fixture
+def mock_docker_manager():
+    with patch("cyl_manager.cli.DockerManager") as mock:
+        yield mock
+
+def test_install_service_not_found(mock_registry, mock_system_manager, mock_docker_manager):
     mock_registry.get.return_value = None
     result = runner.invoke(app, ["install", "unknown_service"])
     assert result.exit_code == 1
 
-def test_install_service_success(mock_registry, mock_system_manager):
+def test_install_service_success(mock_registry, mock_system_manager, mock_docker_manager):
     mock_service_cls = MagicMock()
     mock_service_instance = mock_service_cls.return_value
     mock_service_instance.is_installed = False
@@ -33,7 +38,7 @@ def test_install_service_success(mock_registry, mock_system_manager):
     assert result.exit_code == 0
     mock_service_instance.install.assert_called_once()
 
-def test_install_service_already_installed(mock_registry, mock_system_manager):
+def test_install_service_already_installed(mock_registry, mock_system_manager, mock_docker_manager):
     mock_service_cls = MagicMock()
     mock_service_instance = mock_service_cls.return_value
     mock_service_instance.is_installed = True
@@ -45,7 +50,7 @@ def test_install_service_already_installed(mock_registry, mock_system_manager):
     # Should log info but not install
     mock_service_instance.install.assert_not_called()
 
-def test_remove_service_success(mock_registry, mock_system_manager):
+def test_remove_service_success(mock_registry, mock_system_manager, mock_docker_manager):
     mock_service_cls = MagicMock()
     mock_service_instance = mock_service_cls.return_value
     mock_service_instance.is_installed = True
@@ -56,14 +61,19 @@ def test_remove_service_success(mock_registry, mock_system_manager):
     assert result.exit_code == 0
     mock_service_instance.remove.assert_called_once()
 
-def test_status_command(mock_registry, mock_system_manager):
+def test_status_command(mock_registry, mock_system_manager, mock_docker_manager):
     mock_service_cls = MagicMock()
     mock_service_instance = mock_service_cls.return_value
-    mock_service_instance.is_installed = True
+    # mock_service_instance.is_installed = True # This is now determined by get_all_container_names
+    mock_service_instance.name = "myservice"
     mock_service_instance.pretty_name = "My Service"
     mock_service_instance.get_url.return_value = "http://localhost"
 
     mock_registry.get_all.return_value = {"myservice": mock_service_cls}
+
+    # Mock DockerManager.get_all_container_names
+    mock_docker_instance = mock_docker_manager.return_value
+    mock_docker_instance.get_all_container_names.return_value = {"myservice"}
 
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 0

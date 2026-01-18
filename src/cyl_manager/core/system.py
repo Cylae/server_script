@@ -13,7 +13,7 @@ from cyl_manager.core.exceptions import SystemRequirementError
 class SystemManager:
     """
     Manager for system-level operations and checks.
-    Implements Global Dynamic Hardware Detection logic.
+    Implements the 'Global Dynamic Hardware Detection' (GDHD) algorithm.
     """
 
     PROFILE_LOW: str = "LOW"
@@ -34,11 +34,14 @@ class SystemManager:
     @staticmethod
     def get_hardware_profile() -> str:
         """
-        Determines the hardware profile based on system resources using the "Clean Slate" Protocol.
+        Determines the hardware profile using the GDHD heuristics.
 
-        Logic:
-        - LOW: < 4GB RAM OR <= 2 vCPUs OR < 1GB Swap.
-        - HIGH: Anything else.
+        The system calculates a hardware profile based on strict thresholds:
+        - CPU: <= 2 vCPUs (Critical for VPS context switching)
+        - RAM: < 4 GB (Minimum baseline for full stack)
+        - Swap: < 1 GB (OOM protection)
+
+        If ANY of these conditions are met, the 'LOW' (Survival Mode) profile is enforced.
 
         Returns:
             str: 'LOW' if resources are constrained, else 'HIGH'.

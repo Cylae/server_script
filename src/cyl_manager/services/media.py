@@ -9,8 +9,9 @@ class PlexService(BaseService):
     pretty_name: str = "Plex Media Server"
 
     def generate_compose(self) -> Dict[str, Any]:
-        # Optimize transcoding: Use RAM for HIGH profile, Disk for LOW profile
-        # This saves RAM on low-end VPS where every MB counts.
+        # Optimize transcoding: IO Redirection.
+        # Use RAM (/tmp) for HIGH profile (zero latency).
+        # Use Disk for LOW profile to prevent OOM.
         transcode_vol = "/tmp:/transcode" if not self.is_low_spec() else f"{settings.DATA_DIR}/plex/transcode:/transcode"
 
         return {
@@ -84,7 +85,8 @@ class ArrService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         env = self.get_common_env()
-        # .NET Core optimization to reduce overhead
+        # Optimization: .NET Core Runtime Tuning.
+        # Disable diagnostics to reduce overhead and memory footprint.
         env["COMPlus_EnableDiagnostics"] = "0"
 
         return {
