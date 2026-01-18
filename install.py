@@ -94,9 +94,8 @@ def configure_firewall() -> None:
         run_cmd(["ufw", "allow", "22/tcp"])
 
         # Enable without prompt
-        # We use a piped input 'y' or force flag if available, but ufw force enable is safer
         print_info("Enabling firewall...")
-        run_cmd(["ufw", "--force", "enable"], check=True)
+        run_cmd(["ufw", "--force", "enable"])
 
         print_success("Firewall configured and enabled.")
     except Exception as e:
