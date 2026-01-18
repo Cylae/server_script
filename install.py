@@ -96,7 +96,7 @@ def configure_firewall() -> None:
         # Enable without prompt
         # We use a piped input 'y' or force flag if available, but ufw force enable is safer
         print_info("Enabling firewall...")
-        subprocess.run("echo 'y' | ufw enable", shell=True, check=True, stdout=subprocess.DEVNULL)
+        run_cmd(["ufw", "--force", "enable"], check=True)
 
         print_success("Firewall configured and enabled.")
     except Exception as e:
