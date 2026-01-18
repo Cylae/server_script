@@ -1,7 +1,7 @@
-# Cylae Server Manager 🚀
+# Cylae Server Manager: The Ultimate Optimized Media Stack
 
-> **The Ultimate Optimized Media Server Stack.**
-> *L'Ultime Stack Media Server Optimisée.*
+> **Engineering the Perfect Home Server Infrastructure.**
+> *Ingénierie de l'Infrastructure Serveur Domestique Parfaite.*
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/Docker-v24%2B-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com/)
@@ -9,105 +9,159 @@
 
 ---
 
-## 🇬🇧 English Documentation
+## 🇬🇧 Technical Documentation (English)
 
-### ⚡ Overview
+### 1. Abstract
 
-**Cylae Server Manager** is a next-generation, intelligent infrastructure-as-code solution designed to deploy a battle-hardened media server stack on **Debian** and **Ubuntu** systems.
+**Cylae Server Manager** is not a mere collection of shell scripts; it is a sophisticated **Infrastructure-as-Code (IaC)** orchestration engine written in Python. It is engineered to solve the "Day 0" problem of media server deployment: the discrepancy between hardware capabilities and software configuration.
 
-Unlike dumb bash scripts, this is a fully modular **Python application** that performs **Deep System Analysis** before deployment. It dynamically adapts every service configuration to match your hardware reality—whether you're running on a potato VPS or a Threadripper beast.
+By implementing the **"Clean Slate" Protocol**, this system ensures a pristine, idempotent deployment state, eliminating technical debt before it even begins. It leverages a custom-built **Global Dynamic Hardware Detection (GDHD)** algorithm to analyze host telemetry and apply profile-specific optimizations at runtime.
 
-### 🧠 Intelligent Architecture (The "Nerdy" Stuff)
+### 2. Global Dynamic Hardware Detection (GDHD)
 
-This isn't just `docker-compose up`. We implemented a **Global Dynamic Hardware Detection** engine that classifies your host into profiles (`LOW` vs `HIGH`).
+The core differentiator of this architecture is its ability to "sense" the host environment. Before a single container is spawned, the `SystemManager` module performs a deep interrogation of the kernel resources.
 
-#### 1. The "Low-Spec" Protocol (< 4GB RAM or <= 2 Cores)
-If your system is detected as resource-constrained (e.g., a cheap $5 VPS), the system engages **survival mode**:
-*   **Mailserver:** Automatically kills memory hogs like **ClamAV** and **Amavis**, preventing the dreaded "Infinite Start Loop" caused by OOM kills. We also tune `fail2ban` and reduce process limits.
-*   **Plex/Jellyfin:** Forces transcoding buffers to **Disk** instead of **RAM** to save precious memory. Reduces database cache size.
-*   **Concurrency:** The Orchestrator switches to **Serial Mode** (Concurrency = 1). Services are installed one-by-one to prevent system lockups during image extraction.
+#### The Heuristics
+The system calculates a hardware profile based on the following strict thresholds:
 
-#### 2. The "High-Performance" Protocol
-If you have the juice, we use it:
-*   **Parallel Deployment:** Spins up 4+ installers simultaneously for lightning-fast setup.
-*   **In-Memory Transcoding:** Plex is configured to transcode directly in `/tmp` (RAM) for zero-latency seeking and reduced SSD wear.
-*   **Full Security Suite:** Enables all mail security features (ClamAV, SpamAssassin, Postgrey) for maximum protection.
-
-### 📦 The Stack
-
-| Service | Category | Function |
+| Resource | "Survival Mode" Threshold (LOW) | Implementation Detail |
 | :--- | :--- | :--- |
-| **Plex** | Media | The King of Media Servers. |
-| **Tautulli** | Monitoring | Analytics and monitoring for Plex. |
-| **Sonarr** | Automation | TV Show PVR. |
-| **Radarr** | Automation | Movie PVR. |
-| **Jackett/Prowlarr** | Indexer | Indexer manager for Torrents/Usenet. |
-| **Overseerr** | Request | Beautiful media request management. |
-| **qBittorrent** | Download | Lightweight, robust torrent client. |
-| **Docker Mailserver** | Infrastructure | Full-stack email server (Postfix, Dovecot). |
-| **Nginx Proxy Manager** | Infrastructure | Reverse proxy with auto-SSL (Let's Encrypt). |
-| **Portainer** | Management | GUI for Docker container management. |
-| **MariaDB** | Database | Centralized database backend. |
+| **CPU** | `<= 2 vCPUs` | Critical for VPS instances where context switching kills performance. |
+| **RAM** | `< 4 GB` | The minimum baseline for a full Java/Python/Mono stack. |
+| **Swap** | `< 1 GB` | Essential spillover protection for OOM (Out Of Memory) killers. |
 
-### 🛠️ Installation
+If **ANY** of these conditions are met, the system enforces the **LOW** profile. Otherwise, it defaults to **HIGH**.
 
-**Requirements:**
-*   OS: Debian 11/12 or Ubuntu 20.04+ (LTS recommended)
-*   User: Root (or sudo)
-*   Git & Python 3 installed
+### 3. Profile-Specific Optimizations
 
-**One-Liner (The Easy Way):**
+The orchestration engine applies granular configuration injections based on the detected profile.
+
+#### A. The "Low-Spec" Protocol (VPS / Legacy Hardware)
+*Designed for stability on constrained resources (e.g., typical $5/mo VPS).*
+
+1.  **Mailserver Heuristic Optimization:**
+    *   **Logic:** The `docker-mailserver` stack is notoriously heavy due to `clamd` (ClamAV) and `amavis`.
+    *   **Action:** On LOW profile, the Orchestrator injects `ENABLE_CLAMAV=0` and `ENABLE_SPAMASSASSIN=0` into the environment variables.
+    *   **Result:** Prevents the "Infinite Wait Loop" where the healthcheck fails because the service times out swapping memory during boot. Saves ~1.5GB RAM.
+
+2.  **Plex Transcoding IO Redirection:**
+    *   **Logic:** Transcoding to RAM (`/dev/shm`) is ideal but fatal on low-RAM systems.
+    *   **Action:** The volume mapping dynamically shifts from `/tmp` (RAM) to `$DATA_DIR/plex/transcode` (Disk).
+    *   **Result:** Eliminates OOM crashes during playback, trading I/O latency for stability.
+
+3.  **Serialized Concurrency Control:**
+    *   **Logic:** Parallel image extraction saturates I/O on shared VPS storage.
+    *   **Action:** `InstallationOrchestrator` forces a `max_workers=1` thread pool.
+    *   **Result:** Deterministic, sequential installation that never freezes the host.
+
+#### B. The "High-Performance" Protocol (Dedicated / Bare Metal)
+*Designed for maximum throughput and responsiveness.*
+
+1.  **RAM-Based Transcoding:** Plex is mapped to `/tmp` for zero-latency seeking and reduced SSD wear leveling.
+2.  **Full Security Suite:** Mailserver runs with full ClamAV/SpamAssassin/Fail2Ban heuristic analysis.
+3.  **Parallel Deployment:** The Orchestrator spins up 4+ concurrent workers, utilizing multi-core architectures to deploy the full stack in under 2 minutes.
+
+### 4. The Stack Architecture
+
+The application manages a tightly integrated microservices mesh via Docker Compose.
+
+*   **Media Core:** Plex (Media Server), Tautulli (Telemetry).
+*   **Automation (*Arr):** Sonarr (TV), Radarr (Movies), Prowlarr (Indexers).
+*   **Optimization:** All .NET Core apps (Sonarr/Radarr) run with `COMPlus_EnableDiagnostics=0` to reduce runtime overhead.
+*   **Infrastructure:** Docker Mailserver, Nginx Proxy Manager, Portainer, MariaDB.
+*   **Networking:** Host networking for Plex, internal bridge `cylae_net` for secure inter-container communication.
+
+### 5. Deployment Instructions
+
+**Prerequisites:**
+*   **OS:** Debian 11/12 (Bookworm) or Ubuntu 20.04/22.04 LTS.
+*   **Privileges:** Root access (`sudo -i`).
+
+**Bootstrapping:**
 
 ```bash
+# Clone the repository
 git clone https://github.com/YourRepo/cyl-manager.git /opt/cyl-manager
+
+# Enter directory
 cd /opt/cyl-manager
+
+# Execute the Bootstrap Protocol
+# This installs dependencies, sets up the virtual environment, and launches the CLI.
 sudo python3 install.py
 ```
 
-After installation, the `cyl-manager` command is available globally.
+**Operation:**
 
-### 🚀 Usage
-
-Launch the interactive CLI:
+Once installed, the `cyl-manager` command is available globally.
 
 ```bash
 sudo cyl-manager menu
 ```
 
-*   **A - Full Stack Install:** The magic button. Deploys everything based on your profile.
-*   **Service Management:** Install/Uninstall specific services.
-*   **Configuration:** Change domain, email, etc.
-*   **Service Credentials:** View generated passwords and URLs.
+*Select "Full Stack Install" to trigger the GDHD analysis and deployment.*
 
 ---
 
-## 🇫🇷 Documentation Française
+## 🇫🇷 Documentation Technique (Français)
 
-### ⚡ Vue d'Ensemble
+### 1. Résumé
 
-**Cylae Server Manager** est une solution "Infrastructure-as-Code" de nouvelle génération, conçue pour déployer une stack média serveur robuste sur **Debian** et **Ubuntu**.
+**Cylae Server Manager** n'est pas une simple collection de scripts bash ; c'est un moteur d'orchestration **Infrastructure-as-Code (IaC)** sophistiqué écrit en Python. Il est conçu pour résoudre le problème du "Jour 0" : l'écart entre les capacités matérielles et la configuration logicielle.
 
-Contrairement aux scripts bash basiques, il s'agit d'une **application Python modulaire** qui effectue une **Analyse Système Profonde** avant le déploiement. Elle adapte dynamiquement la configuration de chaque service à votre matériel réel.
+En implémentant le **Protocole "Clean Slate"**, ce système garantit un état de déploiement vierge et idempotent, éliminant la dette technique avant même qu'elle ne commence. Il exploite un algorithme de **Détection Matérielle Dynamique Globale (GDHD)** pour analyser la télémétrie de l'hôte et appliquer des optimisations spécifiques au profil lors de l'exécution.
 
-### 🧠 Architecture Intelligente (Le Côté Tech)
+### 2. Détection Matérielle Dynamique (GDHD)
 
-Nous avons implémenté un moteur de **Détection Matérielle Dynamique** qui classifie votre hôte (`LOW` vs `HIGH`).
+L'élément différenciateur clé de cette architecture est sa capacité à "sentir" l'environnement hôte. Avant qu'un seul conteneur ne soit lancé, le module `SystemManager` effectue une interrogation profonde des ressources du noyau.
 
-#### 1. Protocole "Low-Spec" (< 4GB RAM ou <= 2 Coeurs)
-Si votre système est limité (ex: VPS à 5€), le système active le **mode survie** :
-*   **Mailserver :** Désactive automatiquement **ClamAV** et **Amavis** pour éviter les boucles de démarrage infinies causées par le manque de RAM.
-*   **Plex :** Force le transcodage sur le **Disque** plutôt que la **RAM**.
-*   **Concurrence :** L'Orchestrateur passe en **Mode Série** (Concurrence = 1). Les services sont installés un par un pour ne pas figer le système.
+#### Les Heuristiques
+Le système calcule un profil matériel basé sur les seuils stricts suivants :
 
-#### 2. Protocole "High-Performance"
-Si vous avez la puissance, nous l'utilisons :
-*   **Déploiement Parallèle :** Lance 4+ installateurs simultanément.
-*   **Transcodage en RAM :** Plex utilise `/tmp` pour une latence nulle.
-*   **Sécurité Maximale :** Active toute la suite de sécurité mail (ClamAV, SpamAssassin).
+| Ressource | Seuil "Mode Survie" (LOW) | Détail d'Implémentation |
+| :--- | :--- | :--- |
+| **CPU** | `<= 2 vCPUs` | Critique pour les VPS où le changement de contexte tue les performances. |
+| **RAM** | `< 4 GB` | Le minimum vital pour une stack complète Java/Python/Mono. |
+| **Swap** | `< 1 GB` | Protection essentielle contre les tueurs OOM (Out Of Memory). |
 
-### 🚀 Installation & Usage
+Si **UNE SEULE** de ces conditions est remplie, le système force le profil **LOW**. Sinon, il passe en **HIGH**.
 
-**Installation Rapide :**
+### 3. Optimisations Spécifiques au Profil
+
+Le moteur d'orchestration injecte des configurations granulaires basées sur le profil détecté.
+
+#### A. Le Protocole "Low-Spec" (VPS / Matériel Ancien)
+*Conçu pour la stabilité sur des ressources contraintes.*
+
+1.  **Optimisation Heuristique Mailserver :**
+    *   **Logique :** La stack `docker-mailserver` est notoirement lourde à cause de `clamd` (ClamAV).
+    *   **Action :** En profil LOW, l'Orchestrateur injecte `ENABLE_CLAMAV=0` et `ENABLE_SPAMASSASSIN=0`.
+    *   **Résultat :** Empêche la "Boucle d'Attente Infinie" lors du démarrage. Économise ~1.5Go de RAM.
+
+2.  **Redirection IO Transcodage Plex :**
+    *   **Logique :** Le transcodage en RAM (`/dev/shm`) est idéal mais fatal sur les systèmes à faible RAM.
+    *   **Action :** Le mapping de volume bascule dynamiquement de `/tmp` (RAM) vers `$DATA_DIR/plex/transcode` (Disque).
+    *   **Résultat :** Élimine les crashs OOM pendant la lecture.
+
+3.  **Contrôle de Concurrence Sérialisé :**
+    *   **Logique :** L'extraction d'images en parallèle sature les I/O sur les VPS.
+    *   **Action :** `InstallationOrchestrator` force un pool de threads `max_workers=1`.
+    *   **Résultat :** Installation déterministe et séquentielle.
+
+#### B. Le Protocole "High-Performance" (Dédié / Bare Metal)
+*Conçu pour le débit maximal.*
+
+1.  **Transcodage RAM :** Plex est mappé sur `/tmp` pour une latence nulle.
+2.  **Suite de Sécurité Complète :** Mailserver tourne avec l'analyse heuristique complète.
+3.  **Déploiement Parallèle :** L'Orchestrateur lance 4+ workers simultanés.
+
+### 4. Instructions de Déploiement
+
+**Prérequis :**
+*   **OS :** Debian 11/12 ou Ubuntu 20.04/22.04 LTS.
+*   **Privilèges :** Root (`sudo -i`).
+
+**Amorçage (Bootstrapping) :**
 
 ```bash
 git clone https://github.com/YourRepo/cyl-manager.git /opt/cyl-manager
@@ -115,7 +169,7 @@ cd /opt/cyl-manager
 sudo python3 install.py
 ```
 
-**Lancer le Menu :**
+**Utilisation :**
 
 ```bash
 sudo cyl-manager menu
@@ -124,7 +178,7 @@ sudo cyl-manager menu
 ---
 
 <p align="center">
-  Made with ❤️ and Python type hints by Cylae.
+  Architected with 🧠 by Cylae.
   <br>
-  <em>Zero Tolerance for Technical Debt.</em>
+  <em>Code is Law. Efficiency is Mandatory.</em>
 </p>
