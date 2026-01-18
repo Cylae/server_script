@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
+import subprocess
 import sys
 import os
 from pathlib import Path
@@ -37,6 +38,44 @@ class TestInstallScript(unittest.TestCase):
         mock_which.return_value = None
         install.install_system_deps()
         mock_exit.assert_called_with(1)
+
+    @patch('install.subprocess.run')
+    @patch('install.run_cmd')
+    @patch('install.shutil.which')
+    def test_configure_firewall_uses_no_shell(self, mock_which, mock_run_cmd, mock_subprocess_run):
+        mock_which.return_value = '/usr/sbin/ufw'
+        # Mock status check to return inactive so it proceeds
+        # NOTE: run_cmd is mocked, so it won't actually call subprocess.run.
+        # However, install.py now calls run_cmd for the enable step too.
+
+        # We need to set up mock_run_cmd to return "Status: inactive" for the first call
+        # and then just succeed for subsequent calls.
+        mock_run_cmd.side_effect = [
+            MagicMock(stdout="Status: inactive"), # ufw status
+            MagicMock(), # ufw default deny
+            MagicMock(), # ufw default allow
+            MagicMock(), # ufw allow ssh
+            MagicMock(), # ufw allow 22/tcp
+            MagicMock()  # ufw enable
+        ]
+
+        install.configure_firewall()
+
+        # Verify calls to run_cmd
+        # We expect the last call to be ["ufw", "--force", "enable"]
+
+        args, kwargs = mock_run_cmd.call_args
+        self.assertEqual(args[0], ["ufw", "--force", "enable"])
+        self.assertTrue(kwargs.get('check', True))
+
+        # Also ensure subprocess.run was NOT called directly with shell=True for the enable step
+        # (Though run_cmd calls subprocess.run, run_cmd itself uses shell=False by default)
+
+        # We can check that NO call to subprocess.run had shell=True and the "echo 'y'..." command
+        for call in mock_subprocess_run.call_args_list:
+             args, kwargs = call
+             if args[0] == "echo 'y' | ufw enable" and kwargs.get('shell') is True:
+                 self.fail("Found use of shell=True with pipe, expected run_cmd with list args")
 
     @patch('install.run_cmd')
     @patch('install.shutil.which')
