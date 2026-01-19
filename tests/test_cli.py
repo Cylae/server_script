@@ -66,6 +66,8 @@ def test_status_command(mock_registry, mock_system_manager, mock_docker_manager)
     mock_service_instance = mock_service_cls.return_value
     # mock_service_instance.is_installed = True # This is now determined by get_all_container_names
     mock_service_instance.name = "myservice"
+    # Ensure class attribute is also set for the optimization
+    mock_service_cls.name = "myservice"
     mock_service_instance.pretty_name = "My Service"
     mock_service_instance.get_url.return_value = "http://localhost"
 
@@ -79,7 +81,9 @@ def test_status_command(mock_registry, mock_system_manager, mock_docker_manager)
     assert result.exit_code == 0
     assert "Service Status" in result.stdout
     assert "myservice" in result.stdout
+    # Check for "Installed" but exclude "Not Installed" to be sure
     assert "Installed" in result.stdout
+    assert "Not Installed" not in result.stdout
 
 def test_root_check_fail():
     with patch("cyl_manager.cli.SystemManager") as mock_sys:
