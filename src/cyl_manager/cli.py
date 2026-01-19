@@ -91,12 +91,17 @@ def status():
     installed_containers = docker_manager.get_all_container_names()
 
     for name, cls in ServiceRegistry.get_all().items():
-        svc = cls()
-        # Direct check against the pre-fetched set
-        is_installed = svc.name in installed_containers
+        # Optimization: Direct check against the pre-fetched set using Class Attribute
+        # Avoids instantiating service classes for uninstalled services
+        is_installed = cls.name in installed_containers
 
         status_text = "[green]Installed[/green]" if is_installed else "[red]Not Installed[/red]"
-        url = svc.get_url() if is_installed else ""
+
+        url = ""
+        if is_installed:
+            svc = cls()
+            url = svc.get_url() or ""
+
         table.add_row(name, status_text, url)
 
     console.print(table)
