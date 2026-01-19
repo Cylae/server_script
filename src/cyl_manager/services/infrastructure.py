@@ -137,3 +137,45 @@ class NginxProxyService(BaseService):
 
     def get_ports(self) -> List[str]:
         return ["80/tcp", "443/tcp", "81/tcp"]
+
+@ServiceRegistry.register
+class DNSCryptService(BaseService):
+    name: str = "dnscrypt-proxy"
+    pretty_name: str = "DNSCrypt Proxy"
+
+    def generate_compose(self) -> Dict[str, Any]:
+        return {
+            "version": "3",
+            "services": {
+                self.name: {
+                    "image": "lscr.io/linuxserver/dnscrypt-proxy:latest",
+                    "container_name": self.name,
+                    "restart": "unless-stopped",
+                    "environment": {
+                        **self.get_common_env()
+                    },
+                    "volumes": [
+                        f"{settings.DATA_DIR}/dnscrypt-proxy/config:/config"
+                    ],
+                    "ports": [
+                        "5300:53/tcp",
+                        "5300:53/udp"
+                    ],
+                    "networks": [settings.DOCKER_NET],
+                    "deploy": self.get_resource_limits(high_mem="256M", low_mem="128M")
+                }
+            },
+            "networks": {settings.DOCKER_NET: {"external": True}}
+        }
+
+    def get_install_summary(self) -> Optional[str]:
+        return (
+            f"DNSCrypt Proxy is running on port 5300.\n"
+            f"You can point your devices to {settings.IP_ADDRESS}:5300 or configure your router."
+        )
+
+    def get_url(self) -> Optional[str]:
+        return "Internal: 5300"
+
+    def get_ports(self) -> List[str]:
+        return ["5300/udp", "5300/tcp"]

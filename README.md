@@ -68,7 +68,7 @@ The application manages a tightly integrated microservices mesh via Docker Compo
 *   **Media Core:** Plex (Media Server), Tautulli (Telemetry).
 *   **Automation (*Arr):** Sonarr (TV), Radarr (Movies), Prowlarr (Indexers).
 *   **Optimization:** All .NET Core apps (Sonarr/Radarr) run with `COMPlus_EnableDiagnostics=0` to reduce runtime overhead.
-*   **Infrastructure:** Docker Mailserver, Nginx Proxy Manager, Portainer, MariaDB.
+*   **Infrastructure:** Docker Mailserver, Nginx Proxy Manager, Portainer, MariaDB, DNSCrypt Proxy.
 *   **Networking:** Host networking for Plex, internal bridge `cylae_net` for secure inter-container communication.
 
 ### 5. Deployment Instructions
