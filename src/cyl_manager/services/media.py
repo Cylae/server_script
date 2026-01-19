@@ -37,7 +37,13 @@ class PlexService(BaseService):
                     "deploy": self.get_resource_limits(
                         high_mem="8G", high_cpu="4.0",
                         low_mem="2G", low_cpu="1.0"
-                    )
+                    ),
+                    "healthcheck": {
+                        "test": ["CMD", "curl", "-f", "http://localhost:32400/identity"],
+                        "interval": "30s",
+                        "timeout": "10s",
+                        "retries": 3
+                    }
                 }
             }
         }
@@ -105,7 +111,13 @@ class ArrService(BaseService):
                     "networks": [settings.DOCKER_NET],
                     "deploy": self.get_resource_limits(
                         high_mem="1G", low_mem="512M"
-                    )
+                    ),
+                    "healthcheck": {
+                        "test": ["CMD", "curl", "-f", f"http://localhost:{self.port}/ping"],
+                        "interval": "30s",
+                        "timeout": "10s",
+                        "retries": 3
+                    }
                 }
             },
             "networks": {settings.DOCKER_NET: {"external": True}}

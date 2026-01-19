@@ -18,6 +18,12 @@ class SystemManager:
 
     PROFILE_LOW: str = "LOW"
     PROFILE_HIGH: str = "HIGH"
+
+    # GDHD Thresholds
+    MIN_RAM_HIGH_PERF: int = 4 * 1024**3  # 4 GB
+    MIN_CPU_HIGH_PERF: int = 2            # > 2 Cores
+    MIN_SWAP_HIGH_PERF: int = 1 * 1024**3 # 1 GB
+
     _hardware_profile: Optional[str] = None
 
     @staticmethod
@@ -55,16 +61,19 @@ class SystemManager:
             cpu_count = psutil.cpu_count() or 1
 
             # Criteria for LOW profile (The "Survival Mode" Thresholds)
-            is_low_ram = mem.total < (4 * 1024**3)
-            is_low_cpu = cpu_count <= 2
-            is_low_swap = swap.total < (1 * 1024**3)
+            is_low_ram = mem.total < SystemManager.MIN_RAM_HIGH_PERF
+            is_low_cpu = cpu_count <= SystemManager.MIN_CPU_HIGH_PERF
+            is_low_swap = swap.total < SystemManager.MIN_SWAP_HIGH_PERF
 
             if is_low_ram or is_low_cpu or is_low_swap:
                 profile = SystemManager.PROFILE_LOW
                 logger.info("Hardware Detection: [bold yellow]LOW SPEC DETECTED[/bold yellow]")
-                if is_low_ram: logger.debug(f" - RAM: {mem.total/1024**3:.2f}GB (< 4GB)")
-                if is_low_cpu: logger.debug(f" - CPU: {cpu_count} Cores (<= 2)")
-                if is_low_swap: logger.debug(f" - SWAP: {swap.total/1024**3:.2f}GB (< 1GB)")
+                if is_low_ram:
+                    logger.debug(f" - RAM: {mem.total/1024**3:.2f}GB (< 4GB)")
+                if is_low_cpu:
+                    logger.debug(f" - CPU: {cpu_count} Cores (<= 2)")
+                if is_low_swap:
+                    logger.debug(f" - SWAP: {swap.total/1024**3:.2f}GB (< 1GB)")
             else:
                 profile = SystemManager.PROFILE_HIGH
                 logger.info("Hardware Detection: [bold green]HIGH PERFORMANCE[/bold green]")
@@ -82,8 +91,12 @@ class SystemManager:
     def get_concurrency_limit() -> int:
         """
         Returns the recommended concurrency limit for operations.
+
         LOW: Serial (1) to prevent IO/CPU saturation.
         HIGH: Parallel (4) for speed.
+
+        Returns:
+            int: Number of concurrent workers.
         """
         limit = 1 if SystemManager.get_hardware_profile() == SystemManager.PROFILE_LOW else 4
         logger.debug(f"Orchestrator Concurrency Limit: {limit} worker(s)")

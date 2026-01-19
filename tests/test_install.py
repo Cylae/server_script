@@ -25,12 +25,16 @@ class TestInstallScript(unittest.TestCase):
         install.check_root()
         mock_exit.assert_called_with(1)
 
+    @patch('install.subprocess.run')
     @patch('install.run_cmd')
     @patch('install.shutil.which')
-    def test_install_system_deps_success(self, mock_which, mock_run_cmd):
+    def test_install_system_deps_success(self, mock_which, mock_run_cmd, mock_subprocess_run):
         mock_which.return_value = '/usr/bin/apt-get'
         install.install_system_deps()
-        self.assertEqual(mock_run_cmd.call_count, 2) # update + install
+        # Expect run_cmd for 'apt-get update'
+        mock_run_cmd.assert_called_once()
+        # Expect subprocess.run for 'apt-get install' with specific env
+        mock_subprocess_run.assert_called_once()
 
     @patch('install.sys.exit')
     @patch('install.shutil.which')
@@ -133,27 +137,59 @@ class TestInstallScript(unittest.TestCase):
         # It's easier to mock the whole logic or just trust simple os.symlink logic
         pass
 
+    @patch('install.Path.cwd')
     @patch('install.Path')
-    def test_create_symlink_logic(self, MockPath):
+    def test_create_symlink_logic(self, MockPath, MockCwd):
         # Create separate mocks for target and source
         mock_target = MagicMock()
         mock_source = MagicMock()
 
-        # Helper to return the correct mock based on path
-        def side_effect(path):
-            if str(path) == "/usr/local/bin/cyl-manager":
+        # MockCwd should return a path that, when joined, creates the source path
+        MockCwd.return_value = MagicMock()
+        # When we do Path.cwd() / VENV_DIR / ... it returns mock_source eventually
+        # But install.py uses Path(CLI_LINK_PATH) and Path.cwd() / ...
+
+        # Let's verify the source path logic
+        # source = Path.cwd() / VENV_DIR / "bin" / "cyl-manager"
+        # We need source.exists() to be True
+
+        # Mocking Path instantiation
+        def path_side_effect(*args, **kwargs):
+            if args and str(args[0]) == "/usr/local/bin/cyl-manager":
                 return mock_target
-            return mock_source # Default fallback
+            return MagicMock() # For other Path() calls if any
 
-        MockPath.side_effect = side_effect
+        MockPath.side_effect = path_side_effect
 
+        # Handle the chain: Path.cwd() -> / .venv -> / bin -> / cyl-manager
+        # This is getting complex to mock the chain.
+        # Instead, let's look at how install.py does it:
+        # source = Path.cwd() / VENV_DIR / "bin" / "cyl-manager"
+
+        # We can mock the end result of the chain
+        mock_cwd_path = MagicMock()
+        MockCwd.return_value = mock_cwd_path
+
+        mock_venv = MagicMock()
+        mock_cwd_path.__truediv__.return_value = mock_venv
+
+        mock_bin = MagicMock()
+        mock_venv.__truediv__.return_value = mock_bin
+
+        mock_executable = MagicMock()
+        mock_bin.__truediv__.return_value = mock_executable
+
+        # Make source executable exist
+        mock_executable.exists.return_value = True
+
+        # Target exists and is symlink
         mock_target.exists.return_value = True
         mock_target.is_symlink.return_value = True
 
         install.create_symlink()
 
         mock_target.unlink.assert_called_once()
-        mock_target.symlink_to.assert_called_once()
+        mock_target.symlink_to.assert_called_once_with(mock_executable)
 
 if __name__ == '__main__':
     unittest.main()
