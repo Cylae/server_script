@@ -75,6 +75,30 @@ class TestArchitecturalRequirements(unittest.TestCase):
         self.assertTrue(has_ram_transcode, "HIGH profile should use /tmp (RAM) for transcoding")
 
     @patch('cyl_manager.core.system.SystemManager.get_hardware_profile')
+    def test_mailserver_optimization(self, mock_get_profile):
+        """
+        Mailserver: On low-spec systems, automatically disable heavy sub-processes.
+        """
+        # Case 1: LOW Profile (Survival Mode)
+        mock_get_profile.return_value = SystemManager.PROFILE_LOW
+        mail_low = MailService()
+        compose_low = mail_low.generate_compose()
+        env_low = compose_low['services']['mailserver']['environment']
+
+        self.assertEqual(env_low['ENABLE_CLAMAV'], "0", "LOW profile should disable ClamAV")
+        self.assertEqual(env_low['ENABLE_SPAMASSASSIN'], "0", "LOW profile should disable SpamAssassin")
+        self.assertEqual(env_low['ENABLE_FAIL2BAN'], "0", "LOW profile should disable Fail2Ban by default")
+
+        # Case 2: HIGH Profile
+        mock_get_profile.return_value = SystemManager.PROFILE_HIGH
+        mail_high = MailService()
+        compose_high = mail_high.generate_compose()
+        env_high = compose_high['services']['mailserver']['environment']
+
+        self.assertEqual(env_high['ENABLE_CLAMAV'], "1", "HIGH profile should enable ClamAV")
+        self.assertEqual(env_high['ENABLE_SPAMASSASSIN'], "1", "HIGH profile should enable SpamAssassin")
+
+    @patch('cyl_manager.core.system.SystemManager.get_hardware_profile')
     def test_starr_optimization(self, mock_get_profile):
         """
         Starr Apps: Optimize startup parameters.

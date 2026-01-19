@@ -1,5 +1,0 @@
-distro
-requests
-python-dotenv
-pytest
-psutil
