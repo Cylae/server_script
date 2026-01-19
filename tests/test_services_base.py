@@ -5,7 +5,7 @@ from cyl_manager.core.system import SystemManager
 from cyl_manager.core.exceptions import ServiceError
 
 # Create a concrete implementation for testing
-class TestService(BaseService):
+class MockServiceImplementation(BaseService):
     name = "test_service"
     pretty_name = "Test Service"
     def generate_compose(self):
@@ -36,16 +36,16 @@ def mock_settings():
 
 def test_service_initialization(mock_docker, mock_system):
     mock_system.return_value = "HIGH"
-    svc = TestService()
+    svc = MockServiceImplementation()
     assert svc.name == "test_service"
     assert svc.profile == "HIGH"
     assert mock_docker.called
 
 def test_resource_limits_high(mock_docker, mock_system):
     mock_system.return_value = "HIGH"
-    svc = TestService()
+    svc = MockServiceImplementation()
 
-    # We rely on TestService calling SystemManager.get_hardware_profile() during init
+    # We rely on MockServiceImplementation calling SystemManager.get_hardware_profile() during init
     # which returns "HIGH".
     # And get_resource_limits checks self.profile == SystemManager.PROFILE_HIGH ("HIGH")
 
@@ -54,7 +54,7 @@ def test_resource_limits_high(mock_docker, mock_system):
 
 def test_resource_limits_low(mock_docker, mock_system):
     mock_system.return_value = "LOW"
-    svc = TestService()
+    svc = MockServiceImplementation()
 
     limits = svc.get_resource_limits(high_mem="2G", low_mem="1G")
     assert limits["resources"]["limits"]["memory"] == "1G"
