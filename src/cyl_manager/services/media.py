@@ -27,7 +27,7 @@ class PlexService(BaseService):
                         "VERSION": "docker",
                         "PLEX_CLAIM": "claim-TOKEN", # Placeholder, user should update config
                         # Optimize database cache size for Plex
-                        # "PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS": "6" if not self.is_low_spec() else "2"
+                        "PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS": "6" if not self.is_low_spec() else "2"
                     },
                     "volumes": [
                         f"{settings.DATA_DIR}/plex:/config",
@@ -88,6 +88,10 @@ class ArrService(BaseService):
         # Optimization: .NET Core Runtime Tuning.
         # Disable diagnostics to reduce overhead and memory footprint.
         env["COMPlus_EnableDiagnostics"] = "0"
+
+        if self.is_low_spec():
+             # Use Workstation GC for lower memory usage on low-spec systems
+             env["COMPlus_GCServer"] = "0"
 
         return {
             "version": "3",
