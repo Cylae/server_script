@@ -4,7 +4,7 @@ from rich.console import Console
 
 console = Console()
 
-def setup_logging(level="INFO"):
+def setup_logging(level: str = "INFO") -> logging.Logger:
     logging.basicConfig(
         level=level,
         format="%(message)s",
@@ -15,7 +15,7 @@ def setup_logging(level="INFO"):
 
 logger = setup_logging()
 
-def print_header():
+def print_header() -> None:
     console.print(r"""
    ______      __             __  ___
   / ____/_  __/ /  ____  ___ /  |/  /___ _____  ____ _____ ____  _____

@@ -171,7 +171,7 @@ class DNSCryptService(BaseService):
     def get_install_summary(self) -> Optional[str]:
         return (
             f"DNSCrypt Proxy is running on port 5300.\n"
-            f"You can point your devices to {settings.IP_ADDRESS}:5300 or configure your router."
+            f"You can point your devices to {settings.DOMAIN}:5300 or configure your router."
         )
 
     def get_url(self) -> Optional[str]:

@@ -27,7 +27,7 @@ class TestArchitecturalRequirements(unittest.TestCase):
         self.firewall_patcher.stop()
         SystemManager._hardware_profile = None
 
-    @patch('cyl_manager.core.system.psutil')
+    @patch('cyl_manager.core.hardware.psutil')
     def test_2vcpu_triggers_low_profile(self, mock_psutil):
         """
         The "2 vCPU" Benchmark: The script must pass a deployment test on a limited 2 vCPU environment.
@@ -114,7 +114,7 @@ class TestArchitecturalRequirements(unittest.TestCase):
         self.assertIn('COMPlus_EnableDiagnostics', env)
         self.assertEqual(env['COMPlus_EnableDiagnostics'], "0", "Starr apps should disable .NET diagnostics")
 
-    @patch('cyl_manager.core.system.SystemManager.get_hardware_profile')
+    @patch('cyl_manager.core.hardware.HardwareManager.get_hardware_profile')
     def test_concurrency_serialization(self, mock_get_profile):
         """
         Concurrency: Serialize installations on low-end hardware.

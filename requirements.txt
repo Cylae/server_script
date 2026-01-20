@@ -1,0 +1,16 @@
+flask
+pytest
+pytest-mock
+pylint
+mypy
+types-PyYAML
+types-psutil
+types-flask
+typer[all]
+rich
+pydantic-settings
+docker
+PyYAML
+psutil
+distro
+python-dotenv
