@@ -7,9 +7,9 @@ import os
 import sys
 import subprocess
 import shutil
-import platform
+# import platform # Unused
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 # --- Constants ---
 REQUIRED_PACKAGES = [
@@ -36,13 +36,13 @@ def print_error(msg: str) -> None:
 def print_warning(msg: str) -> None:
     print(f"\033[33m⚠ Warning:\033[0m {msg}")
 
-def run_cmd(cmd: List[str], check: bool = True, shell: bool = False) -> subprocess.CompletedProcess:
+def run_cmd(cmd: List[str], check: bool = True, shell: bool = False) -> "subprocess.CompletedProcess[str]":
     """Runs a subprocess command safely."""
     try:
         return subprocess.run(cmd, check=check, shell=shell, text=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         error_msg = e.stderr if e.stderr else str(e)
-        raise RuntimeError(f"Command failed: {' '.join(cmd)}\nOutput: {error_msg}")
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}\nOutput: {error_msg}") from e
 
 # --- Steps ---
 
@@ -121,6 +121,9 @@ def check_and_install_docker() -> None:
     except RuntimeError as e:
         print_error(f"Failed to install Docker: {e}")
         sys.exit(1)
+    except Exception as e: # pylint: disable=broad-exception-caught
+        print_error(f"Unexpected error installing Docker: {e}")
+        sys.exit(1)
 
 def setup_virtual_environment() -> None:
     """Creates and configures the Python virtual environment."""
@@ -143,8 +146,8 @@ def setup_virtual_environment() -> None:
     # 2. Install Package
     pip_path = venv_path / "bin" / "pip"
     if not pip_path.exists():
-         print_error("pip not found in virtual environment.")
-         sys.exit(1)
+        print_error("pip not found in virtual environment.")
+        sys.exit(1)
 
     print_info("Installing/Updating application...")
     try:
@@ -168,8 +171,8 @@ def create_symlink() -> None:
         try:
             target.unlink()
         except OSError as e:
-             print_error(f"Failed to remove existing symlink: {e}")
-             # Warning only, try to overwrite
+            print_error(f"Failed to remove existing symlink: {e}")
+            # Warning only, try to overwrite
 
     try:
         target.symlink_to(source)
@@ -208,7 +211,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\n\nInstallation cancelled by user.")
         sys.exit(130)
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print_error(f"Unexpected error: {e}")
         sys.exit(1)
 

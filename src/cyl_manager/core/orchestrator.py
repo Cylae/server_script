@@ -1,8 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict
+from typing import List, Dict, TYPE_CHECKING
 from cyl_manager.core.system import SystemManager
 from cyl_manager.core.logging import logger
 from cyl_manager.core.docker import DockerManager
+
+if TYPE_CHECKING:
+    from cyl_manager.services.base import BaseService
 
 class InstallationOrchestrator:
     """

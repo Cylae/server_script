@@ -4,11 +4,12 @@ from cyl_manager.core.system import SystemManager
 
 @pytest.fixture(autouse=True)
 def reset_hardware_profile():
-    SystemManager._hardware_profile = None
+    from cyl_manager.core.hardware import HardwareManager
+    HardwareManager._hardware_profile = None
     yield
-    SystemManager._hardware_profile = None
+    HardwareManager._hardware_profile = None
 
-@patch("cyl_manager.core.system.psutil")
+@patch("cyl_manager.core.hardware.psutil")
 def test_hardware_profile_low(mock_psutil):
     # Mock < 4GB RAM
     mock_mem = MagicMock()
@@ -21,8 +22,12 @@ def test_hardware_profile_low(mock_psutil):
 
     assert SystemManager.get_hardware_profile() == "LOW"
 
-@patch("cyl_manager.core.system.psutil")
+@patch("cyl_manager.core.hardware.psutil")
 def test_hardware_profile_high(mock_psutil):
+    # Reset cache before calling
+    from cyl_manager.core.hardware import HardwareManager
+    HardwareManager._hardware_profile = None
+
     # Mock 8GB RAM, 4 Cores, 2GB Swap
     mock_mem = MagicMock()
     mock_mem.total = 8 * 1024**3
