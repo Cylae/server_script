@@ -13,6 +13,7 @@ class MailService(BaseService):
         # Optimization: Apply "Survival Mode" heuristics for Mailserver.
         # On LOW profile, we disable ClamAV and SpamAssassin to prevent the
         # "Infinite Wait Loop" caused by OOM kills during startup.
+        # GDHD Logic:
         is_low = self.is_low_spec()
         enable_heavy_procs = "1" if not is_low else "0"
 

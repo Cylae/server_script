@@ -9,6 +9,7 @@ from cyl_manager.core.logging import setup_logging, logger
 from cyl_manager.core.system import SystemManager
 from cyl_manager.core.orchestrator import InstallationOrchestrator
 from cyl_manager.core.docker import DockerManager
+from cyl_manager.core.optimization import KernelOptimizer
 from cyl_manager.ui.menu import Menu
 from cyl_manager.services.registry import ServiceRegistry
 
@@ -48,6 +49,9 @@ def install(service_name: str) -> None:
 @app.command()
 def install_all() -> None:
     """Install ALL services using the intelligent orchestrator."""
+    # 1. Apply System-level Optimizations first
+    KernelOptimizer.apply_optimizations()
+
     services = []
     # Pre-configure
     for cls in ServiceRegistry.get_all().values():

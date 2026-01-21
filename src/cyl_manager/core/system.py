@@ -36,6 +36,7 @@ class SystemManager:
     def get_hardware_profile() -> str:
         """
         Determines the hardware profile using the GDHD heuristics via HardwareManager.
+        Delegates to HardwareManager.
         """
         return HardwareManager.get_hardware_profile()
 

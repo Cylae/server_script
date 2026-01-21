@@ -17,26 +17,47 @@ The system does not blindly install containers. It **analyzes** the substrate fi
 *   **Profile Enforcement:**
     *   **LOW (Survival Mode):** Triggered if RAM < 4GB, CPU <= 2 Cores, or Swap < 1GB.
     *   **HIGH (Performance Mode):** Triggered on robust hardware.
-*   **Universal Optimization:** These profiles cascade down to every single service configuration.
+*   **Universal Optimization:** These profiles cascade down to every single service configuration and the operating system kernel.
+
+#### Deep Dive: Hardware Profiles
+| Metric | "LOW" Threshold | "HIGH" Threshold |
+| :--- | :--- | :--- |
+| **RAM** | < 4 GB | >= 4 GB |
+| **vCPU** | <= 2 Cores | > 2 Cores |
+| **Swap** | < 1 GB | >= 1 GB |
+
+*If **ANY** of the "LOW" criteria are met, the system engages **Survival Mode** to prevent OOM kills and CPU saturation.*
 
 ### 2. Service-Specific Optimizations
 The framework applies granular tuning based on the GDHD profile:
 
-*   **Mailserver (Docker Mailserver):**
-    *   *Low Profile:* Automatically disables memory-heavy processes like **ClamAV**, **SpamAssassin**, and **Fail2Ban** to prevent the infamous "Infinite Startup Hang" caused by OOM kills.
-    *   *High Profile:* Enables full security suite for maximum protection.
-*   **Plex Media Server:**
-    *   *Low Profile:* Transcodes to disk to preserve RAM; limits database plugin processes to 2.
-    *   *High Profile:* Mounts `/tmp` (RAM) for transcoding (Zero-Copy Latency); allows up to 6 database plugin processes.
-*   **Starr Apps (Sonarr/Radarr/etc.):**
-    *   *Universal:* Disables .NET Diagnostics (`COMPlus_EnableDiagnostics=0`) to reduce runtime overhead.
-    *   *Low Profile:* Forces **Workstation GC** (`COMPlus_GCServer=0`) instead of Server GC to drastically reduce memory footprint.
-*   **Orchestration & Concurrency:**
-    *   *Low Profile:* Serializes installations (1 worker) to prevent I/O saturation and CPU lockup.
-    *   *High Profile:* Parallelizes deployments (4 workers) for rapid stack bring-up.
+#### 📬 Mailserver (Docker Mailserver)
+*   **Problem:** ClamAV and SpamAssassin require ~1.5GB RAM alone. On a 1GB VPS, this causes an infinite startup hang (OOM loop).
+*   **Solution (GDHD Low):** Automatically injects `ENABLE_CLAMAV=0` and `ENABLE_SPAMASSASSIN=0`. Disables `Fail2Ban` to save python overhead.
+*   **Solution (GDHD High):** Enables full security suite.
+
+#### 🎥 Plex Media Server
+*   **Problem:** Transcoding to disk wears out SD cards/SSDs. Transcoding to RAM is faster but risky on low RAM.
+*   **Solution (GDHD Low):** Transcodes to disk (`/config/transcode`). Limits `PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS=2`.
+*   **Solution (GDHD High):** Mounts `/tmp` to `/transcode` for **Zero-Copy RAM Transcoding**. Allows 6 plugin procs.
+
+#### 🌟 Starr Apps (Sonarr, Radarr, etc.)
+*   **Problem:** .NET Core garbage collection (GC) defaults to "Server GC", which is aggressive on memory allocation.
+*   **Solution (Universal):** Sets `COMPlus_EnableDiagnostics=0` to reduce runtime overhead.
+*   **Solution (GDHD Low):** Forces **Workstation GC** (`COMPlus_GCServer=0`). This drastically reduces the memory footprint (often by 50%+) at the cost of slightly lower peak throughput.
+
+#### 🐧 Kernel-Level Tuning (Sysctl)
+*   **Universal:** Hardens network stack (disables redirects). Enables TCP Fast Open (`net.ipv4.tcp_fastopen=3`).
+*   **GDHD High:**
+    *   Enables **BBR Congestion Control** (`net.ipv4.tcp_congestion_control=bbr`) for max throughput.
+    *   Increases file descriptors (`fs.file-max=2097152`) and connection limits (`somaxconn=65535`).
+    *   Sets `vm.swappiness=10` to prefer RAM.
+*   **GDHD Low:**
+    *   Sets `vm.swappiness=20` to balance RAM usage without thrashing.
+    *   Increases `vm.vfs_cache_pressure=50` to retain filesystem cache longer for performance.
 
 ### 3. Architecture & Security
-*   **Clean Slate Protocol:** Pure Python implementation. No legacy bash scripts.
+*   **Clean Slate Protocol:** Pure Python implementation using `pydantic`, `typer`, and `docker` SDK. No legacy bash scripts.
 *   **Network Isolation:** All services communicate over an internal `cylae_net` Docker bridge.
 *   **Firewall Automation:** `ufw` rules are injected dynamically only for exposed ports.
 *   **Least Privilege:** Services like Portainer run with `no-new-privileges:true`.
@@ -95,8 +116,13 @@ sudo python3 server.py
 The project is structured as a Python package (`src/cyl_manager`).
 
 ### Directory Layout
-*   `core/`: The brain. Contains `HardwareManager` (GDHD logic), `DockerManager`, and `FirewallManager`.
-*   `services/`: The limbs. Each service (e.g., `PlexService`) inherits from `BaseService` and implements `generate_compose()`.
+*   `core/`: The brain.
+    *   `hardware.py`: GDHD algorithm implementation.
+    *   `optimization.py`: Kernel sysctl tuner.
+    *   `orchestrator.py`: Manages parallel/serial execution.
+*   `services/`: The limbs.
+    *   Each service (e.g., `PlexService`) inherits from `BaseService`.
+    *   Implements `generate_compose()` to return dynamic configuration.
 *   `ui/`: The face. Rich-based TUI components.
 *   `web/`: The remote eye. Flask web dashboard.
 
@@ -121,6 +147,7 @@ We adhere to a strict **Testing & Validation Loop**.
     ```
 *   **Architecture Compliance:** `tests/test_architecture_compliance.py` verifies that GDHD profiles are correctly enforced.
 *   **Optimization Verification:** `tests/test_ultimate_optimizations.py` validates that specific env vars (like GC tuning) are injected.
+*   **Kernel Verification:** `tests/test_kernel_optimization.py` ensures sysctl rules are generated correctly.
 
 ---
 *Built with precision.*

@@ -25,7 +25,7 @@ class InstallationOrchestrator:
         Args:
             services: List of instantiated service objects to install.
         """
-        # Dynamic Concurrency Check
+        # Dynamic Concurrency Check (GDHD Enforcement)
         concurrency = SystemManager.get_concurrency_limit()
         profile = SystemManager.get_hardware_profile()
 

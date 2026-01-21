@@ -12,6 +12,7 @@ class PlexService(BaseService):
         # Optimize transcoding: IO Redirection.
         # Use RAM (/tmp) for HIGH profile (zero latency).
         # Use Disk for LOW profile to prevent OOM.
+        # GDHD Logic:
         transcode_vol = "/tmp:/transcode" if not self.is_low_spec() else f"{settings.DATA_DIR}/plex/transcode:/transcode"
 
         return {
