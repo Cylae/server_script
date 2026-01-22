@@ -122,7 +122,7 @@ class GLPIService(BaseService):
                         f"{settings.DATA_DIR}/glpi/files:/var/www/html/files",
                         f"{settings.DATA_DIR}/glpi/plugins:/var/www/html/plugins"
                     ],
-                    "ports": ["8090:80"],
+                    "ports": ["8088:80"],
                     "networks": [settings.DOCKER_NET],
                     "deploy": self.get_resource_limits(
                         high_mem="1G", high_cpu="0.5",
@@ -132,6 +132,51 @@ class GLPIService(BaseService):
             },
             "networks": {settings.DOCKER_NET: {"external": True}}
         }
+
+    def get_url(self) -> Optional[str]:
+        return f"http://{settings.DOMAIN}:8088"
+
+    def get_ports(self) -> List[str]:
+        return ["8088/tcp"]
+
+@ServiceRegistry.register
+class RoundcubeService(BaseService):
+    name: str = "roundcube"
+    pretty_name: str = "Roundcube Webmail"
+
+    def generate_compose(self) -> Dict[str, Any]:
+        return {
+            "services": {
+                self.name: {
+                    "image": "roundcube/roundcubemail:latest",
+                    "container_name": self.name,
+                    "restart": "always",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
+                    "environment": {
+                        "ROUNDCUBEMAIL_DEFAULT_HOST": "mailserver",
+                        "ROUNDCUBEMAIL_SMTP_SERVER": "mailserver",
+                        "ROUNDCUBEMAIL_DB_TYPE": "sqlite",
+                        "ROUNDCUBEMAIL_DB_DIR": "/var/www/html/db",
+                        "ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE": "10M"
+                    },
+                    "volumes": [
+                        f"{settings.DATA_DIR}/roundcube/db:/var/www/html/db",
+                        f"{settings.DATA_DIR}/roundcube/config:/var/www/html/config"
+                    ],
+                    "ports": ["8090:80"],
+                    "networks": [settings.DOCKER_NET],
+                    "deploy": self.get_resource_limits(
+                        high_mem="512M", high_cpu="0.5",
+                        low_mem="256M", low_cpu="0.25"
+                    )
+                }
+            },
+            "networks": {settings.DOCKER_NET: {"external": True}}
+        }
+
+    def get_install_summary(self) -> Optional[str]:
+        return f"URL: http://{settings.DOMAIN}:8090"
 
     def get_url(self) -> Optional[str]:
         return f"http://{settings.DOMAIN}:8090"
