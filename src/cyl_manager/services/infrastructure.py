@@ -7,6 +7,7 @@ from rich.prompt import Prompt, Confirm
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings, save_settings
+from cyl_manager.core.system import SystemManager
 from cyl_manager.core.logging import logger
 
 @ServiceRegistry.register
@@ -129,6 +130,29 @@ class MariaDBService(BaseService):
 class NginxProxyService(BaseService):
     name: str = "nginx-proxy"
     pretty_name: str = "Nginx Proxy Manager"
+
+    def install(self) -> None:
+        """
+        Overrides install to pre-check for port conflicts on 80/443.
+        """
+        logger.info("Checking for port 80/443 conflicts...")
+        conflicting_services = ["apache2", "nginx", "caddy", "httpd"]
+
+        for service in conflicting_services:
+            try:
+                # Check if service is active
+                cmd = ["systemctl", "is-active", "--quiet", service]
+                if SystemManager.run_command(cmd, check=False).returncode == 0:
+                    logger.warning(f"Detected conflicting web server: {service}")
+                    logger.info(f"Stopping and disabling {service} to free ports 80/443...")
+
+                    SystemManager.run_command(["systemctl", "stop", service], check=False)
+                    SystemManager.run_command(["systemctl", "disable", service], check=False)
+                    logger.info(f"{service} stopped and disabled.")
+            except Exception as e:
+                logger.debug(f"Error checking service {service}: {e}")
+
+        super().install()
 
     def generate_compose(self) -> Dict[str, Any]:
         # NPM handles low ports, so 'no-new-privileges' can sometimes be tricky if it tries to bind internal
