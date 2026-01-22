@@ -9,20 +9,37 @@ class NextcloudService(BaseService):
     pretty_name: str = "Nextcloud"
 
     def generate_compose(self) -> Dict[str, Any]:
+        # Optimization: Add Redis for caching (significantly improves Nextcloud performance)
+        redis_service_name = f"{self.name}-redis"
+
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "nextcloud",
                     "container_name": self.name,
                     "restart": "always",
-                    "environment": self.get_common_env(),
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
+                    "environment": {
+                        **self.get_common_env(),
+                        "REDIS_HOST": redis_service_name,
+                    },
                     "volumes": [
                         f"{settings.DATA_DIR}/nextcloud:/var/www/html"
                     ],
                     "ports": ["8084:80"],
                     "networks": [settings.DOCKER_NET],
+                    "depends_on": [redis_service_name],
                     "deploy": self.get_resource_limits(high_mem="2G", low_mem="1G")
+                },
+                redis_service_name: {
+                    "image": "redis:alpine",
+                    "container_name": redis_service_name,
+                    "restart": "always",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
+                    "networks": [settings.DOCKER_NET],
+                    "deploy": self.get_resource_limits(high_mem="128M", low_mem="64M", high_cpu="0.5", low_cpu="0.25")
                 }
             },
             "networks": {
@@ -49,7 +66,6 @@ class VaultwardenService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "vaultwarden/server:latest",
@@ -82,7 +98,6 @@ class UptimeKumaService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "louislam/uptime-kuma:1",
@@ -117,7 +132,6 @@ class WireGuardService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/wireguard:latest",
@@ -165,7 +179,6 @@ class FileBrowserService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "filebrowser/filebrowser:s6",
@@ -205,7 +218,6 @@ class YourlsService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "yourls",
@@ -236,7 +248,6 @@ class NetdataService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "netdata/netdata",

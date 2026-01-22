@@ -1,11 +1,13 @@
 from typing import Dict, Any, Final, Optional, List
 import secrets
 import string
+from pathlib import Path
 from rich.prompt import Prompt, Confirm
 
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings, save_settings
+from cyl_manager.core.logging import logger
 
 @ServiceRegistry.register
 class MariaDBService(BaseService):
@@ -40,6 +42,36 @@ class MariaDBService(BaseService):
              if not settings.MYSQL_USER_PASSWORD:
                  save_settings("MYSQL_USER_PASSWORD", self._generate_password())
 
+    def install(self) -> None:
+        """
+        Overrides install to pre-configure custom.cnf for MariaDB optimizations
+        before starting the container.
+        """
+        # Create configuration directory
+        config_dir = Path(settings.DATA_DIR) / "mariadb" / "custom.cnf"
+        config_dir.parent.mkdir(parents=True, exist_ok=True)
+
+        # Optimization: Tune InnoDB Buffer Pool Size based on Hardware Profile
+        innodb_buffer_size = "1G" if not self.is_low_spec() else "128M"
+
+        # Write custom configuration
+        custom_cnf = (
+            "[mysqld]\n"
+            f"innodb_buffer_pool_size={innodb_buffer_size}\n"
+            "transaction-isolation=READ-COMMITTED\n"
+            "binlog_format=ROW\n"
+        )
+
+        try:
+            with open(config_dir, "w") as f:
+                f.write(custom_cnf)
+            logger.info(f"Generated optimized MariaDB config at {config_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to write MariaDB custom config: {e}")
+
+        # Proceed with standard installation
+        super().install()
+
     def generate_compose(self) -> Dict[str, Any]:
         # Get or generate passwords (if not configured via configure hook, double check here)
         root_password = settings.MYSQL_ROOT_PASSWORD
@@ -53,12 +85,13 @@ class MariaDBService(BaseService):
             save_settings("MYSQL_USER_PASSWORD", user_password)
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/mariadb:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": {
                         **self.get_common_env(),
                         "MYSQL_ROOT_PASSWORD": root_password,
@@ -98,13 +131,18 @@ class NginxProxyService(BaseService):
     pretty_name: str = "Nginx Proxy Manager"
 
     def generate_compose(self) -> Dict[str, Any]:
+        # NPM handles low ports, so 'no-new-privileges' can sometimes be tricky if it tries to bind internal
+        # privileged ports, but mapping 80:80 usually works fine.
+        # However, it often needs to reload nginx which might require privileges?
+        # Standard NPM containers run as root inside, but no-new-privileges should be fine.
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "jc21/nginx-proxy-manager:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": {
                         "DB_SQLITE_FILE": "/data/database.sqlite",
                         "DISABLE_IPV6": "true"
@@ -145,12 +183,13 @@ class DNSCryptService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/dnscrypt-proxy:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": {
                         **self.get_common_env()
                     },

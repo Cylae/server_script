@@ -14,14 +14,20 @@ class PlexService(BaseService):
         # Use Disk for LOW profile to prevent OOM.
         transcode_vol = "/tmp:/transcode" if not self.is_low_spec() else f"{settings.DATA_DIR}/plex/transcode:/transcode"
 
+        # Plex specifically needs more privileges for hardware transcoding usually,
+        # but if using pure CPU it might be fine.
+        # However, for "no-new-privileges", Plex often breaks with hardware transcoding.
+        # We will omit security_opts for Plex to ensure hardware transcoding works (Intel QSV / NVDEC).
+        # But we will add logging config.
+
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/plex:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
                     "network_mode": "host",
+                    "logging": self.get_logging_config(),
                     "environment": {
                         **self.get_common_env(),
                         "VERSION": "docker",
@@ -55,12 +61,13 @@ class TautulliService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/tautulli:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": self.get_common_env(),
                     "volumes": [f"{settings.DATA_DIR}/tautulli:/config"],
                     "ports": ["8181:8181"],
@@ -94,12 +101,13 @@ class ArrService(BaseService):
              env["COMPlus_GCServer"] = "0"
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": f"lscr.io/linuxserver/{self.name}:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": env,
                     "volumes": [
                         f"{settings.DATA_DIR}/{self.name}:/config",
@@ -158,12 +166,13 @@ class QbittorrentService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/qbittorrent:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": {
                         **self.get_common_env(),
                         "WEBUI_PORT": "8080"

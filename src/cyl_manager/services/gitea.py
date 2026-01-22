@@ -21,12 +21,13 @@ class GiteaService(BaseService):
         })
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "gitea/gitea:latest",
                     "container_name": self.name,
                     "restart": "always",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": env,
                     "volumes": [
                         f"{settings.DATA_DIR}/gitea:/data",
