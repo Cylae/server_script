@@ -1,13 +1,45 @@
 from typing import Dict, Any, Final, Optional, List
+import subprocess
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
 from cyl_manager.core.system import SystemManager
+from cyl_manager.core.logging import logger
 
 @ServiceRegistry.register
 class MailService(BaseService):
     name: str = "mailserver"
     pretty_name: str = "Mail Server (Docker Mailserver)"
+
+    def install(self) -> None:
+        """
+        Overrides install to pre-check for port conflicts (specifically port 25).
+        """
+        logger.info("Checking for port 25 conflicts...")
+        # Check if port 25 is in use by common MTAs
+        # We can't easily check actual port binding without lsof/netstat which might not be installed
+        # So we check for common service names.
+        conflicting_services = ["postfix", "exim4", "sendmail", "exim"]
+
+        for service in conflicting_services:
+            try:
+                # Check if service is active
+                cmd = ["systemctl", "is-active", "--quiet", service]
+                # If return code is 0, it's active.
+                if subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                    logger.warning(f"Detected conflicting service: {service}")
+                    logger.info(f"Stopping and disabling {service} to free port 25...")
+
+                    # Stop the service
+                    SystemManager.run_command(["systemctl", "stop", service], check=False)
+                    # Disable it
+                    SystemManager.run_command(["systemctl", "disable", service], check=False)
+                    logger.info(f"{service} stopped and disabled.")
+            except Exception as e:
+                # systemctl might not exist or other error, ignore and hope for the best
+                logger.debug(f"Error checking service {service}: {e}")
+
+        super().install()
 
     def generate_compose(self) -> Dict[str, Any]:
         # Optimization: Apply "Survival Mode" heuristics for Mailserver.
@@ -22,7 +54,6 @@ class MailService(BaseService):
         enable_fail2ban = "1" if not is_low else "0"
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "docker.io/mailserver/docker-mailserver:latest",
@@ -76,7 +107,6 @@ class GLPIService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "diouxx/glpi",

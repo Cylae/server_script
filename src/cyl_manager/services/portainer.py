@@ -10,7 +10,6 @@ class PortainerService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "portainer/portainer-ce:latest",

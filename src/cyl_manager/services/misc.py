@@ -13,7 +13,6 @@ class NextcloudService(BaseService):
         redis_service_name = f"{self.name}-redis"
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "nextcloud",
@@ -67,7 +66,6 @@ class VaultwardenService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "vaultwarden/server:latest",
@@ -100,7 +98,6 @@ class UptimeKumaService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "louislam/uptime-kuma:1",
@@ -135,7 +132,6 @@ class WireGuardService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/wireguard:latest",
@@ -183,7 +179,6 @@ class FileBrowserService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "filebrowser/filebrowser:s6",
@@ -223,7 +218,6 @@ class YourlsService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "yourls",
@@ -254,7 +248,6 @@ class NetdataService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "netdata/netdata",

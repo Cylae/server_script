@@ -21,7 +21,6 @@ class PlexService(BaseService):
         # But we will add logging config.
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/plex:latest",
@@ -62,7 +61,6 @@ class TautulliService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/tautulli:latest",
@@ -103,7 +101,6 @@ class ArrService(BaseService):
              env["COMPlus_GCServer"] = "0"
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": f"lscr.io/linuxserver/{self.name}:latest",
@@ -169,7 +166,6 @@ class QbittorrentService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/qbittorrent:latest",

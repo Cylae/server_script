@@ -21,7 +21,6 @@ class GiteaService(BaseService):
         })
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "gitea/gitea:latest",

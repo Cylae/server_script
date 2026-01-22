@@ -85,7 +85,6 @@ class MariaDBService(BaseService):
             save_settings("MYSQL_USER_PASSWORD", user_password)
 
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/mariadb:latest",
@@ -137,7 +136,6 @@ class NginxProxyService(BaseService):
         # However, it often needs to reload nginx which might require privileges?
         # Standard NPM containers run as root inside, but no-new-privileges should be fine.
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "jc21/nginx-proxy-manager:latest",
@@ -185,7 +183,6 @@ class DNSCryptService(BaseService):
 
     def generate_compose(self) -> Dict[str, Any]:
         return {
-            "version": "3",
             "services": {
                 self.name: {
                     "image": "lscr.io/linuxserver/dnscrypt-proxy:latest",
