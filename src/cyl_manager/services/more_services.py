@@ -31,6 +31,8 @@ class MailService(BaseService):
                     "domainname": settings.DOMAIN,
                     "restart": "always",
                     "stop_grace_period": "1m",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "cap_add": ["NET_ADMIN"],
                     "environment": {
                         "ENABLE_SPAMASSASSIN": enable_heavy_procs,
@@ -80,6 +82,8 @@ class GLPIService(BaseService):
                     "image": "diouxx/glpi",
                     "container_name": self.name,
                     "restart": "always",
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "environment": {
                         "TIMEZONE": SystemManager.get_timezone()
                     },

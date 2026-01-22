@@ -16,7 +16,8 @@ class PortainerService(BaseService):
                     "image": "portainer/portainer-ce:latest",
                     "container_name": self.name,
                     "restart": "unless-stopped",
-                    "security_opt": ["no-new-privileges:true"],
+                    "security_opt": self.get_security_opts(),
+                    "logging": self.get_logging_config(),
                     "volumes": [
                         "/etc/localtime:/etc/localtime:ro",
                         "/var/run/docker.sock:/var/run/docker.sock:ro",
