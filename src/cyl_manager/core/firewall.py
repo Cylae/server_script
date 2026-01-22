@@ -30,12 +30,18 @@ class FirewallManager:
             logger.debug("Firewall (ufw) not detected. Skipping rule.")
             return
 
+        # Check if already allowed to prevent spamming logs/commands
+        # This is a simple check, ufw handles duplicates well but being explicit is cleaner
+        # However, for simplicity and robustness we just run allow.
+
         cmd = ["ufw", "allow", port]
         if comment:
             cmd.extend(["comment", f"Cylae: {comment}"])
 
         try:
             SystemManager.run_command(cmd)
+            # Ensure firewall is enabled or reloaded if needed?
+            # ufw rules apply immediately if active.
             logger.info(f"Firewall: Allowed port {port}")
         except Exception as e:
             logger.error(f"Failed to allow port {port}: {e}")
