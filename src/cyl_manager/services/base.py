@@ -194,6 +194,25 @@ class BaseService(ABC):
                 }
             }
 
+    def get_security_opts(self) -> List[str]:
+        """
+        Returns standard security options for containers.
+        """
+        return ["no-new-privileges:true"]
+
+    def get_logging_config(self) -> Dict[str, Any]:
+        """
+        Returns standard logging configuration (json-file with rotation).
+        Prevents Docker logs from consuming infinite disk space.
+        """
+        return {
+            "driver": "json-file",
+            "options": {
+                "max-size": "10m",
+                "max-file": "3"
+            }
+        }
+
     def is_low_spec(self) -> bool:
         """Checks if the current system is running on a low specification profile."""
         return self.profile == SystemManager.PROFILE_LOW
