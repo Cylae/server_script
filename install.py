@@ -212,6 +212,37 @@ def create_symlink() -> None:
         print_error(f"Failed to create symlink: {e}")
         sys.exit(1)
 
+def optimize_system() -> None:
+    """Applies persistent system optimizations via sysctl."""
+    print_header("Applying System Optimizations")
+
+    sysctl_conf = Path("/etc/sysctl.d/99-cylae-optimization.conf")
+
+    # Optimizations:
+    # 1. fs.inotify.max_user_watches: Essential for Plex/Arr monitoring of large libraries.
+    # 2. vm.swappiness: Reduce to 10 to prefer RAM over Swap (better performance).
+    # 3. net.core.default_qdisc & net.ipv4.tcp_congestion_control: BBR for better throughput.
+
+    config_content = (
+        "# Cylae Media Server Optimizations\n"
+        "fs.inotify.max_user_watches=524288\n"
+        "vm.swappiness=10\n"
+        "net.core.default_qdisc=fq\n"
+        "net.ipv4.tcp_congestion_control=bbr\n"
+    )
+
+    try:
+        print_info("Writing sysctl optimizations...")
+        with sysctl_conf.open("w", encoding="utf-8") as f:
+            f.write(config_content)
+
+        print_info("Applying sysctl changes...")
+        run_cmd(["sysctl", "--system"])
+        print_success("System optimizations applied.")
+
+    except Exception as e:
+        print_error(f"Failed to apply system optimizations: {e}")
+
 def cloud_provider_warning() -> None:
     """Displays a warning about Cloud Firewalls."""
     print("\n" + "="*60)

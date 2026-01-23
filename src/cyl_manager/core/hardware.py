@@ -12,7 +12,13 @@ class HardwareManager:
 
     PROFILE_LOW: str = "LOW"
     PROFILE_HIGH: str = "HIGH"
+
+    GPU_NVIDIA: str = "NVIDIA"
+    GPU_INTEL: str = "INTEL"
+    GPU_NONE: str = "NONE"
+
     _hardware_profile: Optional[str] = None
+    _gpu_info: Optional[Dict[str, str]] = None
 
     @staticmethod
     def get_hardware_profile() -> str:
@@ -37,6 +43,10 @@ class HardwareManager:
             swap = psutil.swap_memory()
             cpu_count = psutil.cpu_count() or 1
 
+            # Detect GPU for logging
+            gpu_info = HardwareManager.detect_gpu()
+            gpu_type = gpu_info.get("type", HardwareManager.GPU_NONE)
+
             # Criteria for LOW profile (The "Survival Mode" Thresholds)
             is_low_ram = mem.total < (4 * 1024**3)
             is_low_cpu = cpu_count <= 2
@@ -53,6 +63,9 @@ class HardwareManager:
                 logger.info("Hardware Detection: [bold green]HIGH PERFORMANCE[/bold green]")
                 logger.debug("Stats: %.2fGB RAM, %d Cores", mem.total/1024**3, cpu_count)
 
+            if gpu_type != HardwareManager.GPU_NONE:
+                logger.info(f"GPU Detected: [bold cyan]{gpu_type}[/bold cyan]")
+
             HardwareManager._hardware_profile = profile
             return profile
 
@@ -60,6 +73,44 @@ class HardwareManager:
             logger.warning("Failed to detect hardware profile, defaulting to LOW (Safe Mode): %s", e)
             HardwareManager._hardware_profile = HardwareManager.PROFILE_LOW
             return HardwareManager.PROFILE_LOW
+
+    @staticmethod
+    def detect_gpu() -> Dict[str, str]:
+        """
+        Detects the presence of GPU hardware (Nvidia or Intel).
+
+        Returns:
+            Dict[str, str]: A dictionary containing 'type' and potentially 'device' paths.
+                            Type is one of GPU_NVIDIA, GPU_INTEL, GPU_NONE.
+        """
+        if HardwareManager._gpu_info is not None:
+            return HardwareManager._gpu_info
+
+        info = {"type": HardwareManager.GPU_NONE}
+
+        # 1. Check for Nvidia
+        # We check for nvidia-smi (driver) AND nvidia-container-cli or nvidia-container-runtime (container toolkit)
+        has_nvidia_driver = shutil.which("nvidia-smi") is not None
+        has_nvidia_toolkit = shutil.which("nvidia-container-cli") is not None or \
+                             shutil.which("nvidia-container-runtime") is not None
+
+        if has_nvidia_driver and has_nvidia_toolkit:
+             info["type"] = HardwareManager.GPU_NVIDIA
+             HardwareManager._gpu_info = info
+             return info
+
+        # 2. Check for Intel QSV (/dev/dri)
+        if Path("/dev/dri").exists():
+             # Check for renderD* devices
+             render_nodes = list(Path("/dev/dri").glob("renderD*"))
+             if render_nodes:
+                 info["type"] = HardwareManager.GPU_INTEL
+                 info["device"] = "/dev/dri"
+                 HardwareManager._gpu_info = info
+                 return info
+
+        HardwareManager._gpu_info = info
+        return info
 
     @staticmethod
     def get_concurrency_limit() -> int:
