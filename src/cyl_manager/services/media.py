@@ -15,11 +15,50 @@ class PlexService(BaseService):
         # Use Disk for LOW profile to prevent OOM.
         transcode_vol = "/tmp:/transcode" if not self.is_low_spec() else f"{settings.DATA_DIR}/plex/transcode:/transcode"
 
-        # Plex specifically needs more privileges for hardware transcoding usually,
-        # but if using pure CPU it might be fine.
-        # However, for "no-new-privileges", Plex often breaks with hardware transcoding.
-        # We will omit security_opts for Plex to ensure hardware transcoding works (Intel QSV / NVDEC).
-        # But we will add logging config.
+        # Hardware Acceleration (GPU) Detection
+        gpu_info = HardwareManager.detect_gpu()
+        devices = []
+        environment = {
+            **self.get_common_env(),
+            "VERSION": "docker",
+            "PLEX_CLAIM": "claim-TOKEN", # Placeholder, user should update config
+            # Optimize database cache size for Plex
+            "PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS": "6" if not self.is_low_spec() else "2"
+        }
+
+        # Intel/AMD
+        if gpu_info['intel']:
+            devices.append("/dev/dri:/dev/dri")
+
+        # Nvidia
+        runtime = None
+        if gpu_info['nvidia']:
+            runtime = "nvidia"
+            environment["NVIDIA_VISIBLE_DEVICES"] = "all"
+            environment["NVIDIA_DRIVER_CAPABILITIES"] = "compute,video,utility"
+
+        service_config = {
+            "image": "lscr.io/linuxserver/plex:latest",
+            "container_name": self.name,
+            "restart": "unless-stopped",
+            "network_mode": "host",
+            "logging": self.get_logging_config(),
+            "environment": environment,
+            "volumes": [
+                f"{settings.DATA_DIR}/plex:/config",
+                f"{settings.MEDIA_ROOT}:/media",
+                transcode_vol
+            ],
+            "deploy": self.get_resource_limits(
+                high_mem="8G", high_cpu="4.0",
+                low_mem="2G", low_cpu="1.0"
+            )
+        }
+
+        if devices:
+            service_config["devices"] = devices
+        if runtime:
+            service_config["runtime"] = runtime
 
         # GPU Transcoding Configuration
         gpu_info = HardwareManager.detect_gpu()

@@ -160,6 +160,37 @@ def setup_virtual_environment() -> None:
         print_error(f"Failed to install application: {e}")
         sys.exit(1)
 
+def optimize_system() -> None:
+    """Applies system-level optimizations (sysctl) for media performance."""
+    print_header("Applying System Optimizations")
+
+    sysctl_conf = Path("/etc/sysctl.d/99-cylae-optimization.conf")
+
+    # Ultimate Optimization settings
+    optimizations = [
+        "# Cylae Media Server Optimizations",
+        "fs.inotify.max_user_watches=524288", # Crucial for Plex/Arr monitoring
+        "vm.swappiness=10",                   # Prefer RAM over Swap
+        "vm.vfs_cache_pressure=50",           # Keep file system cache in RAM
+        "net.core.somaxconn=4096",            # Increase connection queue
+        "net.ipv4.tcp_rmem=4096 87380 67108864", # Increase TCP buffer limits
+        "net.ipv4.tcp_wmem=4096 65536 67108864",
+        "net.core.rmem_max=67108864",
+        "net.core.wmem_max=67108864"
+    ]
+
+    try:
+        print_info("Writing optimizations to /etc/sysctl.d/99-cylae-optimization.conf...")
+        with open(sysctl_conf, "w") as f:
+            f.write("\n".join(optimizations) + "\n")
+
+        print_info("Applying sysctl settings...")
+        run_cmd(["sysctl", "-p", str(sysctl_conf)])
+        print_success("System optimizations applied.")
+
+    except Exception as e:
+        print_warning(f"Failed to apply optimizations: {e}")
+
 def create_symlink() -> None:
     """Creates the global symlink for CLI access."""
     print_header("Finalizing Installation")

@@ -122,3 +122,36 @@ class HardwareManager:
         limit = 1 if HardwareManager.get_hardware_profile() == HardwareManager.PROFILE_LOW else 4
         logger.debug("Orchestrator Concurrency Limit: %d worker(s)", limit)
         return limit
+
+    @staticmethod
+    def get_ram_gb() -> float:
+        """Returns the total RAM in GB."""
+        try:
+            return psutil.virtual_memory().total / (1024**3)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def detect_gpu() -> Dict[str, bool]:
+        """
+        Detects presence of Hardware Acceleration devices.
+        Returns:
+            Dict[str, bool]: {'intel': bool, 'nvidia': bool}
+        """
+        gpu_info = {'intel': False, 'nvidia': False}
+
+        # Check for Intel/AMD (VAAPI/QSV)
+        if Path("/dev/dri").exists():
+            gpu_info['intel'] = True
+            logger.debug("GPU Detection: Intel/AMD iGPU detected (/dev/dri).")
+
+        # Check for Nvidia
+        # We need both the driver (nvidia-smi) and the container toolkit (nvidia-container-cli or runtime)
+        if shutil.which("nvidia-smi"):
+            if shutil.which("nvidia-container-cli") or shutil.which("nvidia-container-runtime"):
+                gpu_info['nvidia'] = True
+                logger.debug("GPU Detection: Nvidia GPU detected and Container Toolkit present.")
+            else:
+                logger.warning("GPU Detection: Nvidia GPU detected but Container Toolkit missing. GPU acceleration will be disabled.")
+
+        return gpu_info
