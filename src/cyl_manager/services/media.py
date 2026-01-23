@@ -2,6 +2,7 @@ from typing import Dict, Any, Final, Optional, List
 from cyl_manager.services.base import BaseService
 from cyl_manager.services.registry import ServiceRegistry
 from cyl_manager.core.config import settings
+from cyl_manager.core.hardware import HardwareManager
 
 @ServiceRegistry.register
 class PlexService(BaseService):
@@ -20,31 +21,56 @@ class PlexService(BaseService):
         # We will omit security_opts for Plex to ensure hardware transcoding works (Intel QSV / NVDEC).
         # But we will add logging config.
 
+        # GPU Transcoding Configuration
+        gpu_info = HardwareManager.detect_gpu()
+        gpu_type = gpu_info.get("type", HardwareManager.GPU_NONE)
+
+        devices = []
+        runtime = None
+        extra_env = {}
+
+        if gpu_type == HardwareManager.GPU_INTEL:
+            # Intel QSV
+            devices.append("/dev/dri:/dev/dri")
+        elif gpu_type == HardwareManager.GPU_NVIDIA:
+            # Nvidia NVDEC/NVENC
+            runtime = "nvidia"
+            extra_env["NVIDIA_VISIBLE_DEVICES"] = "all"
+            extra_env["NVIDIA_DRIVER_CAPABILITIES"] = "compute,video,utility"
+
+        service_config = {
+            "image": "lscr.io/linuxserver/plex:latest",
+            "container_name": self.name,
+            "restart": "unless-stopped",
+            "network_mode": "host",
+            "logging": self.get_logging_config(),
+            "environment": {
+                **self.get_common_env(),
+                **extra_env,
+                "VERSION": "docker",
+                "PLEX_CLAIM": "claim-TOKEN", # Placeholder, user should update config
+                # Optimize database cache size for Plex
+                "PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS": "6" if not self.is_low_spec() else "2"
+            },
+            "volumes": [
+                f"{settings.DATA_DIR}/plex:/config",
+                f"{settings.MEDIA_ROOT}:/media",
+                transcode_vol
+            ],
+            "deploy": self.get_resource_limits(
+                high_mem="8G", high_cpu="4.0",
+                low_mem="2G", low_cpu="1.0"
+            )
+        }
+
+        if devices:
+            service_config["devices"] = devices
+        if runtime:
+            service_config["runtime"] = runtime
+
         return {
             "services": {
-                self.name: {
-                    "image": "lscr.io/linuxserver/plex:latest",
-                    "container_name": self.name,
-                    "restart": "unless-stopped",
-                    "network_mode": "host",
-                    "logging": self.get_logging_config(),
-                    "environment": {
-                        **self.get_common_env(),
-                        "VERSION": "docker",
-                        "PLEX_CLAIM": "claim-TOKEN", # Placeholder, user should update config
-                        # Optimize database cache size for Plex
-                        "PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS": "6" if not self.is_low_spec() else "2"
-                    },
-                    "volumes": [
-                        f"{settings.DATA_DIR}/plex:/config",
-                        f"{settings.MEDIA_ROOT}:/media",
-                        transcode_vol
-                    ],
-                    "deploy": self.get_resource_limits(
-                        high_mem="8G", high_cpu="4.0",
-                        low_mem="2G", low_cpu="1.0"
-                    )
-                }
+                self.name: service_config
             }
         }
 
