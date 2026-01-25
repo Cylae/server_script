@@ -9,6 +9,13 @@ use log::info;
 pub struct Secrets {
     pub mysql_root_password: Option<String>,
     pub mysql_user_password: Option<String>,
+    pub nextcloud_admin_password: Option<String>,
+    pub nextcloud_db_password: Option<String>,
+    pub mailserver_password: Option<String>,
+    pub glpi_db_password: Option<String>,
+    pub gitea_db_password: Option<String>,
+    pub roundcube_db_password: Option<String>,
+    pub yourls_admin_password: Option<String>,
 }
 
 impl Secrets {
@@ -28,6 +35,34 @@ impl Secrets {
         }
         if secrets.mysql_user_password.is_none() {
             secrets.mysql_user_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.nextcloud_admin_password.is_none() {
+            secrets.nextcloud_admin_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.nextcloud_db_password.is_none() {
+            secrets.nextcloud_db_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.mailserver_password.is_none() {
+            secrets.mailserver_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.glpi_db_password.is_none() {
+            secrets.glpi_db_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.gitea_db_password.is_none() {
+            secrets.gitea_db_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.roundcube_db_password.is_none() {
+            secrets.roundcube_db_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.yourls_admin_password.is_none() {
+            secrets.yourls_admin_password = Some(generate_hex(16));
             changed = true;
         }
 

@@ -1,74 +1,93 @@
-# Cylae: The State-of-the-Art Media Server Orchestrator 🚀
+# 🚀 Cylae: The Next-Gen Media Server Orchestrator
 
-**Cylae** is a next-generation infrastructure-as-code tool written in Rust. It automatically detects your hardware and compiles a tailored `docker-compose.yml` stack for your media server needs.
+[![Rust](https://img.shields.io/badge/built_with-Rust-d62f02)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**Cylae** is a high-performance, hardware-aware orchestration tool for home media servers. It replaces legacy shell scripts with a robust Rust-based engine that treats your hardware profile as a first-class citizen.
 
 ---
 
-## 🇺🇸 English Guide
+## 🇬🇧 English Guide
 
-### 👶 New Users
-Welcome! Cylae makes setting up a media server incredibly easy.
+### 🌟 For New Users (Start Here)
 
-1.  **Download & Run**
+Welcome! Cylae makes setting up your media server incredibly easy.
+
+1.  **Install:**
+    Simply run the binary. It will handle dependencies, Docker installation, and configuration for you.
     ```bash
-    # Assuming you have the binary
-    sudo ./cylae install
+    ./cylae install
     ```
-    *That's it!* Cylae will:
-    *   ✅ Detect your RAM and CPU.
-    *   ✅ Install Docker (if missing).
-    *   ✅ Configure your firewall.
-    *   ✅ Start Plex, Sonarr, Radarr, etc.
 
-2.  **Access Your Services**
+2.  **Access:**
+    Once finished, your services will be available at your server's IP address.
+    *   **Dashboard (Portainer):** `http://<your-ip>:9000`
     *   **Plex:** `http://<your-ip>:32400`
-    *   **Sonarr:** `http://<your-ip>:8989`
-    *   **Radarr:** `http://<your-ip>:7878`
-    *   **qBittorrent:** `http://<your-ip>:8080` (Default: admin/adminadmin)
+    *   **Nginx Proxy Manager:** `http://<your-ip>:81`
 
-### 🤓 Advanced Users
-For power users who want control and understanding.
+3.  **Enjoy:**
+    Cylae automatically detects if you have a powerful server or a low-power device and tunes your services (like Plex transcoding and Database memory) accordingly!
 
-*   **Idempotency:** You can run `cylae install` as many times as you want. It will only apply necessary changes.
-*   **Security:** Database passwords are automatically generated and stored in `/opt/cylae/secrets.yaml`.
-*   **Hardware Profiles:**
-    *   **Low (<4GB RAM):** Disables .NET diagnostics, optimizes GC, uses disk for transcoding.
-    *   **High (>16GB RAM):** Enables RAM transcoding (`/dev/shm`), maximizes buffer pools.
-*   **GPU Passthrough:** automatically detects Nvidia drivers (`nvidia-smi`) or Intel QuickSync (`/dev/dri`) and injects the devices into the Plex container.
+### 🔧 For Advanced Users
+
+Cylae is an "Infrastructure as Code" compiler.
+
+*   **Idempotency:** Run `cylae install` as many times as you want. It converges the system state.
+*   **Hardware Profiling:**
+    *   **Low Profile (<4GB RAM / <2 Cores):** Disables ClamAV/SpamAssassin in Mailserver, tunes GC for *Arr apps, disables disk transcoding.
+    *   **High Profile (>16GB RAM):** Enables RAM transcoding (`/dev/shm`), maximizes DB buffer pools.
+    *   **GPU:** Auto-detects Nvidia & Intel QuickSync for hardware acceleration.
 *   **Commands:**
-    *   `cylae status`: View detected hardware and docker status.
-    *   `cylae generate`: Only generate the `docker-compose.yml` without running it.
+    *   `cylae install`: Full system convergence.
+    *   `cylae generate`: Output the `docker-compose.yml` without running it (dry-run).
+    *   `cylae status`: View detected hardware stats.
 
 ---
 
 ## 🇫🇷 Guide Français
 
-### 👶 Nouveaux Utilisateurs
-Bienvenue ! Cylae rend l'installation d'un serveur multimédia incroyablement simple.
+### 🌟 Pour les Nouveaux Utilisateurs (Commencez Ici)
 
-1.  **Télécharger et Exécuter**
+Bienvenue ! Cylae rend l'installation de votre serveur multimédia incroyablement simple.
+
+1.  **Installation :**
+    Lancez simplement le binaire. Il s'occupe des dépendances, de Docker et de la configuration.
     ```bash
-    sudo ./cylae install
+    ./cylae install
     ```
-    *C'est tout !* Cylae va :
-    *   ✅ Détecter votre RAM et CPU.
-    *   ✅ Installer Docker (si absent).
-    *   ✅ Configurer votre pare-feu.
-    *   ✅ Démarrer Plex, Sonarr, Radarr, etc.
 
-2.  **Accéder à vos Services**
+2.  **Accès :**
+    Une fois terminé, vos services seront accessibles via l'adresse IP de votre serveur.
+    *   **Tableau de bord (Portainer) :** `http://<votre-ip>:9000`
     *   **Plex :** `http://<votre-ip>:32400`
-    *   **Sonarr :** `http://<votre-ip>:8989`
-    *   **Radarr :** `http://<votre-ip>:7878`
+    *   **Nginx Proxy Manager :** `http://<votre-ip>:81`
 
-### 🤓 Utilisateurs Avancés
-Pour les experts qui veulent comprendre et contrôler.
+3.  **Profitez :**
+    Cylae détecte automatiquement la puissance de votre serveur et optimise vos services (comme le transcodage Plex et la mémoire des bases de données) en conséquence !
 
-*   **Idempotence :** Vous pouvez exécuter `cylae install` autant de fois que vous le souhaitez.
-*   **Profils Matériels :**
-    *   **Faible (<4Go RAM) :** Désactive les diagnostics .NET, optimise le GC, utilise le disque pour le transcodage.
-    *   **Élevé (>16Go RAM) :** Active le transcodage en RAM (`/dev/shm`), maximise les pools de mémoire tampon.
-*   **Accélération GPU :** Détecte automatiquement les pilotes Nvidia ou Intel QuickSync et injecte les périphériques dans le conteneur Plex.
+### 🔧 Pour les Utilisateurs Avancés
+
+Cylae est un compilateur "Infrastructure as Code".
+
+*   **Idempotence :** Exécutez `cylae install` autant de fois que nécessaire. Il converge l'état du système.
+*   **Profilage Matériel :**
+    *   **Profil Bas (<4Go RAM / <2 Cœurs) :** Désactive ClamAV/SpamAssassin, ajuste le GC pour les applis *Arr, désactive le transcodage disque.
+    *   **Profil Haut (>16Go RAM) :** Active le transcodage en RAM (`/dev/shm`), maximise les pools de mémoire DB.
+    *   **GPU :** Détection automatique Nvidia & Intel QuickSync.
 *   **Commandes :**
-    *   `cylae status` : Voir le matériel détecté et l'état de Docker.
-    *   `cylae generate` : Générer uniquement le fichier `docker-compose.yml`.
+    *   `cylae install` : Convergence complète du système.
+    *   `cylae generate` : Génère le `docker-compose.yml` sans le lancer.
+    *   `cylae status` : Voir les stats matérielles détectées.
+
+---
+
+## 🛠 Supported Services
+Cylae orchestrates a massive stack of **24 services**:
+
+| Category | Services |
+| :--- | :--- |
+| **Media** | Plex, Tautulli, Overseerr |
+| **Arrs** | Sonarr, Radarr, Prowlarr, Jackett |
+| **Downloads** | QBittorrent |
+| **Infra** | MariaDB, Redis, Nginx Proxy, DNSCrypt, Wireguard, Portainer, Netdata, Uptime-Kuma |
+| **Apps** | Nextcloud, Vaultwarden, Filebrowser, Yourls, Mailserver, GLPI, Gitea, Roundcube |

@@ -1,4 +1,4 @@
-use sysinfo::{System, SystemExt};
+use sysinfo::{System, SystemExt, DiskExt};
 use std::process::Command;
 use std::path::Path;
 use log::{info};
@@ -17,6 +17,8 @@ pub struct HardwareInfo {
     pub cpu_cores: usize,
     pub has_nvidia: bool,
     pub has_intel_quicksync: bool,
+    pub disk_gb: u64,
+    pub swap_gb: u64,
 }
 
 impl HardwareInfo {
@@ -24,17 +26,27 @@ impl HardwareInfo {
         let mut sys = System::new_all();
         sys.refresh_memory();
         sys.refresh_cpu();
+        sys.refresh_disks();
 
         let total_memory = sys.total_memory(); // Bytes
         let ram_gb = total_memory / 1024 / 1024 / 1024;
+
+        let total_swap = sys.total_swap();
+        let swap_gb = total_swap / 1024 / 1024 / 1024;
+
         let cpu_cores = sys.cpus().len();
 
-        let profile = Self::evaluate_profile(ram_gb, cpu_cores);
+        let mut disk_gb = 0;
+        for disk in sys.disks() {
+            disk_gb += disk.total_space() / 1024 / 1024 / 1024;
+        }
+
+        let profile = Self::evaluate_profile(ram_gb, cpu_cores, swap_gb);
 
         let has_nvidia = Self::check_nvidia();
         let has_intel_quicksync = Path::new("/dev/dri").exists();
 
-        info!("Hardware Detected: RAM={}GB, Cores={}, Profile={:?}", ram_gb, cpu_cores, profile);
+        info!("Hardware Detected: RAM={}GB, Swap={}GB, Disk={}GB, Cores={}, Profile={:?}", ram_gb, swap_gb, disk_gb, cpu_cores, profile);
         if has_nvidia { info!("Nvidia GPU Detected"); }
         if has_intel_quicksync { info!("Intel QuickSync Detected"); }
 
@@ -44,6 +56,8 @@ impl HardwareInfo {
             cpu_cores,
             has_nvidia,
             has_intel_quicksync,
+            disk_gb,
+            swap_gb,
         }
     }
 
@@ -56,13 +70,19 @@ impl HardwareInfo {
     }
 
     // For testing logic without system calls
-    pub fn evaluate_profile(ram_gb: u64, cpu_cores: usize) -> HardwareProfile {
-         if ram_gb < 4 || cpu_cores <= 2 {
-            HardwareProfile::Low
-        } else if ram_gb > 16 {
+    pub fn evaluate_profile(ram_gb: u64, cpu_cores: usize, swap_gb: u64) -> HardwareProfile {
+        if ram_gb > 16 {
             HardwareProfile::High
+        } else if ram_gb < 4 || cpu_cores <= 2 {
+            HardwareProfile::Low
         } else {
-            HardwareProfile::Standard
+             // Standard range (4-16GB RAM, >2 Cores)
+             // If RAM is on the lower end (4-8GB) and no swap, downgrade to Low for safety
+             if ram_gb < 8 && swap_gb < 1 {
+                 HardwareProfile::Low
+             } else {
+                 HardwareProfile::Standard
+             }
         }
     }
 }
@@ -73,9 +93,11 @@ mod tests {
 
     #[test]
     fn test_hardware_profile_evaluation() {
-        assert_eq!(HardwareInfo::evaluate_profile(2, 4), HardwareProfile::Low); // Low RAM
-        assert_eq!(HardwareInfo::evaluate_profile(8, 1), HardwareProfile::Low); // Low Cores
-        assert_eq!(HardwareInfo::evaluate_profile(8, 4), HardwareProfile::Standard);
-        assert_eq!(HardwareInfo::evaluate_profile(32, 8), HardwareProfile::High);
+        assert_eq!(HardwareInfo::evaluate_profile(2, 4, 2), HardwareProfile::Low); // Low RAM
+        assert_eq!(HardwareInfo::evaluate_profile(8, 1, 2), HardwareProfile::Low); // Low Cores
+        assert_eq!(HardwareInfo::evaluate_profile(32, 8, 0), HardwareProfile::High); // High RAM ignores Swap
+        assert_eq!(HardwareInfo::evaluate_profile(8, 4, 0), HardwareProfile::Standard); // 8GB RAM No Swap -> Standard
+        assert_eq!(HardwareInfo::evaluate_profile(6, 4, 0), HardwareProfile::Low); // 6GB RAM No Swap -> Low
+        assert_eq!(HardwareInfo::evaluate_profile(6, 4, 2), HardwareProfile::Standard); // 6GB RAM + Swap -> Standard
     }
 }
