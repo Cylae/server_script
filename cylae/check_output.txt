@@ -1,0 +1,10 @@
+warning: unused import: `CpuExt`
+ --> src/core/hardware.rs:1:43
+  |
+1 | use sysinfo::{System, SystemExt, DiskExt, CpuExt};
+  |                                           ^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `cylae` (lib) generated 1 warning (run `cargo fix --lib -p cylae` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
