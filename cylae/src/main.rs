@@ -198,6 +198,56 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
              config.insert("healthcheck".into(), serde_yaml::Value::Mapping(hc));
         }
 
+        // Depends On
+        let deps = service.depends_on();
+        if !deps.is_empty() {
+             let mut dep_seq = serde_yaml::Sequence::new();
+             for d in deps {
+                 dep_seq.push(d.into());
+             }
+             config.insert("depends_on".into(), serde_yaml::Value::Sequence(dep_seq));
+        }
+
+        // Security Opts
+        let sec_opts = service.security_opts();
+        if !sec_opts.is_empty() {
+             let mut sec_seq = serde_yaml::Sequence::new();
+             for s in sec_opts {
+                 sec_seq.push(s.into());
+             }
+             config.insert("security_opt".into(), serde_yaml::Value::Sequence(sec_seq));
+        }
+
+        // Labels
+        let labels = service.labels();
+        if !labels.is_empty() {
+             let mut labels_seq = serde_yaml::Sequence::new();
+             for (k, v) in labels {
+                 labels_seq.push(format!("{}={}", k, v).into());
+             }
+             config.insert("labels".into(), serde_yaml::Value::Sequence(labels_seq));
+        }
+
+        // Cap Add
+        let caps = service.cap_add();
+        if !caps.is_empty() {
+             let mut cap_seq = serde_yaml::Sequence::new();
+             for c in caps {
+                 cap_seq.push(c.into());
+             }
+             config.insert("cap_add".into(), serde_yaml::Value::Sequence(cap_seq));
+        }
+
+        // Sysctls
+        let sysctls = service.sysctls();
+        if !sysctls.is_empty() {
+             let mut sys_seq = serde_yaml::Sequence::new();
+             for s in sysctls {
+                 sys_seq.push(s.into());
+             }
+             config.insert("sysctls".into(), serde_yaml::Value::Sequence(sys_seq));
+        }
+
         compose_services.insert(service.name().to_string(), serde_yaml::Value::Mapping(config));
     }
 
