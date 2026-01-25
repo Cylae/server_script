@@ -1,0 +1,39 @@
+use super::Service;
+use crate::core::hardware::{HardwareInfo, HardwareProfile};
+use crate::core::secrets::Secrets;
+use std::collections::HashMap;
+
+macro_rules! define_arr_service {
+    ($struct_name:ident, $name:expr, $image:expr, $port:expr) => {
+        pub struct $struct_name;
+        impl Service for $struct_name {
+            fn name(&self) -> &'static str { $name }
+            fn image(&self) -> &'static str { $image }
+            fn ports(&self) -> Vec<String> { vec![format!("{}:{}", $port, $port)] }
+            fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
+                vec![
+                    format!("./config/{}:/config", $name),
+                    "./media:/media".to_string(),
+                ]
+            }
+            fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
+                let mut vars = HashMap::new();
+                vars.insert("PUID".to_string(), "1000".to_string());
+                vars.insert("PGID".to_string(), "1000".to_string());
+                vars.insert("COMPlus_EnableDiagnostics".to_string(), "0".to_string());
+
+                if let HardwareProfile::Low = hw.profile {
+                    vars.insert("COMPlus_GCServer".to_string(), "0".to_string());
+                }
+                vars
+            }
+            fn healthcheck(&self) -> Option<String> {
+                Some(format!("curl -f http://localhost:{}/ping || exit 1", $port))
+            }
+        }
+    };
+}
+
+define_arr_service!(SonarrService, "sonarr", "lscr.io/linuxserver/sonarr:latest", 8989);
+define_arr_service!(RadarrService, "radarr", "lscr.io/linuxserver/radarr:latest", 7878);
+define_arr_service!(ProwlarrService, "prowlarr", "lscr.io/linuxserver/prowlarr:latest", 9696);
