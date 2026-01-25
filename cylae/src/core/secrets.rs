@@ -1,0 +1,70 @@
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::Path;
+use serde::{Serialize, Deserialize};
+use anyhow::{Result, Context};
+use log::info;
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct Secrets {
+    pub mysql_root_password: Option<String>,
+    pub mysql_user_password: Option<String>,
+}
+
+impl Secrets {
+    pub fn load_or_create() -> Result<Self> {
+        let path = Path::new("secrets.yaml");
+        let mut secrets: Secrets = if path.exists() {
+            let content = fs::read_to_string(path).context("Failed to read secrets.yaml")?;
+            serde_yaml::from_str(&content).unwrap_or_default()
+        } else {
+            Secrets::default()
+        };
+
+        let mut changed = false;
+        if secrets.mysql_root_password.is_none() {
+            secrets.mysql_root_password = Some(generate_hex(16));
+            changed = true;
+        }
+        if secrets.mysql_user_password.is_none() {
+            secrets.mysql_user_password = Some(generate_hex(16));
+            changed = true;
+        }
+
+        if changed {
+            info!("Generated new secrets.");
+            let content = serde_yaml::to_string(&secrets)?;
+            fs::write(path, content).context("Failed to write secrets.yaml")?;
+        }
+
+        Ok(secrets)
+    }
+}
+
+fn generate_hex(bytes: usize) -> String {
+    if let Ok(mut file) = File::open("/dev/urandom") {
+        let mut buffer = vec![0u8; bytes];
+        if file.read_exact(&mut buffer).is_ok() {
+             return buffer.iter().map(|b| format!("{:02x}", b)).collect();
+        }
+    }
+    // Fallback (weak, but avoids crash if urandom fails)
+    format!("{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hex_generation() {
+        let hex = generate_hex(16);
+        assert_eq!(hex.len(), 32); // 16 bytes = 32 hex chars
+    }
+
+    #[test]
+    fn test_secrets_default() {
+        let secrets = Secrets::default();
+        assert!(secrets.mysql_root_password.is_none());
+    }
+}
