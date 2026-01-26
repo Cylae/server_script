@@ -13,6 +13,10 @@ pub trait Service: Send + Sync {
     fn name(&self) -> &'static str;
     fn image(&self) -> &'static str;
 
+    /// Generates configuration files (safe to run without side effects on system services)
+    fn configure(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> { Ok(()) }
+
+    /// Performs system initialization (e.g., stopping conflicting services). May require root.
     fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> { Ok(()) }
 
     fn ports(&self) -> Vec<String> { vec![] }
