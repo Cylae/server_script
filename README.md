@@ -45,11 +45,12 @@ sudo ./cylae install
 
 That's it! 🎉
 Cylae will automatically:
-1.  Check and install Docker.
-2.  Scan your hardware (RAM, CPU, Disk).
-3.  Generate secure passwords (`secrets.yaml`).
-4.  Configure the firewall.
-5.  Launch all services.
+1.  Install system dependencies (curl, git, build-essential, etc.).
+2.  Check and install Docker.
+3.  Scan your hardware (RAM, CPU, Disk).
+4.  Generate secure passwords (`secrets.yaml`).
+5.  Configure the firewall.
+6.  Launch all services.
 
 Once finished, go to `http://YOUR-SERVER-IP` (or the specific ports listed below).
 
@@ -163,11 +164,12 @@ sudo ./cylae install
 
 C'est tout ! 🎉
 Cylae va automatiquement :
-1.  Vérifier et installer Docker.
-2.  Scanner votre matériel (RAM, CPU, Disque).
-3.  Générer des mots de passe sécurisés (`secrets.yaml`).
-4.  Configurer le pare-feu.
-5.  Lancer tous les services.
+1.  Installer les dépendances système (curl, git, build-essential, etc.).
+2.  Vérifier et installer Docker.
+3.  Scanner votre matériel (RAM, CPU, Disque).
+4.  Générer des mots de passe sécurisés (`secrets.yaml`).
+5.  Configurer le pare-feu.
+6.  Lancer tous les services.
 
 Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports spécifiques ci-dessous).
 

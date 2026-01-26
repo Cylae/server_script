@@ -7,10 +7,13 @@ pub mod apps;
 use crate::core::hardware::HardwareInfo;
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
+use anyhow::Result;
 
 pub trait Service: Send + Sync {
     fn name(&self) -> &'static str;
     fn image(&self) -> &'static str;
+
+    fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> { Ok(()) }
 
     fn ports(&self) -> Vec<String> { vec![] }
     fn env_vars(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> { HashMap::new() }
