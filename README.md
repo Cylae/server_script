@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Stable-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 24 Docker services for optimal performance.
 
@@ -73,6 +73,15 @@ cargo build --release
 
 # The binary is located in target/release/server_manager
 sudo cp target/release/server_manager /usr/local/bin/
+```
+
+### 🧪 Testing
+
+The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
+
+```bash
+cd server_script/server_manager
+cargo test
 ```
 
 ### CLI Commands
