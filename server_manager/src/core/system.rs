@@ -51,6 +51,18 @@ pub fn install_dependencies() -> Result<()> {
     Ok(())
 }
 
+pub fn stop_service(name: &str) -> Result<()> {
+    info!("Stopping and disabling conflicting service: {}", name);
+    // Suppress output and errors to ensure we don't fail if service is missing
+    let _ = Command::new("systemctl")
+        .args(&["stop", name])
+        .output();
+    let _ = Command::new("systemctl")
+        .args(&["disable", name])
+        .output();
+    Ok(())
+}
+
 pub fn apply_optimizations() -> Result<()> {
     info!("Applying system optimizations for media server performance...");
 

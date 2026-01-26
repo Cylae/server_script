@@ -2,6 +2,7 @@ use super::Service;
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
+use anyhow::Result;
 
 pub struct VaultwardenService;
 impl Service for VaultwardenService {
@@ -127,6 +128,15 @@ impl Service for MailService {
             "993:993".to_string(),
         ]
     }
+
+    fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> {
+        let services = vec!["postfix", "exim4", "sendmail"];
+        for svc in services {
+             crate::core::system::stop_service(svc)?;
+        }
+        Ok(())
+    }
+
     fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("DMS_DEBUG".to_string(), "0".to_string());

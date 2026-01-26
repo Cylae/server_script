@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use anyhow::{Result, Context};
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 pub struct MariaDBService;
 impl Service for MariaDBService {
@@ -81,8 +80,7 @@ impl Service for NginxProxyService {
         let services = vec!["apache2", "nginx", "httpd"];
         for svc in services {
             // Stop and disable conflicting web servers
-            let _ = Command::new("systemctl").args(&["stop", svc]).status();
-            let _ = Command::new("systemctl").args(&["disable", svc]).status();
+            crate::core::system::stop_service(svc)?;
         }
         Ok(())
     }
