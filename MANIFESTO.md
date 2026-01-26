@@ -23,3 +23,6 @@ We treat hardware as a first-class citizen.
 *   **Databases:** Buffer pools are sized dynamically.
 
 This is the new standard for home media server orchestration.
+
+---
+*Signed, The Architecture Team (v1.0.0 Release)*
