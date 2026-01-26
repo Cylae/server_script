@@ -96,6 +96,8 @@ fn run_status() {
     let hw = hardware::HardwareInfo::detect();
     println!("=== System Status ===");
     println!("RAM: {} GB", hw.ram_gb);
+    println!("Swap: {} GB", hw.swap_gb);
+    println!("Disk: {} GB", hw.disk_gb);
     println!("Cores: {}", hw.cpu_cores);
     println!("Profile: {:?}", hw.profile);
     println!("Nvidia GPU: {}", hw.has_nvidia);
@@ -111,8 +113,9 @@ fn run_status() {
 
 async fn run_generate() -> Result<()> {
     let hw = hardware::HardwareInfo::detect();
-    // For generate, we might not be in /opt/cylae, but let's try to load secrets from CWD or default
-    let secrets = secrets::Secrets::load_or_create().unwrap_or_default();
+    // For generate, we might not be in /opt/cylae, but let's try to load secrets from CWD.
+    // We propagate the error because generating a compose file with empty passwords is bad.
+    let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     generate_compose(&hw, &secrets).await
 }
 
