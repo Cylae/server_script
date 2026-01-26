@@ -76,7 +76,7 @@ impl Service for RoundcubeService {
     fn name(&self) -> &'static str { "roundcube" }
     fn image(&self) -> &'static str { "roundcube/roundcubemail:latest" }
     fn ports(&self) -> Vec<String> { vec!["8090:80".to_string()] }
-    fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
+    fn env_vars(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("ROUNDCUBEMAIL_DB_TYPE".to_string(), "sqlite".to_string()); // Defaulting to sqlite as per memory hints or keeping simple.
         // Memory says: "uses SQLite."

@@ -1,93 +1,254 @@
-# 🚀 Cylae: The Next-Gen Media Server Orchestrator
+# Cylae - Next-Gen Media Server Orchestrator 🚀
 
-[![Rust](https://img.shields.io/badge/built_with-Rust-d62f02)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Cylae Banner](https://img.shields.io/badge/Status-Stable-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
-**Cylae** is a high-performance, hardware-aware orchestration tool for home media servers. It replaces legacy shell scripts with a robust Rust-based engine that treats your hardware profile as a first-class citizen.
+**Cylae** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 24 services Docker pour des performances optimales.
 
----
-
-## 🇬🇧 English Guide
-
-### 🌟 For New Users (Start Here)
-
-Welcome! Cylae makes setting up your media server incredibly easy.
-
-1.  **Install:**
-    Simply run the binary. It will handle dependencies, Docker installation, and configuration for you.
-    ```bash
-    ./cylae install
-    ```
-
-2.  **Access:**
-    Once finished, your services will be available at your server's IP address.
-    *   **Dashboard (Portainer):** `http://<your-ip>:9000`
-    *   **Plex:** `http://<your-ip>:32400`
-    *   **Nginx Proxy Manager:** `http://<your-ip>:81`
-
-3.  **Enjoy:**
-    Cylae automatically detects if you have a powerful server or a low-power device and tunes your services (like Plex transcoding and Database memory) accordingly!
-
-### 🔧 For Advanced Users
-
-Cylae is an "Infrastructure as Code" compiler.
-
-*   **Idempotency:** Run `cylae install` as many times as you want. It converges the system state.
-*   **Hardware Profiling:**
-    *   **Low Profile (<4GB RAM / <2 Cores):** Disables ClamAV/SpamAssassin in Mailserver, tunes GC for *Arr apps, disables disk transcoding.
-    *   **High Profile (>16GB RAM):** Enables RAM transcoding (`/dev/shm`), maximizes DB buffer pools.
-    *   **GPU:** Auto-detects Nvidia & Intel QuickSync for hardware acceleration.
-*   **Commands:**
-    *   `cylae install`: Full system convergence.
-    *   `cylae generate`: Output the `docker-compose.yml` without running it (dry-run).
-    *   `cylae status`: View detected hardware stats.
+**Cylae** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 24 Docker services for optimal performance.
 
 ---
 
-## 🇫🇷 Guide Français
+## 🌍 Language / Langue
 
-### 🌟 Pour les Nouveaux Utilisateurs (Commencez Ici)
-
-Bienvenue ! Cylae rend l'installation de votre serveur multimédia incroyablement simple.
-
-1.  **Installation :**
-    Lancez simplement le binaire. Il s'occupe des dépendances, de Docker et de la configuration.
-    ```bash
-    ./cylae install
-    ```
-
-2.  **Accès :**
-    Une fois terminé, vos services seront accessibles via l'adresse IP de votre serveur.
-    *   **Tableau de bord (Portainer) :** `http://<votre-ip>:9000`
-    *   **Plex :** `http://<votre-ip>:32400`
-    *   **Nginx Proxy Manager :** `http://<votre-ip>:81`
-
-3.  **Profitez :**
-    Cylae détecte automatiquement la puissance de votre serveur et optimise vos services (comme le transcodage Plex et la mémoire des bases de données) en conséquence !
-
-### 🔧 Pour les Utilisateurs Avancés
-
-Cylae est un compilateur "Infrastructure as Code".
-
-*   **Idempotence :** Exécutez `cylae install` autant de fois que nécessaire. Il converge l'état du système.
-*   **Profilage Matériel :**
-    *   **Profil Bas (<4Go RAM / <2 Cœurs) :** Désactive ClamAV/SpamAssassin, ajuste le GC pour les applis *Arr, désactive le transcodage disque.
-    *   **Profil Haut (>16Go RAM) :** Active le transcodage en RAM (`/dev/shm`), maximise les pools de mémoire DB.
-    *   **GPU :** Détection automatique Nvidia & Intel QuickSync.
-*   **Commandes :**
-    *   `cylae install` : Convergence complète du système.
-    *   `cylae generate` : Génère le `docker-compose.yml` sans le lancer.
-    *   `cylae status` : Voir les stats matérielles détectées.
+- [🇫🇷 Français](#-français)
+- [🇬🇧 English](#-english)
 
 ---
 
-## 🛠 Supported Services
-Cylae orchestrates a massive stack of **24 services**:
+<a name="-français"></a>
+# 🇫🇷 Français
 
-| Category | Services |
-| :--- | :--- |
-| **Media** | Plex, Tautulli, Overseerr |
-| **Arrs** | Sonarr, Radarr, Prowlarr, Jackett |
-| **Downloads** | QBittorrent |
-| **Infra** | MariaDB, Redis, Nginx Proxy, DNSCrypt, Wireguard, Portainer, Netdata, Uptime-Kuma |
-| **Apps** | Nextcloud, Vaultwarden, Filebrowser, Yourls, Mailserver, GLPI, Gitea, Roundcube |
+Bienvenue sur la documentation de Cylae. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
+
+## ✨ Fonctionnalités Clés
+*   **24 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **Détection Matérielle Intelligente** : Adapte la configuration (RAM, Transcodage, Swap) selon votre machine (Low/Standard/High Profile).
+*   **Sécurité par Défaut** : Pare-feu UFW configuré, mots de passe générés, réseaux isolés.
+*   **Support GPU** : Détection et configuration automatique Nvidia & Intel QuickSync.
+
+## 👶 Pour les Nouveaux Utilisateurs (Newbies)
+
+Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simples.
+
+### Prérequis
+*   Un serveur/ordinateur sous Linux (Debian 11/12 ou Ubuntu 22.04+ recommandés).
+*   Un accès "root" (administrateur).
+
+### 🚀 Installation Rapide
+
+1.  **Téléchargez le binaire** (ou compilez-le si vous n'avez pas le binaire pré-compilé).
+2.  **Lancez l'installation** avec une seule commande :
+
+```bash
+sudo ./cylae install
+```
+
+C'est tout ! 🎉
+Cylae va automatiquement :
+1.  Vérifier et installer Docker.
+2.  Scanner votre matériel (RAM, CPU, Disque).
+3.  Générer des mots de passe sécurisés (`secrets.yaml`).
+4.  Configurer le pare-feu.
+5.  Lancer tous les services.
+
+Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports spécifiques ci-dessous).
+
+---
+
+## 🤓 Pour les Utilisateurs Avancés (Experts)
+
+Cylae est construit en Rust pour la performance et la fiabilité. Voici comment l'utiliser au maximum de son potentiel.
+
+### Compilation depuis les sources
+
+```bash
+# Installer Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Cloner et compiler
+git clone https://github.com/votre-repo/cylae.git
+cd cylae/cylae
+cargo build --release
+
+# Le binaire est dans target/release/cylae
+sudo cp target/release/cylae /usr/local/bin/
+```
+
+### Commandes CLI
+
+L'outil dispose de plusieurs sous-commandes :
+
+*   `cylae install` : Installation complète idempotente (dépendances, config, docker-compose up).
+*   `cylae generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
+*   `cylae status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
+
+### ⚙️ Profils Matériels (Hardware Profiles)
+
+Cylae ajuste la configuration via `HardwareManager` :
+
+| Profil | Critères | Optimisations |
+| :--- | :--- | :--- |
+| **LOW** | < 4GB RAM ou <= 2 Cores | Transcodage sur Disque, ArrStack GC désactivé, Mailserver minimal (pas d'antivirus/antispam). |
+| **STANDARD** | 4-16GB RAM | Configuration équilibrée. |
+| **HIGH** | > 16GB RAM | Transcodage en RAM (`/dev/shm`), caches augmentés. |
+
+*Note : La présence de Swap est analysée pour éviter les OOM sur les configurations limites (ex: 6GB RAM sans swap -> Low).*
+
+### 🔒 Gestion des Secrets
+
+Les mots de passe sont stockés dans `secrets.yaml`.
+*   Générés automatiquement au premier lancement.
+*   Vous pouvez modifier ce fichier *avant* de lancer `install` ou `generate` si vous souhaitez définir vos propres mots de passe.
+
+### 🛠 Liste des Services et Ports
+
+Voici la matrice des services déployés :
+
+| Catégorie | Service | Port (Hôte) | URL Interne | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Infra** | Nginx Proxy Manager | 80, 81, 443 | `http://IP:81` | Reverse Proxy & SSL |
+| | Portainer | 9000 | `http://IP:9000` | Gestion Docker |
+| | MariaDB | 3306 | `mariadb` | Base de données SQL |
+| | Redis | 6379 | `redis` | Cache |
+| | Netdata | 19999 | `http://IP:19999` | Monitoring Temps Réel |
+| | Uptime Kuma | 3001 | `http://IP:3001` | Monitoring Disponibilité |
+| | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | DNS Sécurisé (DoH) |
+| | Wireguard | 51820 (UDP) | - | VPN |
+| **Média** | Plex | 32400 | `http://IP:32400` | Serveur Streaming |
+| | Tautulli | 8181 | `http://IP:8181` | Stats Plex |
+| | Overseerr | 5055 | `http://IP:5055` | Demandes de Média |
+| **ArrStack** | Sonarr | 8989 | `http://IP:8989` | Séries TV |
+| | Radarr | 7878 | `http://IP:7878` | Films |
+| | Prowlarr | 9696 | `http://IP:9696` | Indexeurs Torrent |
+| | Jackett | 9117 | `http://IP:9117` | Proxy Indexeurs |
+| **Download** | QBittorrent | 8080 | `http://IP:8080` | Client Torrent |
+| **Apps** | Nextcloud | 4443 | `https://IP:4443` | Cloud Personnel |
+| | Vaultwarden | 8001 | `http://IP:8001` | Gestionnaire Mots de passe |
+| | Filebrowser | 8002 | `http://IP:8002` | Gestionnaire Fichiers Web |
+| | Yourls | 8003 | `http://IP:8003` | Raccourcisseur URL |
+| | GLPI | 8088 | `http://IP:8088` | Gestion Parc Info |
+| | Gitea | 3000, 2222 | `http://IP:3000` | Git Auto-hébergé |
+| | Roundcube | 8090 | `http://IP:8090` | Webmail |
+| | Mailserver | 25, 143, 587, 993 | - | Serveur Mail Complet |
+
+---
+
+<a name="-english"></a>
+# 🇬🇧 English
+
+Welcome to the Cylae documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
+
+## ✨ Key Features
+*   **24 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
+*   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
+*   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
+
+## 👶 For New Users (Newbies)
+
+No need to be a Linux wizard! Follow these simple steps.
+
+### Prerequisites
+*   A server/computer running Linux (Debian 11/12 or Ubuntu 22.04+ recommended).
+*   "Root" (administrator) access.
+
+### 🚀 Quick Installation
+
+1.  **Download the binary** (or build it if you don't have the pre-compiled binary).
+2.  **Start the installation** with a single command:
+
+```bash
+sudo ./cylae install
+```
+
+That's it! 🎉
+Cylae will automatically:
+1.  Check and install Docker.
+2.  Scan your hardware (RAM, CPU, Disk).
+3.  Generate secure passwords (`secrets.yaml`).
+4.  Configure the firewall.
+5.  Launch all services.
+
+Once finished, go to `http://YOUR-SERVER-IP` (or the specific ports listed below).
+
+---
+
+## 🤓 For Advanced Users (Experts)
+
+Cylae is built in Rust for performance and reliability. Here is how to use it to its full potential.
+
+### Build from Source
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Clone and build
+git clone https://github.com/your-repo/cylae.git
+cd cylae/cylae
+cargo build --release
+
+# The binary is located in target/release/cylae
+sudo cp target/release/cylae /usr/local/bin/
+```
+
+### CLI Commands
+
+The tool provides several subcommands:
+
+*   `cylae install`: Full idempotent installation (dependencies, config, docker-compose up).
+*   `cylae generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
+*   `cylae status`: Displays detected hardware statistics and the profile (Low/Standard/High).
+
+### ⚙️ Hardware Profiles
+
+Cylae adjusts configuration via `HardwareManager`:
+
+| Profile | Criteria | Optimizations |
+| :--- | :--- | :--- |
+| **LOW** | < 4GB RAM or <= 2 Cores | Disk Transcoding, ArrStack GC disabled, Minimal Mailserver (no antivirus/antispam). |
+| **STANDARD** | 4-16GB RAM | Balanced configuration. |
+| **HIGH** | > 16GB RAM | RAM Transcoding (`/dev/shm`), increased caches. |
+
+*Note: Swap presence is analyzed to avoid OOM on borderline configurations (e.g., 6GB RAM without swap -> Low).*
+
+### 🔒 Secrets Management
+
+Passwords are stored in `secrets.yaml`.
+*   Automatically generated on first launch.
+*   You can modify this file *before* running `install` or `generate` if you wish to set your own passwords.
+
+### 🛠 Services and Ports List
+
+Here is the matrix of deployed services:
+
+| Category | Service | Port (Host) | Internal URL | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Infra** | Nginx Proxy Manager | 80, 81, 443 | `http://IP:81` | Reverse Proxy & SSL |
+| | Portainer | 9000 | `http://IP:9000` | Docker Management |
+| | MariaDB | 3306 | `mariadb` | SQL Database |
+| | Redis | 6379 | `redis` | Cache |
+| | Netdata | 19999 | `http://IP:19999` | Real-time Monitoring |
+| | Uptime Kuma | 3001 | `http://IP:3001` | Uptime Monitoring |
+| | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | Secure DNS (DoH) |
+| | Wireguard | 51820 (UDP) | - | VPN |
+| **Media** | Plex | 32400 | `http://IP:32400` | Streaming Server |
+| | Tautulli | 8181 | `http://IP:8181` | Plex Stats |
+| | Overseerr | 5055 | `http://IP:5055` | Media Requests |
+| **ArrStack** | Sonarr | 8989 | `http://IP:8989` | TV Shows |
+| | Radarr | 7878 | `http://IP:7878` | Movies |
+| | Prowlarr | 9696 | `http://IP:9696` | Torrent Indexers |
+| | Jackett | 9117 | `http://IP:9117` | Indexer Proxy |
+| **Download** | QBittorrent | 8080 | `http://IP:8080` | Torrent Client |
+| **Apps** | Nextcloud | 4443 | `https://IP:4443` | Personal Cloud |
+| | Vaultwarden | 8001 | `http://IP:8001` | Password Manager |
+| | Filebrowser | 8002 | `http://IP:8002` | Web File Manager |
+| | Yourls | 8003 | `http://IP:8003` | URL Shortener |
+| | GLPI | 8088 | `http://IP:8088` | IT Asset Management |
+| | Gitea | 3000, 2222 | `http://IP:3000` | Self-hosted Git |
+| | Roundcube | 8090 | `http://IP:8090` | Webmail |
+| | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
+
+---
+
+Built with ❤️ by the Cylae Team.

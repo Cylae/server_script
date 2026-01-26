@@ -78,6 +78,7 @@ impl HardwareInfo {
         } else {
              // Standard range (4-16GB RAM, >2 Cores)
              // If RAM is on the lower end (4-8GB) and no swap, downgrade to Low for safety
+             // (This is a defensive measure to prevent OOM on machines with just enough RAM but no swap buffer)
              if ram_gb < 8 && swap_gb < 1 {
                  HardwareProfile::Low
              } else {
