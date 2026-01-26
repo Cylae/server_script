@@ -62,11 +62,12 @@ impl HardwareInfo {
     }
 
     fn check_nvidia() -> bool {
-        // Simple check for nvidia-smi
-        match Command::new("which").arg("nvidia-smi").output() {
-            Ok(output) => output.status.success(),
-            Err(_) => false,
-        }
+        // Check for nvidia-smi AND (nvidia-container-cli OR nvidia-container-runtime)
+        let has_smi = Command::new("which").arg("nvidia-smi").output().map(|o| o.status.success()).unwrap_or(false);
+        let has_cli = Command::new("which").arg("nvidia-container-cli").output().map(|o| o.status.success()).unwrap_or(false);
+        let has_runtime = Command::new("which").arg("nvidia-container-runtime").output().map(|o| o.status.success()).unwrap_or(false);
+
+        has_smi && (has_cli || has_runtime)
     }
 
     // For testing logic without system calls

@@ -1,6 +1,6 @@
 use std::process::Command;
 use anyhow::{Result, Context, bail};
-use log::info;
+use log::{info, warn};
 use which::which;
 
 pub fn check_installation() -> bool {
@@ -36,7 +36,9 @@ pub fn install() -> Result<()> {
     }
 
     // Cleanup
-    let _ = std::fs::remove_file("get-docker.sh");
+    if let Err(e) = std::fs::remove_file("get-docker.sh") {
+        warn!("Failed to remove get-docker.sh: {}", e);
+    }
 
     info!("Docker installed successfully.");
     Ok(())

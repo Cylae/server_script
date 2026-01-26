@@ -23,46 +23,46 @@ impl Secrets {
         let path = Path::new("secrets.yaml");
         let mut secrets: Secrets = if path.exists() {
             let content = fs::read_to_string(path).context("Failed to read secrets.yaml")?;
-            serde_yaml::from_str(&content).unwrap_or_default()
+            serde_yaml::from_str(&content).context("Failed to parse secrets.yaml")?
         } else {
             Secrets::default()
         };
 
         let mut changed = false;
         if secrets.mysql_root_password.is_none() {
-            secrets.mysql_root_password = Some(generate_hex(16));
+            secrets.mysql_root_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.mysql_user_password.is_none() {
-            secrets.mysql_user_password = Some(generate_hex(16));
+            secrets.mysql_user_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.nextcloud_admin_password.is_none() {
-            secrets.nextcloud_admin_password = Some(generate_hex(16));
+            secrets.nextcloud_admin_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.nextcloud_db_password.is_none() {
-            secrets.nextcloud_db_password = Some(generate_hex(16));
+            secrets.nextcloud_db_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.mailserver_password.is_none() {
-            secrets.mailserver_password = Some(generate_hex(16));
+            secrets.mailserver_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.glpi_db_password.is_none() {
-            secrets.glpi_db_password = Some(generate_hex(16));
+            secrets.glpi_db_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.gitea_db_password.is_none() {
-            secrets.gitea_db_password = Some(generate_hex(16));
+            secrets.gitea_db_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.roundcube_db_password.is_none() {
-            secrets.roundcube_db_password = Some(generate_hex(16));
+            secrets.roundcube_db_password = Some(generate_hex(16)?);
             changed = true;
         }
         if secrets.yourls_admin_password.is_none() {
-            secrets.yourls_admin_password = Some(generate_hex(16));
+            secrets.yourls_admin_password = Some(generate_hex(16)?);
             changed = true;
         }
 
@@ -76,15 +76,11 @@ impl Secrets {
     }
 }
 
-fn generate_hex(bytes: usize) -> String {
-    if let Ok(mut file) = File::open("/dev/urandom") {
-        let mut buffer = vec![0u8; bytes];
-        if file.read_exact(&mut buffer).is_ok() {
-             return buffer.iter().map(|b| format!("{:02x}", b)).collect();
-        }
-    }
-    // Fallback (weak, but avoids crash if urandom fails)
-    format!("{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos())
+fn generate_hex(bytes: usize) -> Result<String> {
+    let mut file = File::open("/dev/urandom").context("Failed to open /dev/urandom")?;
+    let mut buffer = vec![0u8; bytes];
+    file.read_exact(&mut buffer).context("Failed to read from /dev/urandom")?;
+    Ok(buffer.iter().map(|b| format!("{:02x}", b)).collect())
 }
 
 #[cfg(test)]
@@ -93,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_hex_generation() {
-        let hex = generate_hex(16);
+        let hex = generate_hex(16).unwrap();
         assert_eq!(hex.len(), 32); // 16 bytes = 32 hex chars
     }
 
