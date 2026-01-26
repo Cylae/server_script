@@ -73,6 +73,7 @@ async fn run_install() -> Result<()> {
     docker::install()?;
 
     // 6. Initialize Services
+    configure_services(&hw, &secrets)?;
     initialize_services(&hw, &secrets)?;
 
     // 7. Generate Compose
@@ -118,11 +119,21 @@ async fn run_generate() -> Result<()> {
     // For generate, we might not be in /opt/server_manager, but let's try to load secrets from CWD.
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
+    configure_services(&hw, &secrets)?;
     generate_compose(&hw, &secrets).await
 }
 
+fn configure_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+    info!("Configuring services (generating config files)...");
+    let services = services::get_all_services();
+    for service in services {
+        service.configure(hw, secrets).with_context(|| format!("Failed to configure service: {}", service.name()))?;
+    }
+    Ok(())
+}
+
 fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
-    info!("Initializing services...");
+    info!("Initializing services (system setup)...");
     let services = services::get_all_services();
     for service in services {
         service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
