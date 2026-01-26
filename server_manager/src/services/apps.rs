@@ -2,8 +2,6 @@ use super::Service;
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
-use anyhow::Result;
-use std::process::Command;
 
 pub struct VaultwardenService;
 impl Service for VaultwardenService {
@@ -129,17 +127,6 @@ impl Service for MailService {
             "993:993".to_string(),
         ]
     }
-
-    fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> {
-        let services = vec!["postfix", "exim4", "sendmail"];
-        for svc in services {
-            // Stop and disable conflicting system MTA services
-            let _ = Command::new("systemctl").args(&["stop", svc]).status();
-            let _ = Command::new("systemctl").args(&["disable", svc]).status();
-        }
-        Ok(())
-    }
-
     fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("DMS_DEBUG".to_string(), "0".to_string());
