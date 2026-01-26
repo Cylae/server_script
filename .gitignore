@@ -3,3 +3,10 @@ server_manager/target/
 .venv/
 __pycache__/
 *.pyc
+
+# Generated artifacts
+server_manager/secrets.yaml
+server_manager/docker-compose.yml
+server_manager/config/
+server_manager/media/
+server_manager/transcode/

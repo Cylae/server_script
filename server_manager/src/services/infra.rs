@@ -13,7 +13,7 @@ impl Service for MariaDBService {
     fn image(&self) -> &'static str { "lscr.io/linuxserver/mariadb:latest" }
     fn ports(&self) -> Vec<String> { vec!["3306:3306".to_string()] }
 
-    fn initialize(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
+    fn configure(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
         let init_dir = Path::new("./config/mariadb/initdb.d");
         fs::create_dir_all(init_dir).context("Failed to create mariadb initdb.d")?;
 

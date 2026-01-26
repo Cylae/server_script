@@ -34,13 +34,12 @@ No need to be a Linux wizard! Follow these simple steps.
 *   A server/computer running Linux (Debian 11/12 or Ubuntu 22.04+ recommended).
 *   "Root" (administrator) access.
 
-### 🚀 Quick Installation
+### 🚀 Quick Installation (One Click)
 
-1.  **Download the binary** (or build it if you don't have the pre-compiled binary).
-2.  **Start the installation** with a single command:
+The easiest way to install Server Manager on a fresh VM (Google Cloud, AWS, etc.) is to use the bootstrap script. It handles everything: sudo access, dependencies, and compiling the tool.
 
 ```bash
-sudo ./server_manager install
+curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh | bash
 ```
 
 That's it! 🎉
@@ -162,13 +161,12 @@ Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simpl
 *   Un serveur/ordinateur sous Linux (Debian 11/12 ou Ubuntu 22.04+ recommandés).
 *   Un accès "root" (administrateur).
 
-### 🚀 Installation Rapide
+### 🚀 Installation Rapide (Un Clic)
 
-1.  **Téléchargez le binaire** (ou compilez-le si vous n'avez pas le binaire pré-compilé).
-2.  **Lancez l'installation** avec une seule commande :
+La méthode la plus simple pour installer Server Manager sur une VM vierge (Google Cloud, AWS, etc.) est d'utiliser le script de bootstrap. Il gère tout : accès sudo, dépendances et compilation.
 
 ```bash
-sudo ./server_manager install
+curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh | bash
 ```
 
 C'est tout ! 🎉

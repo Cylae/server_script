@@ -2,6 +2,9 @@ use super::Service;
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+use anyhow::{Result, Context};
 
 pub struct VaultwardenService;
 impl Service for VaultwardenService {
@@ -98,6 +101,31 @@ impl Service for NextcloudService {
     fn name(&self) -> &'static str { "nextcloud" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/nextcloud:latest" }
     fn ports(&self) -> Vec<String> { vec!["4443:443".to_string()] }
+    fn configure(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
+        let config_dir = Path::new("./config/nextcloud");
+        fs::create_dir_all(config_dir).context("Failed to create nextcloud config dir")?;
+
+        let escape_php = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+        let db_pass = escape_php(&secrets.nextcloud_db_password.clone().unwrap_or_default());
+        let admin_pass = escape_php(&secrets.nextcloud_admin_password.clone().unwrap_or_default());
+
+        let php_config = format!(r#"<?php
+$AUTOCONFIG = array(
+  "dbtype"        => "mysql",
+  "dbname"        => "nextcloud",
+  "dbuser"        => "nextcloud",
+  "dbpass"        => "{}",
+  "dbhost"        => "mariadb",
+  "directory"     => "/data",
+  "adminlogin"    => "admin",
+  "adminpass"     => "{}",
+);
+"#, db_pass, admin_pass);
+
+        fs::write(config_dir.join("autoconfig.php"), php_config).context("Failed to write autoconfig.php")?;
+        Ok(())
+    }
+
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("PUID".to_string(), "1000".to_string());
