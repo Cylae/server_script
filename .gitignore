@@ -1,5 +1,5 @@
 target/
-cylae/target/
+server_manager/target/
 .venv/
 __pycache__/
 *.pyc
