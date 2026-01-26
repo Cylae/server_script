@@ -105,8 +105,9 @@ impl Service for NextcloudService {
         let config_dir = Path::new("./config/nextcloud");
         fs::create_dir_all(config_dir).context("Failed to create nextcloud config dir")?;
 
-        let db_pass = secrets.nextcloud_db_password.clone().unwrap_or_default();
-        let admin_pass = secrets.nextcloud_admin_password.clone().unwrap_or_default();
+        let escape_php = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+        let db_pass = escape_php(&secrets.nextcloud_db_password.clone().unwrap_or_default());
+        let admin_pass = escape_php(&secrets.nextcloud_admin_password.clone().unwrap_or_default());
 
         let php_config = format!(r#"<?php
 $AUTOCONFIG = array(
