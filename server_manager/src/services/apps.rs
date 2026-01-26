@@ -35,7 +35,7 @@ impl Service for YourlsService {
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("YOURLS_DB_HOST".to_string(), "mariadb".to_string());
-        vars.insert("YOURLS_DB_USER".to_string(), "cylae".to_string());
+        vars.insert("YOURLS_DB_USER".to_string(), "server_manager".to_string());
         vars.insert("YOURLS_DB_PASS".to_string(), secrets.mysql_user_password.clone().unwrap_or_default());
         vars.insert("YOURLS_DB_NAME".to_string(), "yourls".to_string());
         vars.insert("YOURLS_USER".to_string(), "admin".to_string());

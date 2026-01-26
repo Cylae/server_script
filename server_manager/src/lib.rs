@@ -1,139 +1,31 @@
-mod core;
-mod services;
+pub mod core;
+pub mod services;
 
-use clap::{Parser, Subcommand};
-use log::{info, error, LevelFilter};
+// Re-export build_compose_structure from main (we need to move it or expose it)
+// Since main.rs is a binary, we can't easily import from it in integration tests unless we use a lib.rs structure.
+// The common pattern is to have the logic in lib.rs and main.rs just calls it.
+// I will move build_compose_structure to lib.rs or make main.rs just a thin wrapper.
+
+// Wait, I can't import functions from main.rs into integration tests directly if it's not a lib.
+// I need to refactor slightly.
+// Move `build_compose_structure` to a new module `src/orchestrator.rs` or keep it in `lib.rs`.
+
+// Let's check where `main.rs` is. It is in `src/main.rs`.
+// I should create `src/lib.rs` that exposes the modules and the orchestrator logic.
+
+// Currently `main.rs` has `mod core; mod services;`.
+// I will move these to `lib.rs` and make `main.rs` use the lib.
+
+pub use crate::core::hardware;
+pub use crate::core::secrets;
+
+use anyhow::Result;
 use std::collections::HashMap;
-use anyhow::{Result, Context};
-use std::process::Command;
-use std::fs;
 
-use crate::core::{system, hardware, firewall, docker, secrets};
+// I will duplicate the logic or move it. Moving is better.
+// I'll put build_compose_structure here.
 
-#[derive(Parser)]
-#[command(name = "cylae")]
-#[command(about = "Next-Gen Media Server Orchestrator", long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Full installation (Idempotent)
-    Install,
-    /// Show system status
-    Status,
-    /// Generate docker-compose.yml only
-    Generate,
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    env_logger::builder().filter_level(LevelFilter::Info).init();
-
-    let cli = Cli::parse();
-
-    match cli.command {
-        Commands::Install => run_install().await?,
-        Commands::Status => run_status(),
-        Commands::Generate => run_generate().await?,
-    }
-
-    Ok(())
-}
-
-async fn run_install() -> Result<()> {
-    info!("Starting Cylae Installation...");
-
-    // 1. Root Check
-    system::check_root()?;
-
-    // 1.1 Create Install Directory
-    let install_dir = std::path::Path::new("/opt/cylae");
-    if !install_dir.exists() {
-        info!("Creating installation directory at /opt/cylae...");
-        fs::create_dir_all(install_dir).context("Failed to create /opt/cylae")?;
-    }
-    std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/cylae")?;
-
-    // 1.2 Load Secrets
-    let secrets = secrets::Secrets::load_or_create()?;
-
-    // 2. Hardware Detection
-    let hw = hardware::HardwareInfo::detect();
-
-    // 3. System Dependencies & Optimization
-    system::install_dependencies()?;
-    system::apply_optimizations()?;
-
-    // 4. Firewall
-    firewall::configure()?;
-
-    // 5. Docker
-    docker::install()?;
-
-    // 6. Initialize Services
-    initialize_services(&hw, &secrets)?;
-
-    // 7. Generate Compose
-    generate_compose(&hw, &secrets).await?;
-
-    // 8. Launch
-    info!("Launching Services via Docker Compose...");
-    let status = Command::new("docker")
-        .args(&["compose", "up", "-d", "--remove-orphans"])
-        .status()
-        .context("Failed to run docker compose up")?;
-
-    if status.success() {
-        info!("Cylae Stack Deployed Successfully! 🚀");
-    } else {
-        error!("Docker Compose failed.");
-    }
-
-    Ok(())
-}
-
-fn run_status() {
-    let hw = hardware::HardwareInfo::detect();
-    println!("=== System Status ===");
-    println!("RAM: {} GB", hw.ram_gb);
-    println!("Swap: {} GB", hw.swap_gb);
-    println!("Disk: {} GB", hw.disk_gb);
-    println!("Cores: {}", hw.cpu_cores);
-    println!("Profile: {:?}", hw.profile);
-    println!("Nvidia GPU: {}", hw.has_nvidia);
-    println!("Intel QuickSync: {}", hw.has_intel_quicksync);
-
-    println!("\n=== Docker Status ===");
-    if let Ok(true) = Command::new("docker").arg("ps").status().map(|s| s.success()) {
-         println!("Docker is running.");
-    } else {
-         println!("Docker is NOT running.");
-    }
-}
-
-async fn run_generate() -> Result<()> {
-    let hw = hardware::HardwareInfo::detect();
-    // For generate, we might not be in /opt/cylae, but let's try to load secrets from CWD.
-    // We propagate the error because generating a compose file with empty passwords is bad.
-    let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
-    generate_compose(&hw, &secrets).await
-}
-
-fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
-    info!("Initializing services...");
-    let services = services::get_all_services();
-    for service in services {
-        service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
-    }
-    Ok(())
-}
-
-async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
-    info!("Generating docker-compose.yml based on hardware profile...");
-
+pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<serde_yaml::Mapping> {
     let services = services::get_all_services();
 
     let mut compose_services = HashMap::new();
@@ -197,9 +89,6 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
         // Healthcheck
         if let Some(cmd) = service.healthcheck() {
              let mut hc = serde_yaml::Mapping::new();
-             // curl command needs to be split if using ["CMD-SHELL", ...] or just string.
-             // Docker compose supports string or list.
-             // We'll use list for safety: ["CMD-SHELL", cmd]
              let mut test_seq = serde_yaml::Sequence::new();
              test_seq.push("CMD-SHELL".into());
              test_seq.push(cmd.into());
@@ -268,9 +157,9 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
 
     // Networks definition
     let mut networks_map = serde_yaml::Mapping::new();
-    let mut cylae_net = serde_yaml::Mapping::new();
-    cylae_net.insert("driver".into(), "bridge".into());
-    networks_map.insert("cylae_net".into(), serde_yaml::Value::Mapping(cylae_net));
+    let mut server_manager_net = serde_yaml::Mapping::new();
+    server_manager_net.insert("driver".into(), "bridge".into());
+    networks_map.insert("server_manager_net".into(), serde_yaml::Value::Mapping(server_manager_net));
 
     // Top Level
     let mut top_level = serde_yaml::Mapping::new();
@@ -279,10 +168,5 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
     )));
     top_level.insert("networks".into(), serde_yaml::Value::Mapping(networks_map));
 
-    let yaml_output = serde_yaml::to_string(&top_level)?;
-
-    fs::write("docker-compose.yml", yaml_output).context("Failed to write docker-compose.yml")?;
-    info!("docker-compose.yml generated.");
-
-    Ok(())
+    Ok(top_level)
 }
