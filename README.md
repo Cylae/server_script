@@ -39,7 +39,7 @@ No need to be a Linux wizard! Follow these simple steps.
 The easiest way to install Server Manager on a fresh VM (Google Cloud, AWS, etc.) is to use the bootstrap script. It handles everything: sudo access, dependencies, and compiling the tool.
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Cylae/server_script/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh | bash
 ```
 
 That's it! 🎉
@@ -166,7 +166,7 @@ Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simpl
 La méthode la plus simple pour installer Server Manager sur une VM vierge (Google Cloud, AWS, etc.) est d'utiliser le script de bootstrap. Il gère tout : accès sudo, dépendances et compilation.
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Cylae/server_script/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh | bash
 ```
 
 C'est tout ! 🎉

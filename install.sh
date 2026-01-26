@@ -22,7 +22,7 @@ if [ "$EUID" -ne 0 ]; then
     # We will re-curl the script.
 
     echo "Downloading installer to temporary file for elevation..."
-    curl -sL https://raw.githubusercontent.com/Cylae/server_script/main/install.sh -o "$TEMP_SCRIPT"
+    curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh -o "$TEMP_SCRIPT"
     chmod +x "$TEMP_SCRIPT"
     sudo "$TEMP_SCRIPT" "$@"
     rm -f "$TEMP_SCRIPT"
