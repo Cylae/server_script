@@ -43,8 +43,8 @@ impl Service for NginxProxyService {
 pub struct DNSCryptService;
 impl Service for DNSCryptService {
     fn name(&self) -> &'static str { "dnscrypt-proxy" }
-    fn image(&self) -> &'static str { "lscr.io/linuxserver/dnscrypt-proxy:latest" }
-    fn ports(&self) -> Vec<String> { vec!["5300:53/tcp".to_string(), "5300:53/udp".to_string()] }
+    fn image(&self) -> &'static str { "klutchell/dnscrypt-proxy:latest" }
+    fn ports(&self) -> Vec<String> { vec!["5300:5053/tcp".to_string(), "5300:5053/udp".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/dnscrypt:/config".to_string()]
     }
