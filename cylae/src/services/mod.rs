@@ -7,10 +7,21 @@ pub mod apps;
 use crate::core::hardware::HardwareInfo;
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
+use std::path::Path;
+use anyhow::Result;
 
 pub trait Service: Send + Sync {
     fn name(&self) -> &'static str;
     fn image(&self) -> &'static str;
+
+    fn initialize(&self, _hw: &HardwareInfo, _install_dir: &Path) -> Result<()> { Ok(()) }
+
+    fn logging(&self) -> Option<HashMap<String, String>> {
+        let mut opts = HashMap::new();
+        opts.insert("max-size".to_string(), "10m".to_string());
+        opts.insert("max-file".to_string(), "3".to_string());
+        Some(opts)
+    }
 
     fn ports(&self) -> Vec<String> { vec![] }
     fn env_vars(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> { HashMap::new() }

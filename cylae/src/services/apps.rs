@@ -1,7 +1,10 @@
 use super::Service;
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
+use crate::core::system;
 use std::collections::HashMap;
+use std::path::Path;
+use anyhow::Result;
 
 pub struct VaultwardenService;
 impl Service for VaultwardenService {
@@ -119,6 +122,14 @@ pub struct MailService;
 impl Service for MailService {
     fn name(&self) -> &'static str { "mailserver" }
     fn image(&self) -> &'static str { "mailserver/docker-mailserver:latest" }
+
+    fn initialize(&self, _hw: &HardwareInfo, _install_dir: &Path) -> Result<()> {
+        for service in ["postfix", "exim4", "sendmail"] {
+            system::stop_service(service)?;
+        }
+        Ok(())
+    }
+
     fn ports(&self) -> Vec<String> {
         vec![
             "25:25".to_string(),

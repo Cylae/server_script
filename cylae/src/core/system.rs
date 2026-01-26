@@ -40,6 +40,32 @@ pub fn install_dependencies() -> Result<()> {
     Ok(())
 }
 
+pub fn stop_service(service: &str) -> Result<()> {
+    // check if active
+    let status = Command::new("systemctl")
+        .arg("is-active")
+        .arg(service)
+        .output();
+
+    if let Ok(output) = status {
+        if output.status.success() {
+             info!("Stopping conflicting service: {}", service);
+             Command::new("systemctl")
+                .arg("stop")
+                .arg(service)
+                .status()
+                .context(format!("Failed to stop service {}", service))?;
+
+             Command::new("systemctl")
+                .arg("disable")
+                .arg(service)
+                .status()
+                .context(format!("Failed to disable service {}", service))?;
+        }
+    }
+    Ok(())
+}
+
 pub fn apply_optimizations() -> Result<()> {
     info!("Applying system optimizations for media server performance...");
 

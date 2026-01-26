@@ -73,10 +73,16 @@ async fn run_install() -> Result<()> {
     // 5. Docker
     docker::install()?;
 
-    // 6. Generate Compose
-    generate_compose(&hw, &secrets).await?;
+    // 6. Initialize Services
+    let services = services::get_all_services();
+    for service in &services {
+        service.initialize(&hw, install_dir).context(format!("Failed to initialize service {}", service.name()))?;
+    }
 
-    // 7. Launch
+    // 7. Generate Compose
+    generate_compose(&hw, &secrets, &services).await?;
+
+    // 8. Launch
     info!("Launching Services via Docker Compose...");
     let status = Command::new("docker")
         .args(&["compose", "up", "-d", "--remove-orphans"])
@@ -116,13 +122,12 @@ async fn run_generate() -> Result<()> {
     // For generate, we might not be in /opt/cylae, but let's try to load secrets from CWD.
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
-    generate_compose(&hw, &secrets).await
+    let services = services::get_all_services();
+    generate_compose(&hw, &secrets, &services).await
 }
 
-async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, services: &[Box<dyn services::Service>]) -> Result<()> {
     info!("Generating docker-compose.yml based on hardware profile...");
-
-    let services = services::get_all_services();
 
     let mut compose_services = HashMap::new();
 
@@ -249,6 +254,19 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
                  sys_seq.push(s.into());
              }
              config.insert("sysctls".into(), serde_yaml::Value::Sequence(sys_seq));
+        }
+
+        // Logging
+        if let Some(logging_opts) = service.logging() {
+            let mut logging = serde_yaml::Mapping::new();
+            logging.insert("driver".into(), "json-file".into());
+
+            let mut opts = serde_yaml::Mapping::new();
+            for (k, v) in logging_opts {
+                opts.insert(k.into(), v.into());
+            }
+            logging.insert("options".into(), serde_yaml::Value::Mapping(opts));
+            config.insert("logging".into(), serde_yaml::Value::Mapping(logging));
         }
 
         compose_services.insert(service.name().to_string(), serde_yaml::Value::Mapping(config));

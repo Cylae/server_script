@@ -1,12 +1,41 @@
 use super::Service;
-use crate::core::hardware::{HardwareInfo};
+use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
+use crate::core::system;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+use anyhow::{Result, Context};
+use log::info;
 
 pub struct MariaDBService;
 impl Service for MariaDBService {
     fn name(&self) -> &'static str { "mariadb" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/mariadb:latest" }
+
+    fn initialize(&self, hw: &HardwareInfo, install_dir: &Path) -> Result<()> {
+        let buffer_size = match hw.profile {
+            HardwareProfile::Low => "256M",
+            HardwareProfile::Standard => "1G",
+            HardwareProfile::High => "4G",
+        };
+
+        info!("Generating MariaDB optimization config (innodb_buffer_pool_size={})", buffer_size);
+
+        let config_content = format!(
+            "[mysqld]\ninnodb_buffer_pool_size={}\n",
+            buffer_size
+        );
+
+        let config_dir = install_dir.join("config/mariadb");
+        fs::create_dir_all(&config_dir).context("Failed to create mariadb config directory")?;
+
+        let config_path = config_dir.join("custom.cnf");
+        fs::write(config_path, config_content).context("Failed to write custom.cnf")?;
+
+        Ok(())
+    }
+
     fn ports(&self) -> Vec<String> { vec!["3306:3306".to_string()] }
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
@@ -34,6 +63,14 @@ pub struct NginxProxyService;
 impl Service for NginxProxyService {
     fn name(&self) -> &'static str { "nginx-proxy" }
     fn image(&self) -> &'static str { "jc21/nginx-proxy-manager:latest" }
+
+    fn initialize(&self, _hw: &HardwareInfo, _install_dir: &Path) -> Result<()> {
+        for service in ["apache2", "nginx", "caddy", "httpd"] {
+            system::stop_service(service)?;
+        }
+        Ok(())
+    }
+
     fn ports(&self) -> Vec<String> { vec!["80:80".to_string(), "81:81".to_string(), "443:443".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/npm:/data".to_string(), "./config/npm/letsencrypt:/etc/letsencrypt".to_string()]
@@ -96,5 +133,68 @@ impl Service for UptimeKumaService {
     fn ports(&self) -> Vec<String> { vec!["3001:3001".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/uptime-kuma:/app/data".to_string()]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_mariadb_config_generation() {
+        // Setup
+        let service = MariaDBService;
+        let install_dir = std::env::temp_dir().join("cylae_test_mariadb");
+        let _ = fs::remove_dir_all(&install_dir);
+        fs::create_dir_all(&install_dir).unwrap();
+
+        // Case 1: Low Profile
+        let hw_low = HardwareInfo {
+            profile: HardwareProfile::Low,
+            ram_gb: 2,
+            cpu_cores: 2,
+            has_nvidia: false,
+            has_intel_quicksync: false,
+            disk_gb: 50,
+            swap_gb: 0,
+        };
+
+        service.initialize(&hw_low, &install_dir).unwrap();
+        let config_path = install_dir.join("config/mariadb/custom.cnf");
+        assert!(config_path.exists());
+        let content = fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("innodb_buffer_pool_size=256M"));
+
+        // Case 2: Standard Profile
+        let hw_std = HardwareInfo {
+            profile: HardwareProfile::Standard,
+            ram_gb: 8,
+            cpu_cores: 4,
+            has_nvidia: false,
+            has_intel_quicksync: false,
+            disk_gb: 100,
+            swap_gb: 2,
+        };
+        service.initialize(&hw_std, &install_dir).unwrap();
+        let content = fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("innodb_buffer_pool_size=1G"));
+
+         // Case 3: High Profile
+        let hw_high = HardwareInfo {
+            profile: HardwareProfile::High,
+            ram_gb: 32,
+            cpu_cores: 8,
+            has_nvidia: false,
+            has_intel_quicksync: false,
+            disk_gb: 500,
+            swap_gb: 0,
+        };
+        service.initialize(&hw_high, &install_dir).unwrap();
+        let content = fs::read_to_string(&config_path).unwrap();
+        assert!(content.contains("innodb_buffer_pool_size=4G"));
+
+        // Cleanup
+        fs::remove_dir_all(&install_dir).unwrap();
     }
 }
