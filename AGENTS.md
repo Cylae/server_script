@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Scope
-This directory contains the `cylae` project, a Rust-based media server orchestrator.
+This directory contains the `server_manager` project, a Rust-based media server orchestrator.
 
 ## Principles
 1.  **Rust First:** We do not use Python or Bash scripts for logic. Everything is in Rust.

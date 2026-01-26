@@ -11,7 +11,7 @@ use std::fs;
 use crate::core::{system, hardware, firewall, docker, secrets};
 
 #[derive(Parser)]
-#[command(name = "cylae")]
+#[command(name = "server_manager")]
 #[command(about = "Next-Gen Media Server Orchestrator", long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -44,18 +44,18 @@ async fn main() -> Result<()> {
 }
 
 async fn run_install() -> Result<()> {
-    info!("Starting Cylae Installation...");
+    info!("Starting Server Manager Installation...");
 
     // 1. Root Check
     system::check_root()?;
 
     // 1.1 Create Install Directory
-    let install_dir = std::path::Path::new("/opt/cylae");
+    let install_dir = std::path::Path::new("/opt/server_manager");
     if !install_dir.exists() {
-        info!("Creating installation directory at /opt/cylae...");
-        fs::create_dir_all(install_dir).context("Failed to create /opt/cylae")?;
+        info!("Creating installation directory at /opt/server_manager...");
+        fs::create_dir_all(install_dir).context("Failed to create /opt/server_manager")?;
     }
-    std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/cylae")?;
+    std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/server_manager")?;
 
     // 1.2 Load Secrets
     let secrets = secrets::Secrets::load_or_create()?;
@@ -73,10 +73,13 @@ async fn run_install() -> Result<()> {
     // 5. Docker
     docker::install()?;
 
-    // 6. Generate Compose
+    // 6. Initialize Services
+    initialize_services(&hw, &secrets)?;
+
+    // 7. Generate Compose
     generate_compose(&hw, &secrets).await?;
 
-    // 7. Launch
+    // 8. Launch
     info!("Launching Services via Docker Compose...");
     let status = Command::new("docker")
         .args(&["compose", "up", "-d", "--remove-orphans"])
@@ -84,7 +87,7 @@ async fn run_install() -> Result<()> {
         .context("Failed to run docker compose up")?;
 
     if status.success() {
-        info!("Cylae Stack Deployed Successfully! 🚀");
+        info!("Server Manager Stack Deployed Successfully! 🚀");
     } else {
         error!("Docker Compose failed.");
     }
@@ -117,6 +120,15 @@ async fn run_generate() -> Result<()> {
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     generate_compose(&hw, &secrets).await
+}
+
+fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+    info!("Initializing services...");
+    let services = services::get_all_services();
+    for service in services {
+        service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
+    }
+    Ok(())
 }
 
 async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
@@ -256,9 +268,9 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
 
     // Networks definition
     let mut networks_map = serde_yaml::Mapping::new();
-    let mut cylae_net = serde_yaml::Mapping::new();
-    cylae_net.insert("driver".into(), "bridge".into());
-    networks_map.insert("cylae_net".into(), serde_yaml::Value::Mapping(cylae_net));
+    let mut sm_net = serde_yaml::Mapping::new();
+    sm_net.insert("driver".into(), "bridge".into());
+    networks_map.insert("server_manager_net".into(), serde_yaml::Value::Mapping(sm_net));
 
     // Top Level
     let mut top_level = serde_yaml::Mapping::new();

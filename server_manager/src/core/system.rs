@@ -26,6 +26,16 @@ pub fn install_dependencies() -> Result<()> {
         "build-essential"
     ];
 
+    info!("Updating package lists...");
+    let update_status = Command::new("apt-get")
+        .arg("update")
+        .status()
+        .context("Failed to execute apt-get update")?;
+
+    if !update_status.success() {
+        warn!("apt-get update failed, continuing with install...");
+    }
+
     info!("Installing dependencies: {:?}", pkgs);
     let status = Command::new("apt-get")
         .arg("install")
@@ -44,14 +54,14 @@ pub fn install_dependencies() -> Result<()> {
 pub fn apply_optimizations() -> Result<()> {
     info!("Applying system optimizations for media server performance...");
 
-    let config = r#"# Cylae Media Server Optimizations
+    let config = r#"# Server Manager Media Server Optimizations
 fs.inotify.max_user_watches=524288
 vm.swappiness=10
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 "#;
 
-    let path = Path::new("/etc/sysctl.d/99-cylae-optimization.conf");
+    let path = Path::new("/etc/sysctl.d/99-server_manager-optimization.conf");
     fs::write(path, config).context("Failed to write sysctl config")?;
 
     let status = Command::new("sysctl")
