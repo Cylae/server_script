@@ -11,7 +11,7 @@ use std::fs;
 use crate::core::{system, hardware, firewall, docker, secrets};
 
 #[derive(Parser)]
-#[command(name = "cylae")]
+#[command(name = "server_manager")]
 #[command(about = "Next-Gen Media Server Orchestrator", long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -44,18 +44,18 @@ async fn main() -> Result<()> {
 }
 
 async fn run_install() -> Result<()> {
-    info!("Starting Cylae Installation...");
+    info!("Starting Server Manager Installation...");
 
     // 1. Root Check
     system::check_root()?;
 
     // 1.1 Create Install Directory
-    let install_dir = std::path::Path::new("/opt/cylae");
+    let install_dir = std::path::Path::new("/opt/server_manager");
     if !install_dir.exists() {
-        info!("Creating installation directory at /opt/cylae...");
-        fs::create_dir_all(install_dir).context("Failed to create /opt/cylae")?;
+        info!("Creating installation directory at /opt/server_manager...");
+        fs::create_dir_all(install_dir).context("Failed to create /opt/server_manager")?;
     }
-    std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/cylae")?;
+    std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/server_manager")?;
 
     // 1.2 Load Secrets
     let secrets = secrets::Secrets::load_or_create()?;
@@ -87,7 +87,7 @@ async fn run_install() -> Result<()> {
         .context("Failed to run docker compose up")?;
 
     if status.success() {
-        info!("Cylae Stack Deployed Successfully! 🚀");
+        info!("Server Manager Stack Deployed Successfully! 🚀");
     } else {
         error!("Docker Compose failed.");
     }
@@ -116,7 +116,7 @@ fn run_status() {
 
 async fn run_generate() -> Result<()> {
     let hw = hardware::HardwareInfo::detect();
-    // For generate, we might not be in /opt/cylae, but let's try to load secrets from CWD.
+    // For generate, we might not be in /opt/server_manager, but let's try to load secrets from CWD.
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     generate_compose(&hw, &secrets).await
@@ -268,9 +268,9 @@ async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secret
 
     // Networks definition
     let mut networks_map = serde_yaml::Mapping::new();
-    let mut cylae_net = serde_yaml::Mapping::new();
-    cylae_net.insert("driver".into(), "bridge".into());
-    networks_map.insert("cylae_net".into(), serde_yaml::Value::Mapping(cylae_net));
+    let mut server_manager_net = serde_yaml::Mapping::new();
+    server_manager_net.insert("driver".into(), "bridge".into());
+    networks_map.insert("server_manager_net".into(), serde_yaml::Value::Mapping(server_manager_net));
 
     // Top Level
     let mut top_level = serde_yaml::Mapping::new();

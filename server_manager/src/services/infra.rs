@@ -54,8 +54,8 @@ impl Service for MariaDBService {
         vars.insert("PUID".to_string(), "1000".to_string());
         vars.insert("PGID".to_string(), "1000".to_string());
         vars.insert("MYSQL_ROOT_PASSWORD".to_string(), secrets.mysql_root_password.clone().unwrap_or_default());
-        vars.insert("MYSQL_DATABASE".to_string(), "cylae".to_string());
-        vars.insert("MYSQL_USER".to_string(), "cylae".to_string());
+        vars.insert("MYSQL_DATABASE".to_string(), "server_manager".to_string());
+        vars.insert("MYSQL_USER".to_string(), "server_manager".to_string());
         vars.insert("MYSQL_PASSWORD".to_string(), secrets.mysql_user_password.clone().unwrap_or_default());
         vars
     }
