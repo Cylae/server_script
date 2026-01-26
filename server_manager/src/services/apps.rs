@@ -11,6 +11,11 @@ impl Service for VaultwardenService {
     fn name(&self) -> &'static str { "vaultwarden" }
     fn image(&self) -> &'static str { "vaultwarden/server:latest" }
     fn ports(&self) -> Vec<String> { vec!["8001:80".to_string()] }
+    fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("ADMIN_TOKEN".to_string(), secrets.vaultwarden_admin_token.clone().unwrap_or_default());
+        vars
+    }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/vaultwarden:/data".to_string()]
     }
@@ -64,6 +69,15 @@ impl Service for GiteaService {
     fn name(&self) -> &'static str { "gitea" }
     fn image(&self) -> &'static str { "gitea/gitea:latest" }
     fn ports(&self) -> Vec<String> { vec!["3000:3000".to_string(), "2222:22".to_string()] }
+    fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("GITEA__database__DB_TYPE".to_string(), "mysql".to_string());
+        vars.insert("GITEA__database__HOST".to_string(), "mariadb:3306".to_string());
+        vars.insert("GITEA__database__NAME".to_string(), "gitea".to_string());
+        vars.insert("GITEA__database__USER".to_string(), "gitea".to_string());
+        vars.insert("GITEA__database__PASSWD".to_string(), secrets.gitea_db_password.clone().unwrap_or_default());
+        vars
+    }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec![
             "./config/gitea:/data".to_string(),
