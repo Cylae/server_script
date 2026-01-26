@@ -1,10 +1,10 @@
-# Cylae - Next-Gen Media Server Orchestrator 🚀
+# Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Cylae Banner](https://img.shields.io/badge/Status-Stable-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Stable-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
-**Cylae** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 24 Docker services for optimal performance.
+**Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 24 Docker services for optimal performance.
 
-**Cylae** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 24 services Docker pour des performances optimales.
+**Server Manager** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 24 services Docker pour des performances optimales.
 
 ---
 
@@ -18,7 +18,7 @@
 <a name="-english"></a>
 # 🇬🇧 English
 
-Welcome to the Cylae documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
+Welcome to the Server Manager documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
 
 ## ✨ Key Features
 *   **24 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
@@ -40,11 +40,11 @@ No need to be a Linux wizard! Follow these simple steps.
 2.  **Start the installation** with a single command:
 
 ```bash
-sudo ./cylae install
+sudo ./server_manager install
 ```
 
 That's it! 🎉
-Cylae will automatically:
+Server Manager will automatically:
 1.  Install system dependencies (curl, git, build-essential, etc.).
 2.  Check and install Docker.
 3.  Scan your hardware (RAM, CPU, Disk).
@@ -58,7 +58,7 @@ Once finished, go to `http://YOUR-SERVER-IP` (or the specific ports listed below
 
 ## 🤓 For Advanced Users (Experts)
 
-Cylae is built in Rust for performance and reliability. Here is how to use it to its full potential.
+Server Manager is built in Rust for performance and reliability. Here is how to use it to its full potential.
 
 ### Build from Source
 
@@ -67,25 +67,25 @@ Cylae is built in Rust for performance and reliability. Here is how to use it to
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone and build
-git clone https://github.com/your-repo/cylae.git
-cd cylae/cylae
+git clone https://github.com/your-repo/server_manager.git
+cd server_manager/server_manager
 cargo build --release
 
-# The binary is located in target/release/cylae
-sudo cp target/release/cylae /usr/local/bin/
+# The binary is located in target/release/server_manager
+sudo cp target/release/server_manager /usr/local/bin/
 ```
 
 ### CLI Commands
 
 The tool provides several subcommands:
 
-*   `cylae install`: Full idempotent installation (dependencies, config, docker-compose up).
-*   `cylae generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
-*   `cylae status`: Displays detected hardware statistics and the profile (Low/Standard/High).
+*   `server_manager install`: Full idempotent installation (dependencies, config, docker-compose up).
+*   `server_manager generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
+*   `server_manager status`: Displays detected hardware statistics and the profile (Low/Standard/High).
 
 ### ⚙️ Hardware Profiles
 
-Cylae adjusts configuration via `HardwareManager`:
+Server Manager adjusts configuration via `HardwareManager`:
 
 | Profile | Criteria | Optimizations |
 | :--- | :--- | :--- |
@@ -137,7 +137,7 @@ Here is the matrix of deployed services:
 <a name="-français"></a>
 # 🇫🇷 Français
 
-Bienvenue sur la documentation de Cylae. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
+Bienvenue sur la documentation de Server Manager. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
 
 ## ✨ Fonctionnalités Clés
 *   **24 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
@@ -159,11 +159,11 @@ Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simpl
 2.  **Lancez l'installation** avec une seule commande :
 
 ```bash
-sudo ./cylae install
+sudo ./server_manager install
 ```
 
 C'est tout ! 🎉
-Cylae va automatiquement :
+Server Manager va automatiquement :
 1.  Installer les dépendances système (curl, git, build-essential, etc.).
 2.  Vérifier et installer Docker.
 3.  Scanner votre matériel (RAM, CPU, Disque).
@@ -177,7 +177,7 @@ Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports sp
 
 ## 🤓 Pour les Utilisateurs Avancés (Experts)
 
-Cylae est construit en Rust pour la performance et la fiabilité. Voici comment l'utiliser au maximum de son potentiel.
+Server Manager est construit en Rust pour la performance et la fiabilité. Voici comment l'utiliser au maximum de son potentiel.
 
 ### Compilation depuis les sources
 
@@ -186,25 +186,25 @@ Cylae est construit en Rust pour la performance et la fiabilité. Voici comment 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Cloner et compiler
-git clone https://github.com/votre-repo/cylae.git
-cd cylae/cylae
+git clone https://github.com/votre-repo/server_manager.git
+cd server_manager/server_manager
 cargo build --release
 
-# Le binaire est dans target/release/cylae
-sudo cp target/release/cylae /usr/local/bin/
+# Le binaire est dans target/release/server_manager
+sudo cp target/release/server_manager /usr/local/bin/
 ```
 
 ### Commandes CLI
 
 L'outil dispose de plusieurs sous-commandes :
 
-*   `cylae install` : Installation complète idempotente (dépendances, config, docker-compose up).
-*   `cylae generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
-*   `cylae status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
+*   `server_manager install` : Installation complète idempotente (dépendances, config, docker-compose up).
+*   `server_manager generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
+*   `server_manager status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
 
 ### ⚙️ Profils Matériels (Hardware Profiles)
 
-Cylae ajuste la configuration via `HardwareManager` :
+Server Manager ajuste la configuration via `HardwareManager` :
 
 | Profil | Critères | Optimisations |
 | :--- | :--- | :--- |
@@ -253,4 +253,4 @@ Voici la matrice des services déployés :
 
 ---
 
-Built with ❤️ by the Cylae Team.
+Built with ❤️ by the Server Manager Team.
