@@ -88,11 +88,42 @@ async fn run_install() -> Result<()> {
 
     if status.success() {
         info!("Server Manager Stack Deployed Successfully! 🚀");
+        print_deployment_summary(&secrets);
     } else {
         error!("Docker Compose failed.");
     }
 
     Ok(())
+}
+
+fn print_deployment_summary(secrets: &secrets::Secrets) {
+    println!("\n=================================================================================");
+    println!("                           DEPLOYMENT SUMMARY 🚀");
+    println!("=================================================================================");
+    println!("{:<15} | {:<25} | {:<15} | {}", "Service", "URL", "User", "Password / Info");
+    println!("{:<15} | {:<25} | {:<15} | {}", "-------", "---", "----", "---------------");
+
+    let print_row = |service: &str, url: &str, user: &str, pass: &str| {
+        println!("{:<15} | {:<25} | {:<15} | {}", service, url, user, pass);
+    };
+
+    // Helper to format Option<String>
+    let pass = |opt: &Option<String>| opt.clone().unwrap_or_else(|| "ERROR".to_string());
+
+    print_row("Nginx Proxy", "http://<IP>:81", "admin@example.com", "changeme");
+    print_row("Portainer", "http://<IP>:9000", "admin", "Set on first login");
+    print_row("Nextcloud", "https://<IP>:4443", "admin", &pass(&secrets.nextcloud_admin_password));
+    print_row("Vaultwarden", "http://<IP>:8001/admin", "(Token)", &pass(&secrets.vaultwarden_admin_token));
+    print_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
+    print_row("GLPI", "http://<IP>:8088", "glpi", "glpi (Change immediately!)");
+    print_row("Yourls", "http://<IP>:8003/admin", "admin", &pass(&secrets.yourls_admin_password));
+    print_row("Roundcube", "http://<IP>:8090", "-", "Login with Mail creds");
+    print_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec -ti mailserver setup ...");
+    print_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
+    print_row("ArrStack", "http://<IP>:8989 (Sonarr)", "-", "No auth by default");
+
+    println!("=================================================================================\n");
+    println!("NOTE: Replace <IP> with your server's IP address.");
 }
 
 fn run_status() {

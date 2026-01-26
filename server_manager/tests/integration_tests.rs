@@ -24,6 +24,7 @@ fn test_generate_compose_structure() {
         mailserver_password: Some("mailpass".to_string()),
         nextcloud_admin_password: Some("nextcloudadmin".to_string()),
         roundcube_db_password: Some("roundcubepass".to_string()),
+        vaultwarden_admin_token: Some("token".to_string()),
     };
 
     // 2. Build Structure

@@ -16,6 +16,7 @@ pub struct Secrets {
     pub gitea_db_password: Option<String>,
     pub roundcube_db_password: Option<String>,
     pub yourls_admin_password: Option<String>,
+    pub vaultwarden_admin_token: Option<String>,
 }
 
 impl Secrets {
@@ -63,6 +64,10 @@ impl Secrets {
         }
         if secrets.yourls_admin_password.is_none() {
             secrets.yourls_admin_password = Some(generate_hex(16)?);
+            changed = true;
+        }
+        if secrets.vaultwarden_admin_token.is_none() {
+            secrets.vaultwarden_admin_token = Some(generate_hex(16)?);
             changed = true;
         }
 
