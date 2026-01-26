@@ -1,5 +1,5 @@
 use std::process::Command;
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, bail};
 use log::{info, warn};
 
 pub fn configure() -> Result<()> {
@@ -37,7 +37,7 @@ fn run_ufw(args: &[&str]) -> Result<()> {
         .context("Failed to execute ufw command")?;
 
     if !status.success() {
-        warn!("ufw command failed: {:?}", args);
+        bail!("ufw command failed: {:?}", args);
     }
     Ok(())
 }

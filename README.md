@@ -2,134 +2,16 @@
 
 ![Cylae Banner](https://img.shields.io/badge/Status-Stable-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
-**Cylae** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 24 services Docker pour des performances optimales.
-
 **Cylae** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 24 Docker services for optimal performance.
+
+**Cylae** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 24 services Docker pour des performances optimales.
 
 ---
 
 ## 🌍 Language / Langue
 
-- [🇫🇷 Français](#-français)
 - [🇬🇧 English](#-english)
-
----
-
-<a name="-français"></a>
-# 🇫🇷 Français
-
-Bienvenue sur la documentation de Cylae. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
-
-## ✨ Fonctionnalités Clés
-*   **24 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
-*   **Détection Matérielle Intelligente** : Adapte la configuration (RAM, Transcodage, Swap) selon votre machine (Low/Standard/High Profile).
-*   **Sécurité par Défaut** : Pare-feu UFW configuré, mots de passe générés, réseaux isolés.
-*   **Support GPU** : Détection et configuration automatique Nvidia & Intel QuickSync.
-
-## 👶 Pour les Nouveaux Utilisateurs (Newbies)
-
-Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simples.
-
-### Prérequis
-*   Un serveur/ordinateur sous Linux (Debian 11/12 ou Ubuntu 22.04+ recommandés).
-*   Un accès "root" (administrateur).
-
-### 🚀 Installation Rapide
-
-1.  **Téléchargez le binaire** (ou compilez-le si vous n'avez pas le binaire pré-compilé).
-2.  **Lancez l'installation** avec une seule commande :
-
-```bash
-sudo ./cylae install
-```
-
-C'est tout ! 🎉
-Cylae va automatiquement :
-1.  Vérifier et installer Docker.
-2.  Scanner votre matériel (RAM, CPU, Disque).
-3.  Générer des mots de passe sécurisés (`secrets.yaml`).
-4.  Configurer le pare-feu.
-5.  Lancer tous les services.
-
-Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports spécifiques ci-dessous).
-
----
-
-## 🤓 Pour les Utilisateurs Avancés (Experts)
-
-Cylae est construit en Rust pour la performance et la fiabilité. Voici comment l'utiliser au maximum de son potentiel.
-
-### Compilation depuis les sources
-
-```bash
-# Installer Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Cloner et compiler
-git clone https://github.com/votre-repo/cylae.git
-cd cylae/cylae
-cargo build --release
-
-# Le binaire est dans target/release/cylae
-sudo cp target/release/cylae /usr/local/bin/
-```
-
-### Commandes CLI
-
-L'outil dispose de plusieurs sous-commandes :
-
-*   `cylae install` : Installation complète idempotente (dépendances, config, docker-compose up).
-*   `cylae generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
-*   `cylae status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
-
-### ⚙️ Profils Matériels (Hardware Profiles)
-
-Cylae ajuste la configuration via `HardwareManager` :
-
-| Profil | Critères | Optimisations |
-| :--- | :--- | :--- |
-| **LOW** | < 4GB RAM ou <= 2 Cores | Transcodage sur Disque, ArrStack GC désactivé, Mailserver minimal (pas d'antivirus/antispam). |
-| **STANDARD** | 4-16GB RAM | Configuration équilibrée. |
-| **HIGH** | > 16GB RAM | Transcodage en RAM (`/dev/shm`), caches augmentés. |
-
-*Note : La présence de Swap est analysée pour éviter les OOM sur les configurations limites (ex: 6GB RAM sans swap -> Low).*
-
-### 🔒 Gestion des Secrets
-
-Les mots de passe sont stockés dans `secrets.yaml`.
-*   Générés automatiquement au premier lancement.
-*   Vous pouvez modifier ce fichier *avant* de lancer `install` ou `generate` si vous souhaitez définir vos propres mots de passe.
-
-### 🛠 Liste des Services et Ports
-
-Voici la matrice des services déployés :
-
-| Catégorie | Service | Port (Hôte) | URL Interne | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Infra** | Nginx Proxy Manager | 80, 81, 443 | `http://IP:81` | Reverse Proxy & SSL |
-| | Portainer | 9000 | `http://IP:9000` | Gestion Docker |
-| | MariaDB | 3306 | `mariadb` | Base de données SQL |
-| | Redis | 6379 | `redis` | Cache |
-| | Netdata | 19999 | `http://IP:19999` | Monitoring Temps Réel |
-| | Uptime Kuma | 3001 | `http://IP:3001` | Monitoring Disponibilité |
-| | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | DNS Sécurisé (DoH) |
-| | Wireguard | 51820 (UDP) | - | VPN |
-| **Média** | Plex | 32400 | `http://IP:32400` | Serveur Streaming |
-| | Tautulli | 8181 | `http://IP:8181` | Stats Plex |
-| | Overseerr | 5055 | `http://IP:5055` | Demandes de Média |
-| **ArrStack** | Sonarr | 8989 | `http://IP:8989` | Séries TV |
-| | Radarr | 7878 | `http://IP:7878` | Films |
-| | Prowlarr | 9696 | `http://IP:9696` | Indexeurs Torrent |
-| | Jackett | 9117 | `http://IP:9117` | Proxy Indexeurs |
-| **Download** | QBittorrent | 8080 | `http://IP:8080` | Client Torrent |
-| **Apps** | Nextcloud | 4443 | `https://IP:4443` | Cloud Personnel |
-| | Vaultwarden | 8001 | `http://IP:8001` | Gestionnaire Mots de passe |
-| | Filebrowser | 8002 | `http://IP:8002` | Gestionnaire Fichiers Web |
-| | Yourls | 8003 | `http://IP:8003` | Raccourcisseur URL |
-| | GLPI | 8088 | `http://IP:8088` | Gestion Parc Info |
-| | Gitea | 3000, 2222 | `http://IP:3000` | Git Auto-hébergé |
-| | Roundcube | 8090 | `http://IP:8090` | Webmail |
-| | Mailserver | 25, 143, 587, 993 | - | Serveur Mail Complet |
+- [🇫🇷 Français](#-français)
 
 ---
 
@@ -240,6 +122,124 @@ Here is the matrix of deployed services:
 | | Prowlarr | 9696 | `http://IP:9696` | Torrent Indexers |
 | | Jackett | 9117 | `http://IP:9117` | Indexer Proxy |
 | **Download** | QBittorrent | 8080 | `http://IP:8080` | Torrent Client |
+| **Apps** | Nextcloud | 4443 | `https://IP:4443` | Personal Cloud |
+| | Vaultwarden | 8001 | `http://IP:8001` | Password Manager |
+| | Filebrowser | 8002 | `http://IP:8002` | Web File Manager |
+| | Yourls | 8003 | `http://IP:8003` | URL Shortener |
+| | GLPI | 8088 | `http://IP:8088` | IT Asset Management |
+| | Gitea | 3000, 2222 | `http://IP:3000` | Self-hosted Git |
+| | Roundcube | 8090 | `http://IP:8090` | Webmail |
+| | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
+
+---
+
+<a name="-français"></a>
+# 🇫🇷 Français
+
+Bienvenue sur la documentation de Cylae. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
+
+## ✨ Fonctionnalités Clés
+*   **24 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **Détection Matérielle Intelligente** : Adapte la configuration (RAM, Transcodage, Swap) selon votre machine (Low/Standard/High Profile).
+*   **Sécurité par Défaut** : Pare-feu UFW configuré, mots de passe générés, réseaux isolés.
+*   **Support GPU** : Détection et configuration automatique Nvidia & Intel QuickSync.
+
+## 👶 Pour les Nouveaux Utilisateurs (Newbies)
+
+Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simples.
+
+### Prérequis
+*   Un serveur/ordinateur sous Linux (Debian 11/12 ou Ubuntu 22.04+ recommandés).
+*   Un accès "root" (administrateur).
+
+### 🚀 Installation Rapide
+
+1.  **Téléchargez le binaire** (ou compilez-le si vous n'avez pas le binaire pré-compilé).
+2.  **Lancez l'installation** avec une seule commande :
+
+```bash
+sudo ./cylae install
+```
+
+C'est tout ! 🎉
+Cylae va automatiquement :
+1.  Vérifier et installer Docker.
+2.  Scanner votre matériel (RAM, CPU, Disque).
+3.  Générer des mots de passe sécurisés (`secrets.yaml`).
+4.  Configurer le pare-feu.
+5.  Lancer tous les services.
+
+Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports spécifiques ci-dessous).
+
+---
+
+## 🤓 Pour les Utilisateurs Avancés (Experts)
+
+Cylae est construit en Rust pour la performance et la fiabilité. Voici comment l'utiliser au maximum de son potentiel.
+
+### Compilation depuis les sources
+
+```bash
+# Installer Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Cloner et compiler
+git clone https://github.com/votre-repo/cylae.git
+cd cylae/cylae
+cargo build --release
+
+# Le binaire est dans target/release/cylae
+sudo cp target/release/cylae /usr/local/bin/
+```
+
+### Commandes CLI
+
+L'outil dispose de plusieurs sous-commandes :
+
+*   `cylae install` : Installation complète idempotente (dépendances, config, docker-compose up).
+*   `cylae generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
+*   `cylae status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
+
+### ⚙️ Profils Matériels (Hardware Profiles)
+
+Cylae ajuste la configuration via `HardwareManager` :
+
+| Profil | Critères | Optimisations |
+| :--- | :--- | :--- |
+| **LOW** | < 4GB RAM ou <= 2 Cores | Transcodage sur Disque, ArrStack GC désactivé, Mailserver minimal (pas d'antivirus/antispam). |
+| **STANDARD** | 4-16GB RAM | Configuration équilibrée. |
+| **HIGH** | > 16GB RAM | Transcodage en RAM (`/dev/shm`), caches augmentés. |
+
+*Note : La présence de Swap est analysée pour éviter les OOM sur les configurations limites (ex: 6GB RAM sans swap -> Low).*
+
+### 🔒 Gestion des Secrets
+
+Les mots de passe sont stockés dans `secrets.yaml`.
+*   Générés automatiquement au premier lancement.
+*   Vous pouvez modifier ce fichier *avant* de lancer `install` ou `generate` si vous souhaitez définir vos propres mots de passe.
+
+### 🛠 Liste des Services et Ports
+
+Voici la matrice des services déployés :
+
+| Catégorie | Service | Port (Hôte) | URL Interne | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Infra** | Nginx Proxy Manager | 80, 81, 443 | `http://IP:81` | Reverse Proxy & SSL |
+| | Portainer | 9000 | `http://IP:9000` | Gestion Docker |
+| | MariaDB | 3306 | `mariadb` | Base de données SQL |
+| | Redis | 6379 | `redis` | Cache |
+| | Netdata | 19999 | `http://IP:19999` | Monitoring Temps Réel |
+| | Uptime Kuma | 3001 | `http://IP:3001` | Monitoring Disponibilité |
+| | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | DNS Sécurisé (DoH) |
+| | Wireguard | 51820 (UDP) | - | VPN |
+| **Média** | Plex | 32400 | `http://IP:32400` | Serveur Streaming |
+| | Tautulli | 8181 | `http://IP:8181` | Stats Plex |
+| | Overseerr | 5055 | `http://IP:5055` | Demandes de Média |
+| **ArrStack** | Sonarr | 8989 | `http://IP:8989` | Séries TV |
+| | Radarr | 7878 | `http://IP:7878` | Films |
+| | Prowlarr | 9696 | `http://IP:9696` | Indexeurs Torrent |
+| | Jackett | 9117 | `http://IP:9117` | Proxy Indexeurs |
+| **Download** | QBittorrent | 8080 | `http://IP:8080` | Client Torrent |
 | **Apps** | Nextcloud | 4443 | `https://IP:4443` | Personal Cloud |
 | | Vaultwarden | 8001 | `http://IP:8001` | Password Manager |
 | | Filebrowser | 8002 | `http://IP:8002` | Web File Manager |

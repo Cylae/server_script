@@ -22,7 +22,8 @@ pub fn install_dependencies() -> Result<()> {
 
     let pkgs = vec![
         "curl", "git", "ufw", "lsb-release", "ca-certificates", "gnupg",
-        "htop", "iotop", "net-tools" // Useful utils
+        "htop", "iotop", "net-tools", // Useful utils
+        "build-essential"
     ];
 
     info!("Installing dependencies: {:?}", pkgs);
