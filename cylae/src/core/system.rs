@@ -26,6 +26,16 @@ pub fn install_dependencies() -> Result<()> {
         "build-essential"
     ];
 
+    info!("Updating package lists...");
+    let update_status = Command::new("apt-get")
+        .arg("update")
+        .status()
+        .context("Failed to execute apt-get update")?;
+
+    if !update_status.success() {
+        warn!("apt-get update failed, continuing with install...");
+    }
+
     info!("Installing dependencies: {:?}", pkgs);
     let status = Command::new("apt-get")
         .arg("install")

@@ -2,12 +2,53 @@ use super::Service;
 use crate::core::hardware::{HardwareInfo};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
+use anyhow::{Result, Context};
+use std::fs;
+use std::path::Path;
+use std::process::Command;
 
 pub struct MariaDBService;
 impl Service for MariaDBService {
     fn name(&self) -> &'static str { "mariadb" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/mariadb:latest" }
     fn ports(&self) -> Vec<String> { vec!["3306:3306".to_string()] }
+
+    fn initialize(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
+        let init_dir = Path::new("./config/mariadb/initdb.d");
+        fs::create_dir_all(init_dir).context("Failed to create mariadb initdb.d")?;
+
+        let mut sql = String::new();
+
+        let escape = |s: &str| s.replace("'", "\\'");
+
+        // Nextcloud
+        if let Some(pass) = &secrets.nextcloud_db_password {
+            sql.push_str("CREATE DATABASE IF NOT EXISTS nextcloud;\n");
+            sql.push_str(&format!("CREATE USER IF NOT EXISTS 'nextcloud'@'%' IDENTIFIED BY '{}';\n", escape(pass)));
+            sql.push_str("GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'%';\n");
+        }
+
+        // GLPI
+        if let Some(pass) = &secrets.glpi_db_password {
+             sql.push_str("CREATE DATABASE IF NOT EXISTS glpi;\n");
+             sql.push_str(&format!("CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{}';\n", escape(pass)));
+             sql.push_str("GRANT ALL PRIVILEGES ON glpi.* TO 'glpi'@'%';\n");
+        }
+
+        // Gitea
+        if let Some(pass) = &secrets.gitea_db_password {
+             sql.push_str("CREATE DATABASE IF NOT EXISTS gitea;\n");
+             sql.push_str(&format!("CREATE USER IF NOT EXISTS 'gitea'@'%' IDENTIFIED BY '{}';\n", escape(pass)));
+             sql.push_str("GRANT ALL PRIVILEGES ON gitea.* TO 'gitea'@'%';\n");
+        }
+
+        sql.push_str("FLUSH PRIVILEGES;\n");
+
+        fs::write(init_dir.join("init.sql"), sql).context("Failed to write init.sql")?;
+
+        Ok(())
+    }
+
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("PUID".to_string(), "1000".to_string());
@@ -35,6 +76,17 @@ impl Service for NginxProxyService {
     fn name(&self) -> &'static str { "nginx-proxy" }
     fn image(&self) -> &'static str { "jc21/nginx-proxy-manager:latest" }
     fn ports(&self) -> Vec<String> { vec!["80:80".to_string(), "81:81".to_string(), "443:443".to_string()] }
+
+    fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> {
+        let services = vec!["apache2", "nginx", "httpd"];
+        for svc in services {
+            // Stop and disable conflicting web servers
+            let _ = Command::new("systemctl").args(&["stop", svc]).status();
+            let _ = Command::new("systemctl").args(&["disable", svc]).status();
+        }
+        Ok(())
+    }
+
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/npm:/data".to_string(), "./config/npm/letsencrypt:/etc/letsencrypt".to_string()]
     }

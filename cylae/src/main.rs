@@ -73,10 +73,13 @@ async fn run_install() -> Result<()> {
     // 5. Docker
     docker::install()?;
 
-    // 6. Generate Compose
+    // 6. Initialize Services
+    initialize_services(&hw, &secrets)?;
+
+    // 7. Generate Compose
     generate_compose(&hw, &secrets).await?;
 
-    // 7. Launch
+    // 8. Launch
     info!("Launching Services via Docker Compose...");
     let status = Command::new("docker")
         .args(&["compose", "up", "-d", "--remove-orphans"])
@@ -117,6 +120,15 @@ async fn run_generate() -> Result<()> {
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     generate_compose(&hw, &secrets).await
+}
+
+fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+    info!("Initializing services...");
+    let services = services::get_all_services();
+    for service in services {
+        service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
+    }
+    Ok(())
 }
 
 async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
