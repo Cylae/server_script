@@ -13,6 +13,8 @@ fn test_generate_compose_structure() {
         has_intel_quicksync: false,
         disk_gb: 512,
         swap_gb: 2,
+        user_id: 1000,
+        group_id: 1000,
     };
     let secrets = Secrets {
         mysql_root_password: Some("rootpass".to_string()),
@@ -65,6 +67,8 @@ fn test_profile_logic_low() {
         has_intel_quicksync: false,
         disk_gb: 100,
         swap_gb: 0,
+        user_id: 1000,
+        group_id: 1000,
     };
     let secrets = Secrets::default();
 
@@ -90,6 +94,8 @@ fn test_profile_logic_standard() {
         has_intel_quicksync: false,
         disk_gb: 512,
         swap_gb: 4,
+        user_id: 1000,
+        group_id: 1000,
     };
     let secrets = Secrets::default();
 

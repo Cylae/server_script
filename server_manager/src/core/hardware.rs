@@ -19,6 +19,8 @@ pub struct HardwareInfo {
     pub has_intel_quicksync: bool,
     pub disk_gb: u64,
     pub swap_gb: u64,
+    pub user_id: u32,
+    pub group_id: u32,
 }
 
 impl HardwareInfo {
@@ -58,6 +60,8 @@ impl HardwareInfo {
             has_intel_quicksync,
             disk_gb,
             swap_gb,
+            user_id: 1000,
+            group_id: 1000,
         }
     }
 

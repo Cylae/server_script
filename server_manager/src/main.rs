@@ -48,6 +48,9 @@ async fn run_install() -> Result<()> {
     // 1. Root Check
     system::check_root()?;
 
+    // 1.0 Ensure Media User
+    let (uid, gid) = system::ensure_media_user()?;
+
     // 1.1 Create Install Directory
     let install_dir = std::path::Path::new("/opt/server_manager");
     if !install_dir.exists() {
@@ -60,7 +63,9 @@ async fn run_install() -> Result<()> {
     let secrets = secrets::Secrets::load_or_create()?;
 
     // 2. Hardware Detection
-    let hw = hardware::HardwareInfo::detect();
+    let mut hw = hardware::HardwareInfo::detect();
+    hw.user_id = uid;
+    hw.group_id = gid;
 
     // 3. System Dependencies & Optimization
     system::install_dependencies()?;
@@ -78,6 +83,9 @@ async fn run_install() -> Result<()> {
 
     // 7. Generate Compose
     generate_compose(&hw, &secrets).await?;
+
+    // 7.1 Set Permissions
+    system::chown_recursive(install_dir, uid, gid)?;
 
     // 8. Launch
     info!("Launching Services via Docker Compose...");

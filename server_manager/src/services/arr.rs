@@ -18,8 +18,8 @@ macro_rules! define_arr_service {
             }
             fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
                 let mut vars = HashMap::new();
-                vars.insert("PUID".to_string(), "1000".to_string());
-                vars.insert("PGID".to_string(), "1000".to_string());
+                vars.insert("PUID".to_string(), hw.user_id.to_string());
+                vars.insert("PGID".to_string(), hw.group_id.to_string());
                 vars.insert("COMPlus_EnableDiagnostics".to_string(), "0".to_string());
 
                 if let HardwareProfile::Low = hw.profile {

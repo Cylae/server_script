@@ -49,10 +49,10 @@ impl Service for MariaDBService {
         Ok(())
     }
 
-    fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
+    fn env_vars(&self, hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
-        vars.insert("PUID".to_string(), "1000".to_string());
-        vars.insert("PGID".to_string(), "1000".to_string());
+        vars.insert("PUID".to_string(), hw.user_id.to_string());
+        vars.insert("PGID".to_string(), hw.group_id.to_string());
         vars.insert("MYSQL_ROOT_PASSWORD".to_string(), secrets.mysql_root_password.clone().unwrap_or_default());
         vars.insert("MYSQL_DATABASE".to_string(), "server_manager".to_string());
         vars.insert("MYSQL_USER".to_string(), "server_manager".to_string());
