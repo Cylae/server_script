@@ -52,7 +52,7 @@ else
     if [ -d "$SRC_DIR" ]; then
         rm -rf "$SRC_DIR"
     fi
-    git clone https://github.com/Cylae/server_script.git "$SRC_DIR"
+    git clone -b server-setup-script https://github.com/Cylae/server_script.git "$SRC_DIR"
 fi
 
 cd "$SRC_DIR/server_manager"
