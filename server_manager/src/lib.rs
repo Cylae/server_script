@@ -136,6 +136,54 @@ pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::S
              config.insert("sysctls".into(), serde_yaml::Value::Sequence(sys_seq));
         }
 
+        // Resources (Deploy)
+        if let Some(res) = service.resources(hw) {
+            let mut deploy = serde_yaml::Mapping::new();
+            let mut resources = serde_yaml::Mapping::new();
+            let mut limits = serde_yaml::Mapping::new();
+            let mut reservations = serde_yaml::Mapping::new();
+
+            if let Some(mem) = res.memory_limit {
+                limits.insert("memory".into(), mem.into());
+            }
+            if let Some(cpu) = res.cpu_limit {
+                limits.insert("cpus".into(), cpu.into());
+            }
+
+            if let Some(mem) = res.memory_reservation {
+                reservations.insert("memory".into(), mem.into());
+            }
+            if let Some(cpu) = res.cpu_reservation {
+                reservations.insert("cpus".into(), cpu.into());
+            }
+
+            if !limits.is_empty() {
+                resources.insert("limits".into(), serde_yaml::Value::Mapping(limits));
+            }
+            if !reservations.is_empty() {
+                resources.insert("reservations".into(), serde_yaml::Value::Mapping(reservations));
+            }
+
+            if !resources.is_empty() {
+                deploy.insert("resources".into(), serde_yaml::Value::Mapping(resources));
+                config.insert("deploy".into(), serde_yaml::Value::Mapping(deploy));
+            }
+        }
+
+        // Logging
+        let logging = service.logging();
+        let mut logging_map = serde_yaml::Mapping::new();
+        logging_map.insert("driver".into(), logging.driver.into());
+
+        let mut opts_map = serde_yaml::Mapping::new();
+        for (k, v) in logging.options {
+            opts_map.insert(k.into(), v.into());
+        }
+        if !opts_map.is_empty() {
+             logging_map.insert("options".into(), serde_yaml::Value::Mapping(opts_map));
+        }
+        config.insert("logging".into(), serde_yaml::Value::Mapping(logging_map));
+
         compose_services.insert(service.name().to_string(), serde_yaml::Value::Mapping(config));
     }
 

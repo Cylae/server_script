@@ -1,5 +1,5 @@
-use super::Service;
-use crate::core::hardware::{HardwareInfo};
+use super::{Service, ResourceConfig};
+use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
 use anyhow::{Result, Context};
@@ -62,6 +62,21 @@ impl Service for MariaDBService {
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/mariadb:/config".to_string()]
     }
+    fn networks(&self) -> Vec<String> { vec!["server_manager_net".to_string()] }
+
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "4G",
+            HardwareProfile::Standard => "2G",
+            HardwareProfile::Low => "512M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct RedisService;
@@ -69,6 +84,22 @@ impl Service for RedisService {
     fn name(&self) -> &'static str { "redis" }
     fn image(&self) -> &'static str { "redis:alpine" }
     fn ports(&self) -> Vec<String> { vec!["6379:6379".to_string()] }
+    fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
+        vec!["./config/redis:/data".to_string()]
+    }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+         let memory_limit = match hw.profile {
+            HardwareProfile::High => "512M",
+            HardwareProfile::Standard => "256M",
+            HardwareProfile::Low => "128M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct NginxProxyService;

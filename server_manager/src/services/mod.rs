@@ -9,6 +9,32 @@ use crate::core::secrets::Secrets;
 use std::collections::HashMap;
 use anyhow::Result;
 
+#[derive(Debug, Clone)]
+pub struct ResourceConfig {
+    pub memory_limit: Option<String>,
+    pub memory_reservation: Option<String>,
+    pub cpu_limit: Option<String>,
+    pub cpu_reservation: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoggingConfig {
+    pub driver: String,
+    pub options: HashMap<String, String>,
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        let mut options = HashMap::new();
+        options.insert("max-size".to_string(), "10m".to_string());
+        options.insert("max-file".to_string(), "3".to_string());
+        Self {
+            driver: "json-file".to_string(),
+            options,
+        }
+    }
+}
+
 pub trait Service: Send + Sync {
     fn name(&self) -> &'static str;
     fn image(&self) -> &'static str;
@@ -30,6 +56,12 @@ pub trait Service: Send + Sync {
     fn labels(&self) -> HashMap<String, String> { HashMap::new() }
     fn cap_add(&self) -> Vec<String> { vec![] }
     fn sysctls(&self) -> Vec<String> { vec![] }
+
+    /// Returns resource limits/reservations based on hardware
+    fn resources(&self, _hw: &HardwareInfo) -> Option<ResourceConfig> { None }
+
+    /// Returns logging configuration
+    fn logging(&self) -> LoggingConfig { LoggingConfig::default() }
 }
 
 pub fn get_all_services() -> Vec<Box<dyn Service>> {

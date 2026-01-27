@@ -4,6 +4,7 @@ use std::path::Path;
 use std::fs;
 use anyhow::{Result, Context, bail};
 use log::{info, warn};
+use sysinfo::{System, SystemExt};
 
 pub fn check_root() -> Result<()> {
     if !Uid::effective().is_root() {
@@ -54,12 +55,23 @@ pub fn install_dependencies() -> Result<()> {
 pub fn apply_optimizations() -> Result<()> {
     info!("Applying system optimizations for media server performance...");
 
-    let config = r#"# Server Manager Media Server Optimizations
+    let mut sys = System::new_all();
+    sys.refresh_memory();
+    let ram_gb = sys.total_memory() / 1024 / 1024 / 1024;
+
+    // Aggressive swappiness reduction for high RAM
+    let swappiness = if ram_gb > 16 { 1 } else { 10 };
+
+    let config = format!(r#"# Server Manager Media Server Optimizations
 fs.inotify.max_user_watches=524288
-vm.swappiness=10
+vm.swappiness={}
+vm.dirty_ratio=10
+vm.dirty_background_ratio=5
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
-"#;
+net.core.somaxconn=4096
+net.ipv4.tcp_fastopen=3
+"#, swappiness);
 
     let path = Path::new("/etc/sysctl.d/99-server-manager-optimization.conf");
     fs::write(path, config).context("Failed to write sysctl config")?;
