@@ -1,30 +1,14 @@
 pub mod core;
 pub mod services;
 
-// Re-export build_compose_structure from main (we need to move it or expose it)
-// Since main.rs is a binary, we can't easily import from it in integration tests unless we use a lib.rs structure.
-// The common pattern is to have the logic in lib.rs and main.rs just calls it.
-// I will move build_compose_structure to lib.rs or make main.rs just a thin wrapper.
-
-// Wait, I can't import functions from main.rs into integration tests directly if it's not a lib.
-// I need to refactor slightly.
-// Move `build_compose_structure` to a new module `src/orchestrator.rs` or keep it in `lib.rs`.
-
-// Let's check where `main.rs` is. It is in `src/main.rs`.
-// I should create `src/lib.rs` that exposes the modules and the orchestrator logic.
-
-// Currently `main.rs` has `mod core; mod services;`.
-// I will move these to `lib.rs` and make `main.rs` use the lib.
-
 pub use crate::core::hardware;
 pub use crate::core::secrets;
 
 use anyhow::Result;
 use std::collections::HashMap;
 
-// I will duplicate the logic or move it. Moving is better.
-// I'll put build_compose_structure here.
-
+/// Generates the docker-compose.yml structure based on hardware profile and secrets.
+/// This acts as the "Compiler" for the infrastructure.
 pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<serde_yaml::Mapping> {
     let services = services::get_all_services();
 
