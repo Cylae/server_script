@@ -1,7 +1,7 @@
 use sysinfo::{System, SystemExt, DiskExt};
 use std::process::Command;
 use std::path::Path;
-use log::{info};
+use log::{info, warn};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HardwareProfile {
@@ -19,10 +19,13 @@ pub struct HardwareInfo {
     pub has_intel_quicksync: bool,
     pub disk_gb: u64,
     pub swap_gb: u64,
+    pub user_id: String,
+    pub group_id: String,
 }
 
 impl HardwareInfo {
     pub fn detect() -> Self {
+        let (user_id, group_id) = Self::detect_user();
         let mut sys = System::new_all();
         sys.refresh_memory();
         sys.refresh_cpu();
@@ -49,6 +52,7 @@ impl HardwareInfo {
         info!("Hardware Detected: RAM={}GB, Swap={}GB, Disk={}GB, Cores={}, Profile={:?}", ram_gb, swap_gb, disk_gb, cpu_cores, profile);
         if has_nvidia { info!("Nvidia GPU Detected"); }
         if has_intel_quicksync { info!("Intel QuickSync Detected"); }
+        info!("User Context: UID={}, GID={}", user_id, group_id);
 
         Self {
             profile,
@@ -58,6 +62,23 @@ impl HardwareInfo {
             has_intel_quicksync,
             disk_gb,
             swap_gb,
+            user_id,
+            group_id,
+        }
+    }
+
+    fn detect_user() -> (String, String) {
+        if let Ok(user) = std::env::var("SUDO_USER") {
+            let uid = Command::new("id").arg("-u").arg(&user).output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_else(|_| "1000".to_string());
+            let gid = Command::new("id").arg("-g").arg(&user).output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_else(|_| "1000".to_string());
+            (uid, gid)
+        } else {
+            warn!("SUDO_USER not found. Defaulting to UID/GID 1000.");
+            ("1000".to_string(), "1000".to_string())
         }
     }
 

@@ -15,8 +15,8 @@ impl Service for PlexService {
 
     fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
-        vars.insert("PUID".to_string(), "1000".to_string());
-        vars.insert("PGID".to_string(), "1000".to_string());
+        vars.insert("PUID".to_string(), hw.user_id.clone());
+        vars.insert("PGID".to_string(), hw.group_id.clone());
         vars.insert("VERSION".to_string(), "docker".to_string());
 
         // Legacy requirement
