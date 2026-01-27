@@ -1,4 +1,4 @@
-use super::Service;
+use super::{Service, ResourceConfig};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
@@ -56,6 +56,20 @@ impl Service for PlexService {
     fn healthcheck(&self) -> Option<String> {
         Some("curl -f http://localhost:32400/identity || exit 1".to_string())
     }
+
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "8G",
+            HardwareProfile::Standard => "4G",
+            HardwareProfile::Low => "2G",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct TautulliService;
@@ -67,6 +81,14 @@ impl Service for TautulliService {
         vec!["./config/tautulli:/config".to_string()]
     }
     fn depends_on(&self) -> Vec<String> { vec!["plex".to_string()] }
+    fn resources(&self, _hw: &HardwareInfo) -> Option<ResourceConfig> {
+        Some(ResourceConfig {
+            memory_limit: Some("512M".to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct OverseerrService;
@@ -76,5 +98,13 @@ impl Service for OverseerrService {
     fn ports(&self) -> Vec<String> { vec!["5055:5055".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/overseerr:/config".to_string()]
+    }
+    fn resources(&self, _hw: &HardwareInfo) -> Option<ResourceConfig> {
+        Some(ResourceConfig {
+            memory_limit: Some("1G".to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
     }
 }

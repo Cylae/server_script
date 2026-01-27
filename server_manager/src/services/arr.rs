@@ -1,4 +1,4 @@
-use super::Service;
+use super::{Service, ResourceConfig};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
@@ -29,6 +29,19 @@ macro_rules! define_arr_service {
             }
             fn healthcheck(&self) -> Option<String> {
                 Some(format!("curl -f http://localhost:{}/ping || exit 1", $port))
+            }
+
+            fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+                 let memory_limit = match hw.profile {
+                    HardwareProfile::High => "2G",
+                    _ => "1G",
+                };
+                Some(ResourceConfig {
+                    memory_limit: Some(memory_limit.to_string()),
+                    memory_reservation: None,
+                    cpu_limit: None,
+                    cpu_reservation: None,
+                })
             }
         }
     };

@@ -103,3 +103,34 @@ fn test_profile_logic_standard() {
     let has_enabled_spam = envs.iter().any(|v| v.as_str().unwrap() == "ENABLE_SPAMASSASSIN=1");
     assert!(has_enabled_spam, "Standard profile should enable SpamAssassin");
 }
+
+#[test]
+fn test_resource_generation() {
+    // Test that resources are generated correctly for MariaDB on High Profile
+    let hw = HardwareInfo {
+        profile: HardwareProfile::High,
+        ram_gb: 32,
+        cpu_cores: 16,
+        has_nvidia: false,
+        has_intel_quicksync: false,
+        disk_gb: 1000,
+        swap_gb: 4,
+    };
+    let secrets = Secrets::default();
+
+    let result = build_compose_structure(&hw, &secrets).unwrap();
+    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
+
+    // Check MariaDB
+    let mariadb = services.get(&serde_yaml::Value::from("mariadb")).unwrap().as_mapping().unwrap();
+
+    // Check deploy key exists
+    assert!(mariadb.contains_key(&serde_yaml::Value::from("deploy")));
+
+    let deploy = mariadb.get(&serde_yaml::Value::from("deploy")).unwrap().as_mapping().unwrap();
+    let resources = deploy.get(&serde_yaml::Value::from("resources")).unwrap().as_mapping().unwrap();
+    let limits = resources.get(&serde_yaml::Value::from("limits")).unwrap().as_mapping().unwrap();
+
+    let memory = limits.get(&serde_yaml::Value::from("memory")).unwrap().as_str().unwrap();
+    assert_eq!(memory, "4G", "MariaDB should have 4G limit on High profile");
+}
