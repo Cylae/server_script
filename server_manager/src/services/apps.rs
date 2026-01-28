@@ -10,7 +10,7 @@ pub struct VaultwardenService;
 impl Service for VaultwardenService {
     fn name(&self) -> &'static str { "vaultwarden" }
     fn image(&self) -> &'static str { "vaultwarden/server:latest" }
-    fn ports(&self) -> Vec<String> { vec!["8001:80".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8001:80".to_string()] }
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("ADMIN_TOKEN".to_string(), secrets.vaultwarden_admin_token.clone().unwrap_or_default());
@@ -25,7 +25,7 @@ pub struct FilebrowserService;
 impl Service for FilebrowserService {
     fn name(&self) -> &'static str { "filebrowser" }
     fn image(&self) -> &'static str { "filebrowser/filebrowser:latest" }
-    fn ports(&self) -> Vec<String> { vec!["8002:80".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8002:80".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec![
             "./config/filebrowser:/config".to_string(),
@@ -39,7 +39,7 @@ pub struct YourlsService;
 impl Service for YourlsService {
     fn name(&self) -> &'static str { "yourls" }
     fn image(&self) -> &'static str { "yourls/yourls:latest" }
-    fn ports(&self) -> Vec<String> { vec!["8003:80".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8003:80".to_string()] }
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("YOURLS_DB_HOST".to_string(), "mariadb".to_string());
@@ -57,7 +57,7 @@ pub struct GLPIService;
 impl Service for GLPIService {
     fn name(&self) -> &'static str { "glpi" }
     fn image(&self) -> &'static str { "diouxx/glpi:latest" } // Common community image, official docker-library is scarce
-    fn ports(&self) -> Vec<String> { vec!["8088:80".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8088:80".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/glpi:/var/www/html/glpi".to_string()]
     }
@@ -68,7 +68,7 @@ pub struct GiteaService;
 impl Service for GiteaService {
     fn name(&self) -> &'static str { "gitea" }
     fn image(&self) -> &'static str { "gitea/gitea:latest" }
-    fn ports(&self) -> Vec<String> { vec!["3000:3000".to_string(), "2222:22".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:3000:3000".to_string(), "2222:22".to_string()] }
     fn env_vars(&self, _hw: &HardwareInfo, secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("GITEA__database__DB_TYPE".to_string(), "mysql".to_string());
@@ -92,7 +92,7 @@ pub struct RoundcubeService;
 impl Service for RoundcubeService {
     fn name(&self) -> &'static str { "roundcube" }
     fn image(&self) -> &'static str { "roundcube/roundcubemail:latest" }
-    fn ports(&self) -> Vec<String> { vec!["8090:80".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8090:80".to_string()] }
     fn env_vars(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
         vars.insert("ROUNDCUBEMAIL_DB_TYPE".to_string(), "sqlite".to_string()); // Defaulting to sqlite as per memory hints or keeping simple.
@@ -114,7 +114,7 @@ pub struct NextcloudService;
 impl Service for NextcloudService {
     fn name(&self) -> &'static str { "nextcloud" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/nextcloud:latest" }
-    fn ports(&self) -> Vec<String> { vec!["4443:443".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:4443:443".to_string()] }
     fn configure(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
         let config_dir = Path::new("./config/nextcloud");
         fs::create_dir_all(config_dir).context("Failed to create nextcloud config dir")?;

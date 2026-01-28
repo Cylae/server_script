@@ -10,7 +10,7 @@ impl Service for QBittorrentService {
     fn image(&self) -> &'static str { "lscr.io/linuxserver/qbittorrent:latest" }
 
     fn ports(&self) -> Vec<String> {
-        vec!["8080:8080".to_string(), "6881:6881".to_string(), "6881:6881/udp".to_string()]
+        vec!["127.0.0.1:8080:8080".to_string(), "6881:6881".to_string(), "6881:6881/udp".to_string()]
     }
 
     fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {

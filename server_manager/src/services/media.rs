@@ -76,7 +76,7 @@ pub struct TautulliService;
 impl Service for TautulliService {
     fn name(&self) -> &'static str { "tautulli" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/tautulli:latest" }
-    fn ports(&self) -> Vec<String> { vec!["8181:8181".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8181:8181".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/tautulli:/config".to_string()]
     }
@@ -95,7 +95,7 @@ pub struct OverseerrService;
 impl Service for OverseerrService {
     fn name(&self) -> &'static str { "overseerr" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/overseerr:latest" }
-    fn ports(&self) -> Vec<String> { vec!["5055:5055".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:5055:5055".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/overseerr:/config".to_string()]
     }

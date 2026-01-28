@@ -11,9 +11,9 @@ pub struct MariaDBService;
 impl Service for MariaDBService {
     fn name(&self) -> &'static str { "mariadb" }
     fn image(&self) -> &'static str { "lscr.io/linuxserver/mariadb:latest" }
-    fn ports(&self) -> Vec<String> { vec!["3306:3306".to_string()] }
+    fn ports(&self) -> Vec<String> { vec![] } // Internal only
 
-    fn configure(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
+    fn configure(&self, hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
         let init_dir = Path::new("./config/mariadb/initdb.d");
         fs::create_dir_all(init_dir).context("Failed to create mariadb initdb.d")?;
 
@@ -45,6 +45,22 @@ impl Service for MariaDBService {
         sql.push_str("FLUSH PRIVILEGES;\n");
 
         fs::write(init_dir.join("init.sql"), sql).context("Failed to write init.sql")?;
+
+        // Optimization: Generate custom.cnf
+        let (buffer_pool, log_file_size, max_connections) = match hw.profile {
+            HardwareProfile::High => ("4G", "1G", "500"),
+            HardwareProfile::Standard => ("1G", "256M", "100"),
+            HardwareProfile::Low => ("256M", "64M", "50"),
+        };
+
+        let custom_cnf = format!(r#"[mysqld]
+innodb_buffer_pool_size={}
+innodb_log_file_size={}
+max_connections={}
+"#, buffer_pool, log_file_size, max_connections);
+
+        // Parent dir is ./config/mariadb/
+        fs::write(init_dir.parent().unwrap().join("custom.cnf"), custom_cnf).context("Failed to write custom.cnf")?;
 
         Ok(())
     }
@@ -83,7 +99,7 @@ pub struct RedisService;
 impl Service for RedisService {
     fn name(&self) -> &'static str { "redis" }
     fn image(&self) -> &'static str { "redis:alpine" }
-    fn ports(&self) -> Vec<String> { vec!["6379:6379".to_string()] }
+    fn ports(&self) -> Vec<String> { vec![] } // Internal only
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/redis:/data".to_string()]
     }
@@ -149,7 +165,7 @@ pub struct PortainerService;
 impl Service for PortainerService {
     fn name(&self) -> &'static str { "portainer" }
     fn image(&self) -> &'static str { "portainer/portainer-ce:latest" }
-    fn ports(&self) -> Vec<String> { vec!["9000:9000".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:9000:9000".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["/var/run/docker.sock:/var/run/docker.sock".to_string(), "./config/portainer:/data".to_string()]
     }
@@ -160,7 +176,7 @@ pub struct NetdataService;
 impl Service for NetdataService {
     fn name(&self) -> &'static str { "netdata" }
     fn image(&self) -> &'static str { "netdata/netdata" }
-    fn ports(&self) -> Vec<String> { vec!["19999:19999".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:19999:19999".to_string()] }
     fn cap_add(&self) -> Vec<String> { vec!["SYS_PTRACE".to_string()] }
     fn security_opts(&self) -> Vec<String> { vec!["apparmor:unconfined".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
@@ -176,7 +192,7 @@ pub struct UptimeKumaService;
 impl Service for UptimeKumaService {
     fn name(&self) -> &'static str { "uptime-kuma" }
     fn image(&self) -> &'static str { "louislam/uptime-kuma:1" }
-    fn ports(&self) -> Vec<String> { vec!["3001:3001".to_string()] }
+    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:3001:3001".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/uptime-kuma:/app/data".to_string()]
     }
