@@ -5,7 +5,7 @@ use std::process::Command;
 use std::fs;
 
 // Use the lib crate
-use server_manager::core::{system, hardware, firewall, docker, secrets};
+use server_manager::core::{system, hardware, firewall, docker, secrets, config};
 use server_manager::services;
 use server_manager::build_compose_structure;
 
@@ -25,6 +25,15 @@ enum Commands {
     Status,
     /// Generate docker-compose.yml only
     Generate,
+    /// Enable a service
+    Enable { service: String },
+    /// Disable a service
+    Disable { service: String },
+    /// Start the Web Administration Interface
+    Web {
+        #[arg(long, default_value_t = 8099)]
+        port: u16,
+    },
 }
 
 #[tokio::main]
@@ -37,6 +46,62 @@ async fn main() -> Result<()> {
         Commands::Install => run_install().await?,
         Commands::Status => run_status(),
         Commands::Generate => run_generate().await?,
+        Commands::Enable { service } => run_toggle_service(service, true).await?,
+        Commands::Disable { service } => run_toggle_service(service, false).await?,
+        Commands::Web { port } => server_manager::web::start_server(port).await?,
+    }
+
+    Ok(())
+}
+
+async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
+    // 1. Load Config
+    // We assume we are in the install directory or user provides it.
+    // For safety, let's try to switch to /opt/server_manager if config not found locally
+    if !std::path::Path::new("config.yaml").exists() && std::path::Path::new("/opt/server_manager/config.yaml").exists() {
+        std::env::set_current_dir("/opt/server_manager")?;
+    }
+
+    let mut config = config::Config::load()?;
+
+    // Check if service exists
+    let services = services::get_all_services();
+    if !services.iter().any(|s| s.name() == service_name) {
+        error!("Service '{}' not found!", service_name);
+        return Ok(());
+    }
+
+    if enable {
+        config.enable_service(&service_name);
+    } else {
+        config.disable_service(&service_name);
+    }
+
+    config.save()?;
+
+    info!("Configuration updated. Re-running generation...");
+
+    // 2. Re-run generation logic (similar to run_generate/run_install subset)
+    // We need secrets for this
+    let secrets = secrets::Secrets::load_or_create()?;
+    let hw = hardware::HardwareInfo::detect();
+
+    // Only configure/generate, don't necessarily fully install dependencies again
+    // But we should probably trigger docker compose up to apply changes
+    configure_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config)?;
+    generate_compose(&hw, &secrets, &config).await?;
+
+    info!("Applying changes via Docker Compose...");
+    let status = Command::new("docker")
+        .args(&["compose", "up", "-d", "--remove-orphans"])
+        .status()
+        .context("Failed to run docker compose up")?;
+
+    if status.success() {
+        info!("Service '{}' {} successfully!", service_name, if enable { "enabled" } else { "disabled" });
+    } else {
+        error!("Failed to apply changes via Docker Compose.");
     }
 
     Ok(())
@@ -56,8 +121,9 @@ async fn run_install() -> Result<()> {
     }
     std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/server_manager")?;
 
-    // 1.2 Load Secrets
+    // 1.2 Load Secrets & Config
     let secrets = secrets::Secrets::load_or_create()?;
+    let config = config::Config::load()?;
 
     // 2. Hardware Detection
     let hw = hardware::HardwareInfo::detect();
@@ -73,11 +139,11 @@ async fn run_install() -> Result<()> {
     docker::install()?;
 
     // 6. Initialize Services
-    configure_services(&hw, &secrets)?;
-    initialize_services(&hw, &secrets)?;
+    configure_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config)?;
 
     // 7. Generate Compose
-    generate_compose(&hw, &secrets).await?;
+    generate_compose(&hw, &secrets, &config).await?;
 
     // 8. Launch
     info!("Launching Services via Docker Compose...");
@@ -150,31 +216,38 @@ async fn run_generate() -> Result<()> {
     // For generate, we might not be in /opt/server_manager, but let's try to load secrets from CWD.
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
-    configure_services(&hw, &secrets)?;
-    generate_compose(&hw, &secrets).await
+    let config = config::Config::load()?;
+    configure_services(&hw, &secrets, &config)?;
+    generate_compose(&hw, &secrets, &config).await
 }
 
-fn configure_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+fn configure_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
     info!("Configuring services (generating config files)...");
     let services = services::get_all_services();
     for service in services {
+        if !config.is_enabled(service.name()) {
+            continue;
+        }
         service.configure(hw, secrets).with_context(|| format!("Failed to configure service: {}", service.name()))?;
     }
     Ok(())
 }
 
-fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
     info!("Initializing services (system setup)...");
     let services = services::get_all_services();
     for service in services {
+        if !config.is_enabled(service.name()) {
+            continue;
+        }
         service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
     }
     Ok(())
 }
 
-async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<()> {
+async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
     info!("Generating docker-compose.yml based on hardware profile...");
-    let top_level = build_compose_structure(hw, secrets)?;
+    let top_level = build_compose_structure(hw, secrets, config)?;
     let yaml_output = serde_yaml::to_string(&top_level)?;
 
     fs::write("docker-compose.yml", yaml_output).context("Failed to write docker-compose.yml")?;

@@ -1,6 +1,6 @@
 [package]
 name = "server_manager"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 
 [dependencies]
@@ -16,6 +16,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 nix = { version = "0.27", features = ["user"] }
 async-trait = "0.1"
+axum = "0.7"
+serde_json = "1.0"
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["fs", "trace"] }
 
 [workspace]
 members = ["."]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
