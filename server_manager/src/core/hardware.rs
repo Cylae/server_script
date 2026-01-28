@@ -68,6 +68,11 @@ impl HardwareInfo {
     }
 
     fn detect_user() -> (String, String) {
+        // Optimization: Try to use SUDO_UID and SUDO_GID directly to avoid subprocesses
+        if let (Ok(uid), Ok(gid)) = (std::env::var("SUDO_UID"), std::env::var("SUDO_GID")) {
+            return (uid, gid);
+        }
+
         if let Ok(user) = std::env::var("SUDO_USER") {
             let uid = Command::new("id").arg("-u").arg(&user).output()
                 .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
