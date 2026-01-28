@@ -9,7 +9,7 @@ macro_rules! define_arr_service {
         impl Service for $struct_name {
             fn name(&self) -> &'static str { $name }
             fn image(&self) -> &'static str { $image }
-            fn ports(&self) -> Vec<String> { vec![format!("{}:{}", $port, $port)] }
+            fn ports(&self) -> Vec<String> { vec![format!("127.0.0.1:{}:{}", $port, $port)] }
             fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
                 vec![
                     format!("./config/{}:/config", $name),

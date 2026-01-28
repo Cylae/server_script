@@ -57,6 +57,42 @@ fn test_generate_compose_structure() {
 }
 
 #[test]
+fn test_security_bindings() {
+    // Test that sensitive services are bound to localhost and internal DBs have no ports
+    let hw = HardwareInfo {
+        profile: HardwareProfile::Standard,
+        ram_gb: 8,
+        cpu_cores: 4,
+        has_nvidia: false,
+        has_intel_quicksync: false,
+        disk_gb: 512,
+        swap_gb: 2,
+        user_id: "1000".to_string(),
+        group_id: "1000".to_string(),
+    };
+    let secrets = Secrets::default();
+
+    let result = build_compose_structure(&hw, &secrets).unwrap();
+    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
+
+    // 1. MariaDB should have NO ports
+    let mariadb = services.get(&serde_yaml::Value::from("mariadb")).unwrap().as_mapping().unwrap();
+    assert!(!mariadb.contains_key(&serde_yaml::Value::from("ports")), "MariaDB should not expose ports");
+
+    // 2. Sonarr should be bound to 127.0.0.1
+    let sonarr = services.get(&serde_yaml::Value::from("sonarr")).unwrap().as_mapping().unwrap();
+    let ports = sonarr.get(&serde_yaml::Value::from("ports")).unwrap().as_sequence().unwrap();
+    let port_str = ports[0].as_str().unwrap();
+    assert!(port_str.starts_with("127.0.0.1:"), "Sonarr port should be bound to localhost: {}", port_str);
+
+    // 3. Plex should still be exposed (host mapping implied or explicit 0.0.0.0)
+    let plex = services.get(&serde_yaml::Value::from("plex")).unwrap().as_mapping().unwrap();
+    let ports = plex.get(&serde_yaml::Value::from("ports")).unwrap().as_sequence().unwrap();
+    let port_str = ports[0].as_str().unwrap();
+    assert!(!port_str.starts_with("127.0.0.1:"), "Plex port should be exposed: {}", port_str);
+}
+
+#[test]
 fn test_profile_logic_low() {
     // Test that Low profile disables SpamAssassin in MailService
     let hw = HardwareInfo {
@@ -121,6 +157,8 @@ fn test_resource_generation() {
         has_intel_quicksync: false,
         disk_gb: 1000,
         swap_gb: 4,
+        user_id: "1000".to_string(),
+        group_id: "1000".to_string(),
     };
     let secrets = Secrets::default();
 
