@@ -42,12 +42,14 @@ fn test_generate_compose_structure() {
     let networks = mapping.get(&serde_yaml::Value::from("networks")).unwrap().as_mapping().unwrap();
     assert!(networks.contains_key(&serde_yaml::Value::from("server_manager_net")));
 
-    // 5. Verify Services Count (Should be 24)
+    // 5. Verify Services Count (Should be 27)
     let services = mapping.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
-    assert_eq!(services.len(), 24, "Expected 24 services");
+    assert_eq!(services.len(), 27, "Expected 27 services");
 
-    // 6. Verify specific service (Plex)
+    // 6. Verify specific service (Plex, Jellyfin, Bazarr)
     assert!(services.contains_key(&serde_yaml::Value::from("plex")));
+    assert!(services.contains_key(&serde_yaml::Value::from("jellyfin")));
+    assert!(services.contains_key(&serde_yaml::Value::from("bazarr")));
     let plex = services.get(&serde_yaml::Value::from("plex")).unwrap().as_mapping().unwrap();
     assert_eq!(plex.get(&serde_yaml::Value::from("image")).unwrap().as_str().unwrap(), "lscr.io/linuxserver/plex:latest");
 

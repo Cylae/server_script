@@ -51,3 +51,4 @@ define_arr_service!(SonarrService, "sonarr", "lscr.io/linuxserver/sonarr:latest"
 define_arr_service!(RadarrService, "radarr", "lscr.io/linuxserver/radarr:latest", 7878);
 define_arr_service!(ProwlarrService, "prowlarr", "lscr.io/linuxserver/prowlarr:latest", 9696);
 define_arr_service!(JackettService, "jackett", "lscr.io/linuxserver/jackett:latest", 9117);
+define_arr_service!(BazarrService, "bazarr", "lscr.io/linuxserver/bazarr:latest", 6767);

@@ -124,10 +124,13 @@ Here is the matrix of deployed services:
 | | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | Secure DNS (DoH) |
 | | Wireguard | 51820 (UDP) | - | VPN |
 | **Media** | Plex | 32400 | `http://IP:32400` | Streaming Server |
+| | Jellyfin | 8096 | `http://IP:8096` | Streaming Server (Open Source) |
 | | Tautulli | 8181 | `http://IP:8181` | Plex Stats |
-| | Overseerr | 5055 | `http://IP:5055` | Media Requests |
+| | Overseerr | 5055 | `http://IP:5055` | Plex Requests |
+| | Jellyseerr | 5056 | `http://IP:5056` | Jellyfin Requests |
 | **ArrStack** | Sonarr | 8989 | `http://IP:8989` | TV Shows |
 | | Radarr | 7878 | `http://IP:7878` | Movies |
+| | Bazarr | 6767 | `http://IP:6767` | Subtitles |
 | | Prowlarr | 9696 | `http://IP:9696` | Torrent Indexers |
 | | Jackett | 9117 | `http://IP:9117` | Indexer Proxy |
 | **Download** | QBittorrent | 8080 | `http://IP:8080` | Torrent Client |
@@ -242,10 +245,13 @@ Voici la matrice des services déployés :
 | | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | DNS Sécurisé (DoH) |
 | | Wireguard | 51820 (UDP) | - | VPN |
 | **Média** | Plex | 32400 | `http://IP:32400` | Serveur Streaming |
+| | Jellyfin | 8096 | `http://IP:8096` | Serveur Streaming (Open Source) |
 | | Tautulli | 8181 | `http://IP:8181` | Stats Plex |
-| | Overseerr | 5055 | `http://IP:5055` | Demandes de Média |
+| | Overseerr | 5055 | `http://IP:5055` | Demandes Plex |
+| | Jellyseerr | 5056 | `http://IP:5056` | Demandes Jellyfin |
 | **ArrStack** | Sonarr | 8989 | `http://IP:8989` | Séries TV |
 | | Radarr | 7878 | `http://IP:7878` | Films |
+| | Bazarr | 6767 | `http://IP:6767` | Sous-titres |
 | | Prowlarr | 9696 | `http://IP:9696` | Indexeurs Torrent |
 | | Jackett | 9117 | `http://IP:9117` | Proxy Indexeurs |
 | **Download** | QBittorrent | 8080 | `http://IP:8080` | Client Torrent |
