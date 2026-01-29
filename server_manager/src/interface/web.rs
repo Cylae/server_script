@@ -14,6 +14,7 @@ use log::{info, error, warn};
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 use serde::{Deserialize, Serialize};
 use time::Duration;
+use sysinfo::{System, SystemExt, CpuExt, DiskExt};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
@@ -32,6 +33,9 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/", get(dashboard))
+        .route("/users", get(users_page))
+        .route("/users/add", post(add_user_handler))
+        .route("/users/delete/:username", post(delete_user_handler))
         .route("/api/services/:name/enable", post(enable_service))
         .route("/api/services/:name/disable", post(disable_service))
         .route("/logout", post(logout))
@@ -109,24 +113,54 @@ async fn logout(session: Session) -> impl IntoResponse {
     Redirect::to("/login")
 }
 
+// Helper for common HTML head
+fn html_head(title: &str) -> String {
+    format!(r#"
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{}</title>
+        <style>
+            body {{ font-family: sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }}
+            .container {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+            th, td {{ padding: 12px; border-bottom: 1px solid #eee; text-align: left; }}
+            th {{ background-color: #f4f4f4; }}
+            .btn {{ padding: 6px 12px; text-decoration: none; border-radius: 4px; color: white; border: none; cursor: pointer; display: inline-block; }}
+            .btn-primary {{ background-color: #007bff; }}
+            .btn-danger {{ background-color: #dc3545; }}
+            .btn-enable {{ background-color: #28a745; }}
+            .btn-disable {{ background-color: #dc3545; }}
+            .btn-logout {{ background-color: #6c757d; }}
+            .status-enabled {{ color: #28a745; font-weight: bold; }}
+            .status-disabled {{ color: #dc3545; font-weight: bold; }}
+            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
+            .nav {{ margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }}
+            .nav a {{ margin-right: 15px; text-decoration: none; color: #333; font-weight: bold; }}
+            .nav a:hover {{ color: #007bff; }}
+            .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }}
+            .stat-card {{ background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; }}
+            .stat-value {{ font-size: 1.5em; font-weight: bold; color: #007bff; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+    "#, title)
+}
+
+fn html_foot() -> String {
+    r#"
+        </div>
+    </body>
+    </html>
+    "#.to_string()
+}
+
 // Protected Dashboard
 async fn dashboard(session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
-    };
-
-    let services = services::get_all_services();
-
-    let config = match Config::load() {
-        Ok(c) => c,
-        Err(_) => {
-            if let Ok(content) = std::fs::read_to_string("/opt/server_manager/config.yaml") {
-                serde_yaml::from_str(&content).unwrap_or_default()
-            } else {
-                Config::default()
-            }
-        }
     };
 
     let is_admin = matches!(user.role, Role::Admin);
@@ -136,32 +170,75 @@ async fn dashboard(session: Session) -> impl IntoResponse {
                                         .replace('"', "&quot;")
                                         .replace('\'', "&#39;");
 
-    let mut html = format!(r#"
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Server Manager Dashboard</title>
-        <style>
-            body {{ font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-            th, td {{ padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }}
-            th {{ background-color: #f4f4f4; }}
-            .btn {{ padding: 5px 10px; text-decoration: none; border-radius: 4px; color: white; border: none; cursor: pointer; }}
-            .btn-enable {{ background-color: #28a745; }}
-            .btn-disable {{ background-color: #dc3545; }}
-            .btn-logout {{ background-color: #6c757d; float: right; }}
-            .status-enabled {{ color: #28a745; font-weight: bold; }}
-            .status-disabled {{ color: #dc3545; font-weight: bold; }}
-            .header {{ overflow: hidden; margin-bottom: 20px; }}
-        </style>
-    </head>
-    <body>
+    let services = services::get_all_services();
+    let config = Config::load().unwrap_or_else(|_| Config::default());
+
+    // System Stats
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    let ram_used = sys.used_memory() / 1024 / 1024; // MB
+    let ram_total = sys.total_memory() / 1024 / 1024; // MB
+    let swap_used = sys.used_swap() / 1024 / 1024; // MB
+    let swap_total = sys.total_swap() / 1024 / 1024; // MB
+    let cpu_usage = sys.global_cpu_info().cpu_usage();
+
+    // Simple Disk Usage (Root)
+    let mut disk_total = 0;
+    let mut disk_used = 0;
+    for disk in sys.disks() {
+        if disk.mount_point() == std::path::Path::new("/") {
+            disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
+            disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
+            break;
+        }
+    }
+
+    let mut html = html_head("Dashboard - Server Manager");
+
+    html.push_str(&format!(r#"
         <div class="header">
-            <h1 style="float: left;">Server Manager 🚀</h1>
-            <form method="POST" action="/logout" style="float: right; margin-top: 20px;">
+            <h1>Server Manager 🚀</h1>
+            <form method="POST" action="/logout" style="margin: 0;">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
+    "#, escaped_username));
+
+    // Navigation
+    if is_admin {
+        html.push_str(r#"
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/users">User Management</a>
+        </div>
+        "#);
+    }
+
+    // Stats Grid
+    html.push_str(&format!(r#"
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>CPU Usage</div>
+                <div class="stat-value">{:.1}%</div>
+            </div>
+            <div class="stat-card">
+                <div>RAM Usage</div>
+                <div class="stat-value">{} / {} MB</div>
+            </div>
+            <div class="stat-card">
+                <div>Swap Usage</div>
+                <div class="stat-value">{} / {} MB</div>
+            </div>
+            <div class="stat-card">
+                <div>Disk (/)</div>
+                <div class="stat-value">{} / {} GB</div>
+            </div>
+        </div>
+    "#, cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total));
+
+    // Services Table
+    html.push_str(r#"
+        <h2>Services</h2>
         <table>
             <thead>
                 <tr>
@@ -172,7 +249,7 @@ async fn dashboard(session: Session) -> impl IntoResponse {
                 </tr>
             </thead>
             <tbody>
-    "#, escaped_username);
+    "#);
 
     for svc in services {
         let name = svc.name();
@@ -216,12 +293,162 @@ async fn dashboard(session: Session) -> impl IntoResponse {
     html.push_str(r#"
             </tbody>
         </table>
-        <p><em>Note: Actions may take a moment to apply as Docker Compose updates.</em></p>
-    </body>
-    </html>
+        <p><em>Note: Actions may take a moment to apply.</em></p>
     "#);
+    html.push_str(&html_foot());
 
     Html(html).into_response()
+}
+
+// User Management Page
+async fn users_page(session: Session) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !matches!(user.role, Role::Admin) {
+        return Redirect::to("/").into_response();
+    }
+
+    let user_manager = UserManager::load().unwrap_or_default();
+    let mut html = html_head("User Management - Server Manager");
+
+    html.push_str(r#"
+        <div class="header">
+            <h1>User Management 👥</h1>
+            <form method="POST" action="/logout">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </div>
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/users">User Management</a>
+        </div>
+
+        <h3>Add New User</h3>
+        <form method="POST" action="/users/add" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end;">
+            <div>
+                <label>Username</label><br>
+                <input type="text" name="username" required style="width: 100%; padding: 8px;">
+            </div>
+            <div>
+                <label>Password</label><br>
+                <input type="password" name="password" required style="width: 100%; padding: 8px;">
+            </div>
+            <div>
+                <label>Role</label><br>
+                <select name="role" style="width: 100%; padding: 8px;">
+                    <option value="Observer">Observer</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+            <div>
+                <label>Quota (GB) <small>(0 = unlimited)</small></label><br>
+                <input type="number" name="quota" value="0" style="width: 100%; padding: 8px;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="height: 35px;">Add User</button>
+        </form>
+
+        <h3>Existing Users</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Quota (GB)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    "#);
+
+    for u in user_manager.list_users() {
+        let quota_display = match u.quota_gb {
+            Some(gb) if gb > 0 => format!("{} GB", gb),
+            _ => "Unlimited".to_string(),
+        };
+
+        // Don't allow deleting self or last admin logic is handled in delete handler/manager
+        // But let's show delete button generally
+        html.push_str(&format!(r#"
+            <tr>
+                <td>{}</td>
+                <td>{:?}</td>
+                <td>{}</td>
+                <td>
+                    <form method="POST" action="/users/delete/{}" onsubmit="return confirm('Are you sure you want to delete this user? This will delete their system account and data.');">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        "#, u.username, u.role, quota_display, u.username));
+    }
+
+    html.push_str("</tbody></table>");
+    html.push_str(&html_foot());
+
+    Html(html).into_response()
+}
+
+#[derive(Deserialize)]
+struct AddUserPayload {
+    username: String,
+    password: String,
+    role: String,
+    quota: Option<u64>,
+}
+
+async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>) -> impl IntoResponse {
+    let session_user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !matches!(session_user.role, Role::Admin) {
+        return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+    }
+
+    let role_enum = match payload.role.as_str() {
+        "Admin" => Role::Admin,
+        _ => Role::Observer,
+    };
+
+    let quota_val = match payload.quota {
+        Some(0) => None,
+        Some(v) => Some(v),
+        None => None,
+    };
+
+    let mut user_manager = UserManager::load().unwrap_or_default();
+    if let Err(e) = user_manager.add_user(&payload.username, &payload.password, role_enum, quota_val) {
+        error!("Failed to add user: {}", e);
+        // In a real app we'd flash a message. Here just redirect.
+    } else {
+        info!("User {} added via Web UI by {}", payload.username, session_user.username);
+    }
+
+    Redirect::to("/users").into_response()
+}
+
+async fn delete_user_handler(session: Session, Path(username): Path<String>) -> impl IntoResponse {
+    let session_user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !matches!(session_user.role, Role::Admin) {
+        return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+    }
+
+    let mut user_manager = UserManager::load().unwrap_or_default();
+    if let Err(e) = user_manager.delete_user(&username) {
+        error!("Failed to delete user: {}", e);
+    } else {
+        info!("User {} deleted via Web UI by {}", username, session_user.username);
+    }
+
+    Redirect::to("/users").into_response()
 }
 
 async fn enable_service(session: Session, Path(name): Path<String>) -> impl IntoResponse {
