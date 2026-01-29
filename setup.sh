@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Production-Ready Server Setup Script
+# Refactored for Zero-Config Architecture
+# Functions like Quickbox.io: Autonomous, Idempotent, Unbreakable.
+
 # Log file
 LOG_FILE="/var/log/my-server-install.log"
 
