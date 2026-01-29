@@ -90,6 +90,16 @@ The tool provides several subcommands:
 *   `server_manager install`: Full idempotent installation (dependencies, config, docker-compose up).
 *   `server_manager generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
 *   `server_manager status`: Displays detected hardware statistics and the profile (Low/Standard/High).
+*   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
+*   `server_manager disable <service>`: Disable a service.
+*   `server_manager web`: Starts the Web Administration Interface (Default: http://0.0.0.0:8099).
+
+### 🌐 Web Administration Interface
+
+You can manage your services via a simple web dashboard.
+1. Run `server_manager web`.
+2. Open `http://YOUR-SERVER-IP:8099`.
+3. View status and Enable/Disable services with one click.
 
 ### ⚙️ Hardware Profiles
 

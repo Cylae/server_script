@@ -1,5 +1,6 @@
 use server_manager::core::hardware::{HardwareInfo, HardwareProfile};
 use server_manager::core::secrets::Secrets;
+use server_manager::core::config::Config;
 use server_manager::build_compose_structure;
 
 #[test]
@@ -28,9 +29,10 @@ fn test_generate_compose_structure() {
         roundcube_db_password: Some("roundcubepass".to_string()),
         vaultwarden_admin_token: Some("token".to_string()),
     };
+    let config = Config::default();
 
     // 2. Build Structure
-    let result = build_compose_structure(&hw, &secrets);
+    let result = build_compose_structure(&hw, &secrets, &config);
     assert!(result.is_ok(), "Failed to build compose structure");
     let mapping = result.unwrap();
 
@@ -73,8 +75,9 @@ fn test_security_bindings() {
         group_id: "1000".to_string(),
     };
     let secrets = Secrets::default();
+    let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets).unwrap();
+    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
     let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
 
     // 1. MariaDB should have NO ports
@@ -109,8 +112,9 @@ fn test_profile_logic_low() {
         group_id: "1000".to_string(),
     };
     let secrets = Secrets::default();
+    let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets).unwrap();
+    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
     let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
 
     let mail = services.get(&serde_yaml::Value::from("mailserver")).unwrap().as_mapping().unwrap();
@@ -136,8 +140,9 @@ fn test_profile_logic_standard() {
         group_id: "1000".to_string(),
     };
     let secrets = Secrets::default();
+    let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets).unwrap();
+    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
     let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
 
     let mail = services.get(&serde_yaml::Value::from("mailserver")).unwrap().as_mapping().unwrap();
@@ -163,8 +168,9 @@ fn test_resource_generation() {
         group_id: "1000".to_string(),
     };
     let secrets = Secrets::default();
+    let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets).unwrap();
+    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
     let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
 
     // Check MariaDB
@@ -179,4 +185,30 @@ fn test_resource_generation() {
 
     let memory = limits.get(&serde_yaml::Value::from("memory")).unwrap().as_str().unwrap();
     assert_eq!(memory, "4G", "MariaDB should have 4G limit on High profile");
+}
+
+#[test]
+fn test_disabled_service_filtering() {
+    let hw = HardwareInfo {
+        profile: HardwareProfile::Standard,
+        ram_gb: 8,
+        cpu_cores: 4,
+        has_nvidia: false,
+        has_intel_quicksync: false,
+        disk_gb: 512,
+        swap_gb: 4,
+        user_id: "1000".to_string(),
+        group_id: "1000".to_string(),
+    };
+    let secrets = Secrets::default();
+
+    // Disable "plex"
+    let mut config = Config::default();
+    config.disable_service("plex");
+
+    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
+
+    assert!(!services.contains_key(&serde_yaml::Value::from("plex")), "Plex should be disabled");
+    assert!(services.contains_key(&serde_yaml::Value::from("jellyfin")), "Jellyfin should still be enabled");
 }
