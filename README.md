@@ -36,20 +36,18 @@ No need to be a Linux wizard! Follow these simple steps.
 
 ### 🚀 Quick Installation (One Click)
 
-The easiest way to install Server Manager on a fresh VM (Google Cloud, AWS, etc.) is to use the bootstrap script. It handles everything: sudo access, dependencies, and compiling the tool.
+The easiest way to install Server Manager on a fresh VM (Google Cloud, AWS, etc.) is to use the new zero-config setup script. It handles everything: system hardening, storage quotas, user management, and deploying the application.
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh | bash
+curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/setup.sh | bash
 ```
 
 That's it! 🎉
-Server Manager will automatically:
-1.  Install system dependencies (curl, git, build-essential, etc.).
-2.  Check and install Docker.
-3.  Scan your hardware (RAM, CPU, Disk).
-4.  Generate secure passwords (`secrets.yaml`).
-5.  Configure the firewall.
-6.  Launch all services.
+The script will:
+1.  **Harden the System**: Configure UFW firewall, Fail2Ban, and secure system users.
+2.  **Configure Storage**: Automatically enable filesystem quotas (`usrquota`, `grpquota`) and optimize mount points.
+3.  **Bootstrap Environment**: Install Docker, Rust, and all necessary dependencies.
+4.  **Deploy Server Manager**: Compile and launch the orchestration engine to configure your 24+ Docker services.
 
 Once finished, go to `http://YOUR-SERVER-IP` (or the specific ports listed below).
 
@@ -187,20 +185,18 @@ Pas besoin de connaître Linux sur le bout des doigts ! Suivez ces étapes simpl
 
 ### 🚀 Installation Rapide (Un Clic)
 
-La méthode la plus simple pour installer Server Manager sur une VM vierge (Google Cloud, AWS, etc.) est d'utiliser le script de bootstrap. Il gère tout : accès sudo, dépendances et compilation.
+La méthode la plus simple pour installer Server Manager sur une VM vierge (Google Cloud, AWS, etc.) est d'utiliser le nouveau script de configuration zéro-config. Il gère tout : sécurisation du système, quotas de stockage, gestion des utilisateurs et déploiement de l'application.
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/install.sh | bash
+curl -sL https://raw.githubusercontent.com/Cylae/server_script/server-setup-script/setup.sh | bash
 ```
 
 C'est tout ! 🎉
-Server Manager va automatiquement :
-1.  Installer les dépendances système (curl, git, build-essential, etc.).
-2.  Vérifier et installer Docker.
-3.  Scanner votre matériel (RAM, CPU, Disque).
-4.  Générer des mots de passe sécurisés (`secrets.yaml`).
-5.  Configurer le pare-feu.
-6.  Lancer tous les services.
+Le script va :
+1.  **Sécuriser le Système** : Configurer le pare-feu UFW, Fail2Ban et sécuriser les utilisateurs système.
+2.  **Configurer le Stockage** : Activer automatiquement les quotas de système de fichiers (`usrquota`, `grpquota`) et optimiser les points de montage.
+3.  **Initialiser l'Environnement** : Installer Docker, Rust et toutes les dépendances nécessaires.
+4.  **Déployer Server Manager** : Compiler et lancer le moteur d'orchestration pour configurer vos 24+ services Docker.
 
 Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports spécifiques ci-dessous).
 
