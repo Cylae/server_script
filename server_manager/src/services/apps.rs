@@ -95,8 +95,7 @@ impl Service for RoundcubeService {
     fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8090:80".to_string()] }
     fn env_vars(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
         let mut vars = HashMap::new();
-        vars.insert("ROUNDCUBEMAIL_DB_TYPE".to_string(), "sqlite".to_string()); // Defaulting to sqlite as per memory hints or keeping simple.
-        // Memory says: "uses SQLite."
+        vars.insert("ROUNDCUBEMAIL_DB_TYPE".to_string(), "sqlite".to_string());
         vars.insert("ROUNDCUBEMAIL_SKIN".to_string(), "elastic".to_string());
         vars
     }
@@ -118,6 +117,11 @@ impl Service for NextcloudService {
     fn configure(&self, _hw: &HardwareInfo, secrets: &Secrets) -> Result<()> {
         let config_dir = Path::new("./config/nextcloud");
         fs::create_dir_all(config_dir).context("Failed to create nextcloud config dir")?;
+
+        // Optimization: Only write autoconfig if config.php doesn't exist to prevent overwrites
+        if config_dir.join("config.php").exists() {
+            return Ok(());
+        }
 
         let escape_php = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
         let db_pass = escape_php(&secrets.nextcloud_db_password.clone().unwrap_or_default());

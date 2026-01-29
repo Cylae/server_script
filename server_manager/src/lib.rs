@@ -3,18 +3,25 @@ pub mod services;
 
 pub use crate::core::hardware;
 pub use crate::core::secrets;
+pub use crate::core::config;
+pub use crate::core::users;
+pub mod interface;
 
 use anyhow::Result;
 use std::collections::HashMap;
 
 /// Generates the docker-compose.yml structure based on hardware profile and secrets.
 /// This acts as the "Compiler" for the infrastructure.
-pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets) -> Result<serde_yaml::Mapping> {
+pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<serde_yaml::Mapping> {
     let services = services::get_all_services();
 
     let mut compose_services = HashMap::new();
 
     for service in services {
+        if !config.is_enabled(service.name()) {
+            continue;
+        }
+
         let mut config = serde_yaml::Mapping::new();
         config.insert("image".into(), service.image().into());
         config.insert("container_name".into(), service.name().into());
