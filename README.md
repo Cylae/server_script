@@ -93,7 +93,8 @@ The tool provides several subcommands:
 *   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
 *   `server_manager disable <service>`: Disable a service.
 *   `server_manager web`: Starts the Web Administration Interface (Default: http://0.0.0.0:8099).
-*   `server_manager user add <username>`: Create a new user (Role: Admin/Observer).
+*   `server_manager user add <username> --quota <GB>`: Create a new user (Role: Admin/Observer) and set storage quota.
+*   `server_manager user delete <username>`: Delete a user and their data.
 *   `server_manager user passwd <username>`: Reset a user's password.
 
 ### 🌐 Web Administration Interface
@@ -103,6 +104,13 @@ You can manage your services via a secure web dashboard.
 2. Open `http://YOUR-SERVER-IP:8099`.
 3. Login with your credentials. (Default: `admin` / `admin` - **Change this immediately!**)
 4. View status and Enable/Disable services (Admin only).
+
+### 👥 User Management & Quotas
+
+Server Manager now supports full user management:
+*   **System Integration**: Adding a user creates a Linux system user (for SFTP/Shell access) and a Web Dashboard user.
+*   **Storage Quotas**: You can set a storage limit (in GB) for each user. The system uses filesystem quotas to enforce this.
+    *   Example: `server_manager user add john --quota 50`
 
 ### ⚙️ Hardware Profiles
 

@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use anyhow::{Result, Context, anyhow};
-use log::info;
+use log::{info, warn};
 use bcrypt::{DEFAULT_COST, hash, verify};
+use crate::core::system;
+use nix::unistd::Uid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -17,6 +19,8 @@ pub struct User {
     pub username: String,
     pub password_hash: String,
     pub role: Role,
+    #[serde(default)]
+    pub quota_gb: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -65,6 +69,7 @@ impl UserManager {
                 username: "admin".to_string(),
                 password_hash: hash,
                 role: Role::Admin,
+                quota_gb: None,
             });
             manager.save()?;
             info!("Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!");
@@ -86,15 +91,27 @@ impl UserManager {
         Ok(())
     }
 
-    pub fn add_user(&mut self, username: &str, password: &str, role: Role) -> Result<()> {
+    pub fn add_user(&mut self, username: &str, password: &str, role: Role, quota_gb: Option<u64>) -> Result<()> {
         if self.users.contains_key(username) {
             return Err(anyhow!("User already exists"));
         }
+
+        // System User Integration
+        if Uid::effective().is_root() {
+            system::create_system_user(username, password)?;
+            if let Some(gb) = quota_gb {
+                system::set_system_quota(username, gb)?;
+            }
+        } else {
+            warn!("Not running as root. Skipping system user creation for '{}'.", username);
+        }
+
         let hash = hash(password, DEFAULT_COST)?;
         self.users.insert(username.to_string(), User {
             username: username.to_string(),
             password_hash: hash,
             role,
+            quota_gb,
         });
         self.save()
     }
@@ -106,12 +123,27 @@ impl UserManager {
         if username == "admin" && self.users.len() == 1 {
              return Err(anyhow!("Cannot delete the last admin user"));
         }
+
+        // System User Deletion
+        if Uid::effective().is_root() {
+            system::delete_system_user(username)?;
+        } else {
+            warn!("Not running as root. Skipping system user deletion for '{}'.", username);
+        }
+
         self.users.remove(username);
         self.save()
     }
 
     pub fn update_password(&mut self, username: &str, new_password: &str) -> Result<()> {
         if let Some(user) = self.users.get_mut(username) {
+            // System Password Update
+            if Uid::effective().is_root() {
+                system::set_system_user_password(username, new_password)?;
+            } else {
+                warn!("Not running as root. Skipping system password update for '{}'.", username);
+            }
+
             user.password_hash = hash(new_password, DEFAULT_COST)?;
             self.save()
         } else {
@@ -146,8 +178,8 @@ mod tests {
         let mut manager = UserManager::default();
 
         // Add User
-        assert!(manager.add_user("testuser", "password123", Role::Observer).is_ok());
-        assert!(manager.add_user("testuser", "password123", Role::Observer).is_err()); // Duplicate
+        assert!(manager.add_user("testuser", "password123", Role::Observer, None).is_ok());
+        assert!(manager.add_user("testuser", "password123", Role::Observer, None).is_err()); // Duplicate
 
         // Verify
         let user = manager.verify("testuser", "password123");
@@ -169,13 +201,13 @@ mod tests {
     #[test]
     fn test_admin_protection() {
         let mut manager = UserManager::default();
-        manager.add_user("admin", "admin", Role::Admin).unwrap();
+        manager.add_user("admin", "admin", Role::Admin, None).unwrap();
 
         // Should fail to delete last admin
         assert!(manager.delete_user("admin").is_err());
 
         // Add another admin
-        manager.add_user("admin2", "admin", Role::Admin).unwrap();
+        manager.add_user("admin2", "admin", Role::Admin, None).unwrap();
         // Now can delete one
         assert!(manager.delete_user("admin").is_ok());
     }
