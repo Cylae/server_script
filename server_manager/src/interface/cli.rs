@@ -326,7 +326,7 @@ fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, 
 async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
     info!("Generating docker-compose.yml based on hardware profile...");
     let top_level = build_compose_structure(hw, secrets, config)?;
-    let yaml_output = serde_yaml::to_string(&top_level)?;
+    let yaml_output = serde_yaml_ng::to_string(&top_level)?;
 
     fs::write("docker-compose.yml", yaml_output).context("Failed to write docker-compose.yml")?;
     info!("docker-compose.yml generated.");

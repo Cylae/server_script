@@ -13,7 +13,7 @@ env_logger = "0.10"
 which = "4.4"
 libc = "0.2"
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
+serde_yaml_ng = "0.10"
 nix = { version = "0.27", features = ["user"] }
 async-trait = "0.1"
 axum = "0.7"

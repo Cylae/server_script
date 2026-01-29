@@ -47,7 +47,7 @@ impl UserManager {
             if content.trim().is_empty() {
                 UserManager::default()
             } else {
-                serde_yaml::from_str(&content).context("Failed to parse users.yaml")?
+                serde_yaml_ng::from_str(&content).context("Failed to parse users.yaml")?
             }
         } else {
             UserManager::default()
@@ -86,7 +86,7 @@ impl UserManager {
              Path::new("users.yaml")
         };
 
-        let content = serde_yaml::to_string(self)?;
+        let content = serde_yaml_ng::to_string(self)?;
         fs::write(target, content).context("Failed to write users.yaml")?;
         Ok(())
     }

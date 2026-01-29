@@ -5,3 +5,4 @@ pub mod system;
 pub mod docker;
 pub mod firewall;
 pub mod secrets;
+pub mod compose;

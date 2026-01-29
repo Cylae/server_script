@@ -32,32 +32,27 @@ fn test_generate_compose_structure() {
     let config = Config::default();
 
     // 2. Build Structure
-    let result = build_compose_structure(&hw, &secrets, &config);
-    assert!(result.is_ok(), "Failed to build compose structure");
-    let mapping = result.unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
 
-    // 3. Verify Top Level Keys
-    assert!(mapping.contains_key(&serde_yaml::Value::from("services")));
-    assert!(mapping.contains_key(&serde_yaml::Value::from("networks")));
+    // 3. Verify Top Level Keys (Struct fields exist by definition)
 
     // 4. Verify Networks
-    let networks = mapping.get(&serde_yaml::Value::from("networks")).unwrap().as_mapping().unwrap();
-    assert!(networks.contains_key(&serde_yaml::Value::from("server_manager_net")));
+    assert!(compose.networks.contains_key("server_manager_net"));
 
     // 5. Verify Services Count (Should be 27)
-    let services = mapping.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
-    assert_eq!(services.len(), 27, "Expected 27 services");
+    assert_eq!(compose.services.len(), 27, "Expected 27 services");
 
     // 6. Verify specific service (Plex, Jellyfin, Bazarr)
-    assert!(services.contains_key(&serde_yaml::Value::from("plex")));
-    assert!(services.contains_key(&serde_yaml::Value::from("jellyfin")));
-    assert!(services.contains_key(&serde_yaml::Value::from("bazarr")));
-    let plex = services.get(&serde_yaml::Value::from("plex")).unwrap().as_mapping().unwrap();
-    assert_eq!(plex.get(&serde_yaml::Value::from("image")).unwrap().as_str().unwrap(), "lscr.io/linuxserver/plex:latest");
+    assert!(compose.services.contains_key("plex"));
+    assert!(compose.services.contains_key("jellyfin"));
+    assert!(compose.services.contains_key("bazarr"));
+
+    let plex = compose.services.get("plex").unwrap();
+    assert_eq!(plex.image, "lscr.io/linuxserver/plex:latest");
 
     // 7. Verify Network attachment
-    let plex_nets = plex.get(&serde_yaml::Value::from("networks")).unwrap().as_sequence().unwrap();
-    assert!(plex_nets.contains(&serde_yaml::Value::from("server_manager_net")));
+    let plex_nets = plex.networks.as_ref().unwrap();
+    assert!(plex_nets.contains(&"server_manager_net".to_string()));
 }
 
 #[test]
@@ -77,23 +72,22 @@ fn test_security_bindings() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
 
     // 1. MariaDB should have NO ports
-    let mariadb = services.get(&serde_yaml::Value::from("mariadb")).unwrap().as_mapping().unwrap();
-    assert!(!mariadb.contains_key(&serde_yaml::Value::from("ports")), "MariaDB should not expose ports");
+    let mariadb = compose.services.get("mariadb").unwrap();
+    assert!(mariadb.ports.is_none(), "MariaDB should not expose ports");
 
     // 2. Sonarr should be bound to 127.0.0.1
-    let sonarr = services.get(&serde_yaml::Value::from("sonarr")).unwrap().as_mapping().unwrap();
-    let ports = sonarr.get(&serde_yaml::Value::from("ports")).unwrap().as_sequence().unwrap();
-    let port_str = ports[0].as_str().unwrap();
+    let sonarr = compose.services.get("sonarr").unwrap();
+    let ports = sonarr.ports.as_ref().unwrap();
+    let port_str = &ports[0];
     assert!(port_str.starts_with("127.0.0.1:"), "Sonarr port should be bound to localhost: {}", port_str);
 
     // 3. Plex should still be exposed (host mapping implied or explicit 0.0.0.0)
-    let plex = services.get(&serde_yaml::Value::from("plex")).unwrap().as_mapping().unwrap();
-    let ports = plex.get(&serde_yaml::Value::from("ports")).unwrap().as_sequence().unwrap();
-    let port_str = ports[0].as_str().unwrap();
+    let plex = compose.services.get("plex").unwrap();
+    let ports = plex.ports.as_ref().unwrap();
+    let port_str = &ports[0];
     assert!(!port_str.starts_with("127.0.0.1:"), "Plex port should be exposed: {}", port_str);
 }
 
@@ -114,14 +108,12 @@ fn test_profile_logic_low() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
-
-    let mail = services.get(&serde_yaml::Value::from("mailserver")).unwrap().as_mapping().unwrap();
-    let envs = mail.get(&serde_yaml::Value::from("environment")).unwrap().as_sequence().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let mail = compose.services.get("mailserver").unwrap();
+    let envs = mail.environment.as_ref().unwrap();
 
     // Check for ENABLE_SPAMASSASSIN=0
-    let has_disabled_spam = envs.iter().any(|v| v.as_str().unwrap() == "ENABLE_SPAMASSASSIN=0");
+    let has_disabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=0");
     assert!(has_disabled_spam, "Low profile should disable SpamAssassin");
 }
 
@@ -142,14 +134,12 @@ fn test_profile_logic_standard() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
-
-    let mail = services.get(&serde_yaml::Value::from("mailserver")).unwrap().as_mapping().unwrap();
-    let envs = mail.get(&serde_yaml::Value::from("environment")).unwrap().as_sequence().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let mail = compose.services.get("mailserver").unwrap();
+    let envs = mail.environment.as_ref().unwrap();
 
     // Check for ENABLE_SPAMASSASSIN=1
-    let has_enabled_spam = envs.iter().any(|v| v.as_str().unwrap() == "ENABLE_SPAMASSASSIN=1");
+    let has_enabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=1");
     assert!(has_enabled_spam, "Standard profile should enable SpamAssassin");
 }
 
@@ -170,20 +160,17 @@ fn test_resource_generation() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
-
-    // Check MariaDB
-    let mariadb = services.get(&serde_yaml::Value::from("mariadb")).unwrap().as_mapping().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let mariadb = compose.services.get("mariadb").unwrap();
 
     // Check deploy key exists
-    assert!(mariadb.contains_key(&serde_yaml::Value::from("deploy")));
+    assert!(mariadb.deploy.is_some());
 
-    let deploy = mariadb.get(&serde_yaml::Value::from("deploy")).unwrap().as_mapping().unwrap();
-    let resources = deploy.get(&serde_yaml::Value::from("resources")).unwrap().as_mapping().unwrap();
-    let limits = resources.get(&serde_yaml::Value::from("limits")).unwrap().as_mapping().unwrap();
+    let deploy = mariadb.deploy.as_ref().unwrap();
+    let resources = deploy.resources.as_ref().unwrap();
+    let limits = resources.limits.as_ref().unwrap();
 
-    let memory = limits.get(&serde_yaml::Value::from("memory")).unwrap().as_str().unwrap();
+    let memory = limits.memory.as_ref().unwrap();
     assert_eq!(memory, "4G", "MariaDB should have 4G limit on High profile");
 }
 
@@ -206,9 +193,8 @@ fn test_disabled_service_filtering() {
     let mut config = Config::default();
     config.disable_service("plex");
 
-    let result = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let services = result.get(&serde_yaml::Value::from("services")).unwrap().as_mapping().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
 
-    assert!(!services.contains_key(&serde_yaml::Value::from("plex")), "Plex should be disabled");
-    assert!(services.contains_key(&serde_yaml::Value::from("jellyfin")), "Jellyfin should still be enabled");
+    assert!(!compose.services.contains_key("plex"), "Plex should be disabled");
+    assert!(compose.services.contains_key("jellyfin"), "Jellyfin should still be enabled");
 }

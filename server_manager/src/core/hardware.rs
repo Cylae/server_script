@@ -26,7 +26,7 @@ pub struct HardwareInfo {
 impl HardwareInfo {
     pub fn detect() -> Self {
         let (user_id, group_id) = Self::detect_user();
-        let mut sys = System::new_all();
+        let mut sys = System::new();
         sys.refresh_memory();
         sys.refresh_cpu();
         sys.refresh_disks();

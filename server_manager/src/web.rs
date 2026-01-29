@@ -35,7 +35,7 @@ async fn dashboard() -> impl IntoResponse {
         Err(_) => {
             // Try explicit path
             if let Ok(content) = std::fs::read_to_string("/opt/server_manager/config.yaml") {
-                serde_yaml::from_str(&content).unwrap_or_default()
+                serde_yaml_ng::from_str(&content).unwrap_or_default()
             } else {
                 Config::default()
             }
