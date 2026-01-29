@@ -10,3 +10,7 @@ server_manager/docker-compose.yml
 server_manager/config/
 server_manager/media/
 server_manager/transcode/
+users.yaml
+server_manager/users.yaml
+config.yaml
+server_manager/config.yaml

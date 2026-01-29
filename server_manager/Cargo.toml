@@ -20,6 +20,9 @@ axum = "0.7"
 serde_json = "1.0"
 tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["fs", "trace"] }
+bcrypt = "0.15"
+tower-sessions = "0.12"
+time = "0.3"
 
 [workspace]
 members = ["."]

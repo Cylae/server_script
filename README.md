@@ -93,13 +93,16 @@ The tool provides several subcommands:
 *   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
 *   `server_manager disable <service>`: Disable a service.
 *   `server_manager web`: Starts the Web Administration Interface (Default: http://0.0.0.0:8099).
+*   `server_manager user add <username>`: Create a new user (Role: Admin/Observer).
+*   `server_manager user passwd <username>`: Reset a user's password.
 
 ### 🌐 Web Administration Interface
 
-You can manage your services via a simple web dashboard.
+You can manage your services via a secure web dashboard.
 1. Run `server_manager web`.
 2. Open `http://YOUR-SERVER-IP:8099`.
-3. View status and Enable/Disable services with one click.
+3. Login with your credentials. (Default: `admin` / `admin` - **Change this immediately!**)
+4. View status and Enable/Disable services (Admin only).
 
 ### ⚙️ Hardware Profiles
 

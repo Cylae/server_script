@@ -4,7 +4,8 @@ pub mod services;
 pub use crate::core::hardware;
 pub use crate::core::secrets;
 pub use crate::core::config;
-pub mod web;
+pub use crate::core::users;
+pub mod interface;
 
 use anyhow::Result;
 use std::collections::HashMap;
