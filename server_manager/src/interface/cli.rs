@@ -48,6 +48,8 @@ pub enum UserCommands {
         username: String,
         #[arg(long, default_value = "Observer")]
         role: String, // "Admin" or "Observer"
+        #[arg(long)]
+        quota: Option<u64>,
     },
     /// Delete a user
     Delete { username: String },
@@ -77,7 +79,7 @@ fn run_user_management(action: UserCommands) -> Result<()> {
     let mut user_manager = users::UserManager::load()?;
 
     match action {
-        UserCommands::Add { username, role } => {
+        UserCommands::Add { username, role, quota } => {
             let role_enum = match role.to_lowercase().as_str() {
                 "admin" => users::Role::Admin,
                 "observer" => users::Role::Observer,
@@ -94,7 +96,7 @@ fn run_user_management(action: UserCommands) -> Result<()> {
                 return Err(anyhow::anyhow!("Password cannot be empty"));
             }
 
-            user_manager.add_user(&username, password, role_enum)?;
+            user_manager.add_user(&username, password, role_enum, quota)?;
             info!("User '{}' added successfully.", username);
         }
         UserCommands::Delete { username } => {
