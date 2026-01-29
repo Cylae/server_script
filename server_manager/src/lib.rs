@@ -5,6 +5,9 @@ pub use crate::core::hardware;
 pub use crate::core::secrets;
 pub use crate::core::config;
 pub use crate::core::users;
+// Import the new module structs
+use crate::core::compose::{ComposeFile, Service, Network, Logging, HealthCheck, Deploy, Resources, ResourceLimits};
+
 pub mod interface;
 
 use anyhow::Result;
@@ -12,200 +15,131 @@ use std::collections::HashMap;
 
 /// Generates the docker-compose.yml structure based on hardware profile and secrets.
 /// This acts as the "Compiler" for the infrastructure.
-pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<serde_yaml::Mapping> {
-    let services = services::get_all_services();
-
+pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<ComposeFile> {
+    let services_list = services::get_all_services();
     let mut compose_services = HashMap::new();
 
-    for service in services {
-        if !config.is_enabled(service.name()) {
+    for service_impl in services_list {
+        if !config.is_enabled(service_impl.name()) {
             continue;
         }
 
-        let mut config = serde_yaml::Mapping::new();
-        config.insert("image".into(), service.image().into());
-        config.insert("container_name".into(), service.name().into());
-        config.insert("restart".into(), "unless-stopped".into());
+        let name = service_impl.name().to_string();
 
-        // Ports
-        let ports = service.ports();
-        if !ports.is_empty() {
-             let mut ports_seq = serde_yaml::Sequence::new();
-             for p in ports {
-                 ports_seq.push(p.into());
+        let ports = service_impl.ports();
+        let ports = if ports.is_empty() { None } else { Some(ports) };
+
+        let envs = service_impl.env_vars(hw, secrets);
+        let environment = if envs.is_empty() { None } else {
+            Some(envs.into_iter().map(|(k, v)| format!("{}={}", k, v)).collect())
+        };
+
+        let vols = service_impl.volumes(hw);
+        let volumes = if vols.is_empty() { None } else { Some(vols) };
+
+        let devs = service_impl.devices(hw);
+        let devices = if devs.is_empty() { None } else { Some(devs) };
+
+        let nets = service_impl.networks();
+        let networks = if nets.is_empty() { None } else { Some(nets) };
+
+        let healthcheck = if let Some(cmd) = service_impl.healthcheck() {
+            Some(HealthCheck {
+                test: vec!["CMD-SHELL".to_string(), cmd],
+                interval: "1m".to_string(),
+                retries: 3,
+                start_period: "30s".to_string(),
+                timeout: "10s".to_string(),
+            })
+        } else {
+            None
+        };
+
+        let deps = service_impl.depends_on();
+        let depends_on = if deps.is_empty() { None } else { Some(deps) };
+
+        let sec_opts = service_impl.security_opts();
+        let security_opt = if sec_opts.is_empty() { None } else { Some(sec_opts) };
+
+        let labels_map = service_impl.labels();
+        let labels = if labels_map.is_empty() { None } else {
+            Some(labels_map.into_iter().map(|(k, v)| format!("{}={}", k, v)).collect())
+        };
+
+        let caps = service_impl.cap_add();
+        let cap_add = if caps.is_empty() { None } else { Some(caps) };
+
+        let sys = service_impl.sysctls();
+        let sysctls = if sys.is_empty() { None } else { Some(sys) };
+
+        let deploy = if let Some(res) = service_impl.resources(hw) {
+             let mut limits = None;
+             if res.memory_limit.is_some() || res.cpu_limit.is_some() {
+                 limits = Some(ResourceLimits {
+                     memory: res.memory_limit,
+                     cpus: res.cpu_limit,
+                 });
              }
-             config.insert("ports".into(), serde_yaml::Value::Sequence(ports_seq));
-        }
 
-        // Env Vars
-        let envs = service.env_vars(hw, secrets);
-        if !envs.is_empty() {
-             let mut env_seq = serde_yaml::Sequence::new();
-             for (k, v) in envs {
-                 env_seq.push(format!("{}={}", k, v).into());
+             let mut reservations = None;
+             if res.memory_reservation.is_some() || res.cpu_reservation.is_some() {
+                 reservations = Some(ResourceLimits {
+                     memory: res.memory_reservation,
+                     cpus: res.cpu_reservation,
+                 });
              }
-             config.insert("environment".into(), serde_yaml::Value::Sequence(env_seq));
-        }
 
-        // Volumes
-        let vols = service.volumes(hw);
-        if !vols.is_empty() {
-             let mut vol_seq = serde_yaml::Sequence::new();
-             for v in vols {
-                 vol_seq.push(v.into());
+             if limits.is_some() || reservations.is_some() {
+                 Some(Deploy {
+                     resources: Some(Resources {
+                         limits,
+                         reservations,
+                     })
+                 })
+             } else {
+                 None
              }
-             config.insert("volumes".into(), serde_yaml::Value::Sequence(vol_seq));
-        }
+        } else {
+            None
+        };
 
-        // Devices
-        let devs = service.devices(hw);
-        if !devs.is_empty() {
-             let mut dev_seq = serde_yaml::Sequence::new();
-             for d in devs {
-                 dev_seq.push(d.into());
-             }
-             config.insert("devices".into(), serde_yaml::Value::Sequence(dev_seq));
-        }
+        let logging_info = service_impl.logging();
+        let logging_options = if logging_info.options.is_empty() { None } else { Some(logging_info.options) };
+        let logging = Some(Logging {
+            driver: logging_info.driver,
+            options: logging_options,
+        });
 
-        // Networks
-        let nets = service.networks();
-        if !nets.is_empty() {
-             let mut net_seq = serde_yaml::Sequence::new();
-             for n in nets {
-                 net_seq.push(n.into());
-             }
-             config.insert("networks".into(), serde_yaml::Value::Sequence(net_seq));
-        }
+        let service = Service {
+            image: service_impl.image().to_string(),
+            container_name: service_impl.name().to_string(),
+            restart: "unless-stopped".to_string(),
+            ports,
+            environment,
+            volumes,
+            devices,
+            networks,
+            healthcheck,
+            depends_on,
+            security_opt,
+            labels,
+            cap_add,
+            sysctls,
+            deploy,
+            logging,
+        };
 
-        // Healthcheck
-        if let Some(cmd) = service.healthcheck() {
-             let mut hc = serde_yaml::Mapping::new();
-             let mut test_seq = serde_yaml::Sequence::new();
-             test_seq.push("CMD-SHELL".into());
-             test_seq.push(cmd.into());
-
-             hc.insert("test".into(), serde_yaml::Value::Sequence(test_seq));
-             hc.insert("interval".into(), "1m".into());
-             hc.insert("retries".into(), 3.into());
-             hc.insert("start_period".into(), "30s".into());
-             hc.insert("timeout".into(), "10s".into());
-
-             config.insert("healthcheck".into(), serde_yaml::Value::Mapping(hc));
-        }
-
-        // Depends On
-        let deps = service.depends_on();
-        if !deps.is_empty() {
-             let mut dep_seq = serde_yaml::Sequence::new();
-             for d in deps {
-                 dep_seq.push(d.into());
-             }
-             config.insert("depends_on".into(), serde_yaml::Value::Sequence(dep_seq));
-        }
-
-        // Security Opts
-        let sec_opts = service.security_opts();
-        if !sec_opts.is_empty() {
-             let mut sec_seq = serde_yaml::Sequence::new();
-             for s in sec_opts {
-                 sec_seq.push(s.into());
-             }
-             config.insert("security_opt".into(), serde_yaml::Value::Sequence(sec_seq));
-        }
-
-        // Labels
-        let labels = service.labels();
-        if !labels.is_empty() {
-             let mut labels_seq = serde_yaml::Sequence::new();
-             for (k, v) in labels {
-                 labels_seq.push(format!("{}={}", k, v).into());
-             }
-             config.insert("labels".into(), serde_yaml::Value::Sequence(labels_seq));
-        }
-
-        // Cap Add
-        let caps = service.cap_add();
-        if !caps.is_empty() {
-             let mut cap_seq = serde_yaml::Sequence::new();
-             for c in caps {
-                 cap_seq.push(c.into());
-             }
-             config.insert("cap_add".into(), serde_yaml::Value::Sequence(cap_seq));
-        }
-
-        // Sysctls
-        let sysctls = service.sysctls();
-        if !sysctls.is_empty() {
-             let mut sys_seq = serde_yaml::Sequence::new();
-             for s in sysctls {
-                 sys_seq.push(s.into());
-             }
-             config.insert("sysctls".into(), serde_yaml::Value::Sequence(sys_seq));
-        }
-
-        // Resources (Deploy)
-        if let Some(res) = service.resources(hw) {
-            let mut deploy = serde_yaml::Mapping::new();
-            let mut resources = serde_yaml::Mapping::new();
-            let mut limits = serde_yaml::Mapping::new();
-            let mut reservations = serde_yaml::Mapping::new();
-
-            if let Some(mem) = res.memory_limit {
-                limits.insert("memory".into(), mem.into());
-            }
-            if let Some(cpu) = res.cpu_limit {
-                limits.insert("cpus".into(), cpu.into());
-            }
-
-            if let Some(mem) = res.memory_reservation {
-                reservations.insert("memory".into(), mem.into());
-            }
-            if let Some(cpu) = res.cpu_reservation {
-                reservations.insert("cpus".into(), cpu.into());
-            }
-
-            if !limits.is_empty() {
-                resources.insert("limits".into(), serde_yaml::Value::Mapping(limits));
-            }
-            if !reservations.is_empty() {
-                resources.insert("reservations".into(), serde_yaml::Value::Mapping(reservations));
-            }
-
-            if !resources.is_empty() {
-                deploy.insert("resources".into(), serde_yaml::Value::Mapping(resources));
-                config.insert("deploy".into(), serde_yaml::Value::Mapping(deploy));
-            }
-        }
-
-        // Logging
-        let logging = service.logging();
-        let mut logging_map = serde_yaml::Mapping::new();
-        logging_map.insert("driver".into(), logging.driver.into());
-
-        let mut opts_map = serde_yaml::Mapping::new();
-        for (k, v) in logging.options {
-            opts_map.insert(k.into(), v.into());
-        }
-        if !opts_map.is_empty() {
-             logging_map.insert("options".into(), serde_yaml::Value::Mapping(opts_map));
-        }
-        config.insert("logging".into(), serde_yaml::Value::Mapping(logging_map));
-
-        compose_services.insert(service.name().to_string(), serde_yaml::Value::Mapping(config));
+        compose_services.insert(name, service);
     }
 
-    // Networks definition
-    let mut networks_map = serde_yaml::Mapping::new();
-    let mut server_manager_net = serde_yaml::Mapping::new();
-    server_manager_net.insert("driver".into(), "bridge".into());
-    networks_map.insert("server_manager_net".into(), serde_yaml::Value::Mapping(server_manager_net));
+    let mut networks = HashMap::new();
+    networks.insert("server_manager_net".to_string(), Network {
+        driver: "bridge".to_string(),
+    });
 
-    // Top Level
-    let mut top_level = serde_yaml::Mapping::new();
-    top_level.insert("services".into(), serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter(
-        compose_services.into_iter().map(|(k, v)| (k.into(), v))
-    )));
-    top_level.insert("networks".into(), serde_yaml::Value::Mapping(networks_map));
-
-    Ok(top_level)
+    Ok(ComposeFile {
+        version: None,
+        services: compose_services,
+        networks,
+    })
 }

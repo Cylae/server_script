@@ -20,14 +20,14 @@ impl Config {
             if content.trim().is_empty() {
                 return Ok(Config::default());
             }
-            serde_yaml::from_str(&content).context("Failed to parse config.yaml")
+            serde_yaml_ng::from_str(&content).context("Failed to parse config.yaml")
         } else {
             Ok(Config::default())
         }
     }
 
     pub fn save(&self) -> Result<()> {
-        let content = serde_yaml::to_string(self)?;
+        let content = serde_yaml_ng::to_string(self)?;
         fs::write("config.yaml", content).context("Failed to write config.yaml")?;
         Ok(())
     }

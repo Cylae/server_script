@@ -24,7 +24,7 @@ impl Secrets {
         let path = Path::new("secrets.yaml");
         let mut secrets: Secrets = if path.exists() {
             let content = fs::read_to_string(path).context("Failed to read secrets.yaml")?;
-            serde_yaml::from_str(&content).context("Failed to parse secrets.yaml")?
+            serde_yaml_ng::from_str(&content).context("Failed to parse secrets.yaml")?
         } else {
             Secrets::default()
         };
@@ -73,7 +73,7 @@ impl Secrets {
 
         if changed {
             info!("Generated new secrets.");
-            let content = serde_yaml::to_string(&secrets)?;
+            let content = serde_yaml_ng::to_string(&secrets)?;
             fs::write(path, content).context("Failed to write secrets.yaml")?;
         }
 
