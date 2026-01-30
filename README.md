@@ -228,6 +228,27 @@ L'outil dispose de plusieurs sous-commandes :
 *   `server_manager install` : Installation complète idempotente (dépendances, config, docker-compose up).
 *   `server_manager generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
 *   `server_manager status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
+*   `server_manager enable <service>` : Active un service (ex: `server_manager enable nextcloud`).
+*   `server_manager disable <service>` : Désactive un service.
+*   `server_manager web` : Démarre l'Interface d'Administration Web (Défaut : http://0.0.0.0:8099).
+*   `server_manager user add <username> --quota <GB>` : Crée un nouvel utilisateur (Rôle : Admin/Observer) et définit un quota de stockage.
+*   `server_manager user delete <username>` : Supprime un utilisateur et ses données.
+*   `server_manager user passwd <username>` : Réinitialise le mot de passe d'un utilisateur.
+
+### 🌐 Interface d'Administration Web
+
+Vous pouvez gérer vos services via un tableau de bord web sécurisé.
+1. Lancez `server_manager web`.
+2. Ouvrez `http://IP-DE-VOTRE-SERVEUR:8099`.
+3. Connectez-vous avec vos identifiants. (Défaut : `admin` / `admin` - **Changez-le immédiatement !**)
+4. Visualisez le statut et Activez/Désactivez les services (Admin uniquement).
+
+### 👥 Gestion des Utilisateurs & Quotas
+
+Server Manager supporte désormais une gestion complète des utilisateurs :
+*   **Intégration Système** : L'ajout d'un utilisateur crée un utilisateur système Linux (pour l'accès SFTP/Shell) et un utilisateur pour le Tableau de Bord Web.
+*   **Quotas de Stockage** : Vous pouvez définir une limite de stockage (en Go) pour chaque utilisateur. Le système utilise les quotas du système de fichiers pour appliquer cette limite.
+    *   Exemple : `server_manager user add jean --quota 50`
 
 ### ⚙️ Profils Matériels (Hardware Profiles)
 
