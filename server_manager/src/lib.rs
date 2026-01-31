@@ -43,17 +43,13 @@ pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::S
         let nets = service_impl.networks();
         let networks = if nets.is_empty() { None } else { Some(nets) };
 
-        let healthcheck = if let Some(cmd) = service_impl.healthcheck() {
-            Some(HealthCheck {
-                test: vec!["CMD-SHELL".to_string(), cmd],
-                interval: "1m".to_string(),
-                retries: 3,
-                start_period: "30s".to_string(),
-                timeout: "10s".to_string(),
-            })
-        } else {
-            None
-        };
+        let healthcheck = service_impl.healthcheck().map(|cmd| HealthCheck {
+            test: vec!["CMD-SHELL".to_string(), cmd],
+            interval: "1m".to_string(),
+            retries: 3,
+            start_period: "30s".to_string(),
+            timeout: "10s".to_string(),
+        });
 
         let deps = service_impl.depends_on();
         let depends_on = if deps.is_empty() { None } else { Some(deps) };

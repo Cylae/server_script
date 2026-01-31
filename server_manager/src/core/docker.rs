@@ -17,7 +17,7 @@ pub fn install() -> Result<()> {
 
     // Download script
     let status = Command::new("curl")
-        .args(&["-fsSL", "https://get.docker.com", "-o", "get-docker.sh"])
+        .args(["-fsSL", "https://get.docker.com", "-o", "get-docker.sh"])
         .status()
         .context("Failed to download Docker install script")?;
 

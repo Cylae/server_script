@@ -128,8 +128,8 @@ impl Service for NginxProxyService {
         let services = vec!["apache2", "nginx", "httpd"];
         for svc in services {
             // Stop and disable conflicting web servers
-            let _ = Command::new("systemctl").args(&["stop", svc]).status();
-            let _ = Command::new("systemctl").args(&["disable", svc]).status();
+            let _ = Command::new("systemctl").args(["stop", svc]).status();
+            let _ = Command::new("systemctl").args(["disable", svc]).status();
         }
         Ok(())
     }

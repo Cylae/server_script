@@ -172,7 +172,7 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 
     info!("Applying changes via Docker Compose...");
     let status = Command::new("docker")
-        .args(&["compose", "up", "-d", "--remove-orphans"])
+        .args(["compose", "up", "-d", "--remove-orphans"])
         .status()
         .context("Failed to run docker compose up")?;
 
@@ -226,7 +226,7 @@ async fn run_install() -> Result<()> {
     // 8. Launch
     info!("Launching Services via Docker Compose...");
     let status = Command::new("docker")
-        .args(&["compose", "up", "-d", "--remove-orphans"])
+        .args(["compose", "up", "-d", "--remove-orphans"])
         .status()
         .context("Failed to run docker compose up")?;
 
@@ -244,8 +244,8 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     println!("\n=================================================================================");
     println!("                           DEPLOYMENT SUMMARY 🚀");
     println!("=================================================================================");
-    println!("{:<15} | {:<25} | {:<15} | {}", "Service", "URL", "User", "Password / Info");
-    println!("{:<15} | {:<25} | {:<15} | {}", "-------", "---", "----", "---------------");
+    println!("{:<15} | {:<25} | {:<15} | Password / Info", "Service", "URL", "User");
+    println!("{:<15} | {:<25} | {:<15} | ---------------", "-------", "---", "----");
 
     let print_row = |service: &str, url: &str, user: &str, pass: &str| {
         println!("{:<15} | {:<25} | {:<15} | {}", service, url, user, pass);
