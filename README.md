@@ -132,34 +132,36 @@ Passwords are stored in `secrets.yaml`.
 
 Here is the matrix of deployed services:
 
-| Category | Service | Port (Host) | Internal URL | Description |
+**Note**: Services marked with `(Localhost)` are bound to `127.0.0.1` and are **not** accessible directly via the server's public IP. You must use the Reverse Proxy (Nginx Proxy Manager) or an SSH tunnel to access them.
+
+| Category | Service | Host Port / Access | Internal URL | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | **Infra** | Nginx Proxy Manager | 80, 81, 443 | `http://IP:81` | Reverse Proxy & SSL |
-| | Portainer | 9000 | `http://IP:9000` | Docker Management |
-| | MariaDB | 3306 | `mariadb` | SQL Database |
-| | Redis | 6379 | `redis` | Cache |
-| | Netdata | 19999 | `http://IP:19999` | Real-time Monitoring |
-| | Uptime Kuma | 3001 | `http://IP:3001` | Uptime Monitoring |
+| | Portainer | 9000 (Localhost) | `http://localhost:9000` | Docker Management |
+| | MariaDB | - | `mariadb` | SQL Database (Internal) |
+| | Redis | - | `redis` | Cache (Internal) |
+| | Netdata | 19999 (Localhost) | `http://localhost:19999` | Real-time Monitoring |
+| | Uptime Kuma | 3001 (Localhost) | `http://localhost:3001` | Uptime Monitoring |
 | | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | Secure DNS (DoH) |
 | | Wireguard | 51820 (UDP) | - | VPN |
 | **Media** | Plex | 32400 | `http://IP:32400` | Streaming Server |
 | | Jellyfin | 8096 | `http://IP:8096` | Streaming Server (Open Source) |
-| | Tautulli | 8181 | `http://IP:8181` | Plex Stats |
-| | Overseerr | 5055 | `http://IP:5055` | Plex Requests |
-| | Jellyseerr | 5056 | `http://IP:5056` | Jellyfin Requests |
-| **ArrStack** | Sonarr | 8989 | `http://IP:8989` | TV Shows |
-| | Radarr | 7878 | `http://IP:7878` | Movies |
-| | Bazarr | 6767 | `http://IP:6767` | Subtitles |
-| | Prowlarr | 9696 | `http://IP:9696` | Torrent Indexers |
-| | Jackett | 9117 | `http://IP:9117` | Indexer Proxy |
-| **Download** | QBittorrent | 8080 | `http://IP:8080` | Torrent Client |
-| **Apps** | Nextcloud | 4443 | `https://IP:4443` | Personal Cloud |
-| | Vaultwarden | 8001 | `http://IP:8001` | Password Manager |
-| | Filebrowser | 8002 | `http://IP:8002` | Web File Manager |
-| | Yourls | 8003 | `http://IP:8003` | URL Shortener |
-| | GLPI | 8088 | `http://IP:8088` | IT Asset Management |
-| | Gitea | 3000, 2222 | `http://IP:3000` | Self-hosted Git |
-| | Roundcube | 8090 | `http://IP:8090` | Webmail |
+| | Tautulli | 8181 (Localhost) | `http://localhost:8181` | Plex Stats |
+| | Overseerr | 5055 (Localhost) | `http://localhost:5055` | Plex Requests |
+| | Jellyseerr | 5056 (Localhost) | `http://localhost:5056` | Jellyfin Requests |
+| **ArrStack** | Sonarr | 8989 (Localhost) | `http://localhost:8989` | TV Shows |
+| | Radarr | 7878 (Localhost) | `http://localhost:7878` | Movies |
+| | Bazarr | 6767 (Localhost) | `http://localhost:6767` | Subtitles |
+| | Prowlarr | 9696 (Localhost) | `http://localhost:9696` | Torrent Indexers |
+| | Jackett | 9117 (Localhost) | `http://localhost:9117` | Indexer Proxy |
+| **Download** | QBittorrent | 8080 (Localhost) | `http://localhost:8080` | Torrent Client |
+| **Apps** | Nextcloud | 4443 (Localhost) | `https://localhost:4443` | Personal Cloud |
+| | Vaultwarden | 8001 (Localhost) | `http://localhost:8001` | Password Manager |
+| | Filebrowser | 8002 (Localhost) | `http://localhost:8002` | Web File Manager |
+| | Yourls | 8003 (Localhost) | `http://localhost:8003` | URL Shortener |
+| | GLPI | 8088 (Localhost) | `http://localhost:8088` | IT Asset Management |
+| | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
+| | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
 
 ---
@@ -272,34 +274,36 @@ Les mots de passe sont stockés dans `secrets.yaml`.
 
 Voici la matrice des services déployés :
 
-| Catégorie | Service | Port (Hôte) | URL Interne | Description |
+**Note** : Les services marqués `(Localhost)` sont liés à `127.0.0.1` et ne sont **pas** accessibles directement via l'IP publique du serveur. Vous devez utiliser le Reverse Proxy (Nginx Proxy Manager) ou un tunnel SSH pour y accéder.
+
+| Catégorie | Service | Port Hôte / Accès | URL Interne | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | **Infra** | Nginx Proxy Manager | 80, 81, 443 | `http://IP:81` | Reverse Proxy & SSL |
-| | Portainer | 9000 | `http://IP:9000` | Gestion Docker |
-| | MariaDB | 3306 | `mariadb` | Base de données SQL |
-| | Redis | 6379 | `redis` | Cache |
-| | Netdata | 19999 | `http://IP:19999` | Monitoring Temps Réel |
-| | Uptime Kuma | 3001 | `http://IP:3001` | Monitoring Disponibilité |
+| | Portainer | 9000 (Localhost) | `http://localhost:9000` | Gestion Docker |
+| | MariaDB | - | `mariadb` | Base de données SQL (Interne) |
+| | Redis | - | `redis` | Cache (Interne) |
+| | Netdata | 19999 (Localhost) | `http://localhost:19999` | Monitoring Temps Réel |
+| | Uptime Kuma | 3001 (Localhost) | `http://localhost:3001` | Monitoring Disponibilité |
 | | DNSCrypt Proxy | 5300 | `dnscrypt-proxy` | DNS Sécurisé (DoH) |
 | | Wireguard | 51820 (UDP) | - | VPN |
 | **Média** | Plex | 32400 | `http://IP:32400` | Serveur Streaming |
 | | Jellyfin | 8096 | `http://IP:8096` | Serveur Streaming (Open Source) |
-| | Tautulli | 8181 | `http://IP:8181` | Stats Plex |
-| | Overseerr | 5055 | `http://IP:5055` | Demandes Plex |
-| | Jellyseerr | 5056 | `http://IP:5056` | Demandes Jellyfin |
-| **ArrStack** | Sonarr | 8989 | `http://IP:8989` | Séries TV |
-| | Radarr | 7878 | `http://IP:7878` | Films |
-| | Bazarr | 6767 | `http://IP:6767` | Sous-titres |
-| | Prowlarr | 9696 | `http://IP:9696` | Indexeurs Torrent |
-| | Jackett | 9117 | `http://IP:9117` | Proxy Indexeurs |
-| **Download** | QBittorrent | 8080 | `http://IP:8080` | Client Torrent |
-| **Apps** | Nextcloud | 4443 | `https://IP:4443` | Personal Cloud |
-| | Vaultwarden | 8001 | `http://IP:8001` | Password Manager |
-| | Filebrowser | 8002 | `http://IP:8002` | Web File Manager |
-| | Yourls | 8003 | `http://IP:8003` | URL Shortener |
-| | GLPI | 8088 | `http://IP:8088` | IT Asset Management |
-| | Gitea | 3000, 2222 | `http://IP:3000` | Self-hosted Git |
-| | Roundcube | 8090 | `http://IP:8090` | Webmail |
+| | Tautulli | 8181 (Localhost) | `http://localhost:8181` | Stats Plex |
+| | Overseerr | 5055 (Localhost) | `http://localhost:5055` | Demandes Plex |
+| | Jellyseerr | 5056 (Localhost) | `http://localhost:5056` | Demandes Jellyfin |
+| **ArrStack** | Sonarr | 8989 (Localhost) | `http://localhost:8989` | Séries TV |
+| | Radarr | 7878 (Localhost) | `http://localhost:7878` | Films |
+| | Bazarr | 6767 (Localhost) | `http://localhost:6767` | Sous-titres |
+| | Prowlarr | 9696 (Localhost) | `http://localhost:9696` | Indexeurs Torrent |
+| | Jackett | 9117 (Localhost) | `http://localhost:9117` | Proxy Indexeurs |
+| **Download** | QBittorrent | 8080 (Localhost) | `http://localhost:8080` | Client Torrent |
+| **Apps** | Nextcloud | 4443 (Localhost) | `https://localhost:4443` | Personal Cloud |
+| | Vaultwarden | 8001 (Localhost) | `http://localhost:8001` | Password Manager |
+| | Filebrowser | 8002 (Localhost) | `http://localhost:8002` | Web File Manager |
+| | Yourls | 8003 (Localhost) | `http://localhost:8003` | URL Shortener |
+| | GLPI | 8088 (Localhost) | `http://localhost:8088` | IT Asset Management |
+| | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
+| | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
 
 ---
