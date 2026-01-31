@@ -11,13 +11,13 @@ use crate::core::compose::{ComposeFile, Service, Network, Logging, HealthCheck, 
 pub mod interface;
 
 use anyhow::Result;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Generates the docker-compose.yml structure based on hardware profile and secrets.
 /// This acts as the "Compiler" for the infrastructure.
 pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<ComposeFile> {
     let services_list = services::get_all_services();
-    let mut compose_services = HashMap::new();
+    let mut compose_services = BTreeMap::new();
 
     for service_impl in services_list {
         if !config.is_enabled(service_impl.name()) {
@@ -128,7 +128,7 @@ pub fn build_compose_structure(hw: &hardware::HardwareInfo, secrets: &secrets::S
         compose_services.insert(name, service);
     }
 
-    let mut networks = HashMap::new();
+    let mut networks = BTreeMap::new();
     networks.insert("server_manager_net".to_string(), Network {
         driver: "bridge".to_string(),
     });

@@ -230,7 +230,7 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
 pub fn apply_optimizations() -> Result<()> {
     info!("Applying system optimizations for media server performance...");
 
-    let mut sys = System::new_all();
+    let mut sys = System::new();
     sys.refresh_memory();
     let ram_gb = sys.total_memory() / 1024 / 1024 / 1024;
 
