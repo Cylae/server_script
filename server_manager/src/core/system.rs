@@ -1,4 +1,4 @@
-use nix::unistd::Uid;
+use nix::unistd::{Uid, User};
 use std::process::Command;
 use std::path::Path;
 use std::fs;
@@ -65,19 +65,10 @@ fn validate_username(username: &str) -> Result<()> {
 }
 
 fn get_uid(username: &str) -> Result<u32> {
-    let output = Command::new("id")
-        .arg("-u")
-        .arg(username)
-        .output()
-        .context("Failed to run id")?;
-
-    if !output.status.success() {
-        bail!("User '{}' not found", username);
+    match User::from_name(username).context("Failed to lookup user")? {
+        Some(user) => Ok(user.uid.as_raw()),
+        None => bail!("User '{}' not found", username),
     }
-
-    let uid_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let uid = uid_str.parse::<u32>().context("Failed to parse UID")?;
-    Ok(uid)
 }
 
 pub fn create_system_user(username: &str, password: &str) -> Result<()> {

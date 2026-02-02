@@ -138,6 +138,19 @@ impl Service for NginxProxyService {
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/npm:/data".to_string(), "./config/npm/letsencrypt:/etc/letsencrypt".to_string()]
     }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "1G",
+            HardwareProfile::Standard => "512M",
+            HardwareProfile::Low => "256M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct DNSCryptService;
@@ -147,6 +160,19 @@ impl Service for DNSCryptService {
     fn ports(&self) -> Vec<String> { vec!["5300:5053/tcp".to_string(), "5300:5053/udp".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/dnscrypt:/config".to_string()]
+    }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "256M",
+            HardwareProfile::Standard => "128M",
+            HardwareProfile::Low => "64M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
     }
 }
 
@@ -160,6 +186,19 @@ impl Service for WireguardService {
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/wireguard:/config".to_string(), "/lib/modules:/lib/modules".to_string()]
     }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "256M",
+            HardwareProfile::Standard => "128M",
+            HardwareProfile::Low => "64M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct PortainerService;
@@ -171,6 +210,19 @@ impl Service for PortainerService {
         vec!["/var/run/docker.sock:/var/run/docker.sock".to_string(), "./config/portainer:/data".to_string()]
     }
     fn security_opts(&self) -> Vec<String> { vec!["no-new-privileges:true".to_string()] }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "512M",
+            HardwareProfile::Standard => "256M",
+            HardwareProfile::Low => "128M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct NetdataService;
@@ -187,6 +239,19 @@ impl Service for NetdataService {
             "/var/run/docker.sock:/var/run/docker.sock:ro".to_string()
         ]
     }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "1G",
+            HardwareProfile::Standard => "512M",
+            HardwareProfile::Low => "256M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
+    }
 }
 
 pub struct UptimeKumaService;
@@ -196,5 +261,18 @@ impl Service for UptimeKumaService {
     fn ports(&self) -> Vec<String> { vec!["127.0.0.1:3001:3001".to_string()] }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/uptime-kuma:/app/data".to_string()]
+    }
+    fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
+        let memory_limit = match hw.profile {
+            HardwareProfile::High => "1G",
+            HardwareProfile::Standard => "512M",
+            HardwareProfile::Low => "256M",
+        };
+        Some(ResourceConfig {
+            memory_limit: Some(memory_limit.to_string()),
+            memory_reservation: None,
+            cpu_limit: None,
+            cpu_reservation: None,
+        })
     }
 }
