@@ -60,7 +60,8 @@ max_connections={}
 "#, buffer_pool, log_file_size, max_connections);
 
         // Parent dir is ./config/mariadb/
-        fs::write(init_dir.parent().unwrap().join("custom.cnf"), custom_cnf).context("Failed to write custom.cnf")?;
+        let config_dir = init_dir.parent().context("Failed to determine parent directory for custom.cnf")?;
+        fs::write(config_dir.join("custom.cnf"), custom_cnf).context("Failed to write custom.cnf")?;
 
         Ok(())
     }
@@ -175,7 +176,7 @@ impl Service for PortainerService {
 pub struct NetdataService;
 impl Service for NetdataService {
     fn name(&self) -> &'static str { "netdata" }
-    fn image(&self) -> &'static str { "netdata/netdata" }
+    fn image(&self) -> &'static str { "netdata/netdata:latest" }
     fn ports(&self) -> Vec<String> { vec!["127.0.0.1:19999:19999".to_string()] }
     fn cap_add(&self) -> Vec<String> { vec!["SYS_PTRACE".to_string()] }
     fn security_opts(&self) -> Vec<String> { vec!["apparmor:unconfined".to_string()] }
