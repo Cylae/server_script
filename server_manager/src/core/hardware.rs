@@ -2,6 +2,7 @@ use sysinfo::{System, SystemExt, DiskExt};
 use std::process::Command;
 use std::path::Path;
 use log::{info, warn};
+use nix::unistd::User;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HardwareProfile {
@@ -73,18 +74,14 @@ impl HardwareInfo {
             return (uid, gid);
         }
 
-        if let Ok(user) = std::env::var("SUDO_USER") {
-            let uid = Command::new("id").arg("-u").arg(&user).output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                .unwrap_or_else(|_| "1000".to_string());
-            let gid = Command::new("id").arg("-g").arg(&user).output()
-                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                .unwrap_or_else(|_| "1000".to_string());
-            (uid, gid)
-        } else {
-            warn!("SUDO_USER not found. Defaulting to UID/GID 1000.");
-            ("1000".to_string(), "1000".to_string())
+        if let Ok(username) = std::env::var("SUDO_USER") {
+            if let Ok(Some(user)) = User::from_name(&username) {
+                return (user.uid.to_string(), user.gid.to_string());
+            }
         }
+
+        warn!("SUDO_USER not found or lookup failed. Defaulting to UID/GID 1000.");
+        ("1000".to_string(), "1000".to_string())
     }
 
     fn check_nvidia() -> bool {
