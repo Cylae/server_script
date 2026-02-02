@@ -1,11 +1,11 @@
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 
 #[derive(Serialize)]
 pub struct ComposeFile {
     pub version: Option<String>,
-    pub services: HashMap<String, Service>,
-    pub networks: HashMap<String, Network>,
+    pub services: BTreeMap<String, Service>,
+    pub networks: BTreeMap<String, Network>,
 }
 
 #[derive(Serialize)]
