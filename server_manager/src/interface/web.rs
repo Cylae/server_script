@@ -174,8 +174,11 @@ async fn dashboard(session: Session) -> impl IntoResponse {
     let config = Config::load().unwrap_or_else(|_| Config::default());
 
     // System Stats
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let mut sys = System::new();
+    sys.refresh_cpu();
+    sys.refresh_memory();
+    sys.refresh_disks_list();
+    sys.refresh_disks();
     let ram_used = sys.used_memory() / 1024 / 1024; // MB
     let ram_total = sys.total_memory() / 1024 / 1024; // MB
     let swap_used = sys.used_swap() / 1024 / 1024; // MB
