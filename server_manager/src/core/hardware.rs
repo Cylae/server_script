@@ -30,6 +30,7 @@ impl HardwareInfo {
         let mut sys = System::new();
         sys.refresh_memory();
         sys.refresh_cpu();
+        sys.refresh_disks_list();
         sys.refresh_disks();
 
         let total_memory = sys.total_memory(); // Bytes
