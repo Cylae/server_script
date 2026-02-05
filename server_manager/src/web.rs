@@ -4,6 +4,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use std::fmt::Write;
 use std::net::SocketAddr;
 use crate::services;
 use crate::core::config::Config;
@@ -79,7 +80,7 @@ async fn dashboard() -> impl IntoResponse {
         let status_class = if enabled { "status-enabled" } else { "status-disabled" };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
 
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{}</td>
@@ -99,7 +100,7 @@ async fn dashboard() -> impl IntoResponse {
         if enabled { "disable" } else { "enable" },
         if enabled { "btn-disable" } else { "btn-enable" },
         if enabled { "Disable" } else { "Enable" }
-        ));
+        );
     }
 
     html.push_str(r#"
