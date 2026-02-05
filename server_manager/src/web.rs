@@ -30,11 +30,11 @@ async fn dashboard() -> impl IntoResponse {
 
     // Attempt to load config, default to all enabled if fail
     // Check both CWD and /opt/server_manager
-    let config = match Config::load() {
+    let config = match Config::load_async().await {
         Ok(c) => c,
         Err(_) => {
             // Try explicit path
-            if let Ok(content) = std::fs::read_to_string("/opt/server_manager/config.yaml") {
+            if let Ok(content) = tokio::fs::read_to_string("/opt/server_manager/config.yaml").await {
                 serde_yaml_ng::from_str(&content).unwrap_or_default()
             } else {
                 Config::default()
