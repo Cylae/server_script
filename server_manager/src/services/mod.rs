@@ -7,6 +7,7 @@ pub mod apps;
 use crate::core::hardware::HardwareInfo;
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use anyhow::Result;
 
 #[derive(Debug, Clone)]
@@ -64,8 +65,9 @@ pub trait Service: Send + Sync {
     fn logging(&self) -> LoggingConfig { LoggingConfig::default() }
 }
 
-pub fn get_all_services() -> Vec<Box<dyn Service>> {
-    vec![
+pub fn get_all_services() -> &'static [Box<dyn Service>] {
+    static SERVICES: OnceLock<Vec<Box<dyn Service>>> = OnceLock::new();
+    SERVICES.get_or_init(|| vec![
         Box::new(media::PlexService),
         Box::new(media::TautulliService),
         Box::new(media::OverseerrService),
@@ -93,7 +95,7 @@ pub fn get_all_services() -> Vec<Box<dyn Service>> {
         Box::new(apps::RoundcubeService),
         Box::new(apps::NextcloudService),
         Box::new(apps::MailService),
-    ]
+    ])
 }
 
 #[cfg(test)]

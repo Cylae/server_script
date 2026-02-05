@@ -24,6 +24,13 @@ bcrypt = "0.15"
 tower-sessions = "0.12"
 time = "0.3"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "service_benchmark"
+harness = false
+
 [workspace]
 members = ["."]
 
