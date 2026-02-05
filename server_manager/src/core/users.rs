@@ -29,6 +29,10 @@ pub struct UserManager {
 }
 
 impl UserManager {
+    pub async fn load_async() -> Result<Self> {
+        tokio::task::spawn_blocking(Self::load).await?
+    }
+
     pub fn load() -> Result<Self> {
         // Try CWD or /opt/server_manager
         let path = Path::new("users.yaml");
@@ -155,6 +159,23 @@ impl UserManager {
         if let Some(user) = self.users.get(username) {
             if verify(password, &user.password_hash).unwrap_or(false) {
                 return Some(user.clone());
+            }
+        }
+        None
+    }
+
+    pub async fn verify_async(&self, username: &str, password: &str) -> Option<User> {
+        if let Some(user) = self.users.get(username) {
+            let hash = user.password_hash.clone();
+            let password = password.to_string();
+            let user_clone = user.clone();
+
+            let is_valid = tokio::task::spawn_blocking(move || {
+                verify(&password, &hash).unwrap_or(false)
+            }).await.unwrap_or(false);
+
+            if is_valid {
+                return Some(user_clone);
             }
         }
         None
