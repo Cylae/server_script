@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::services;
 use crate::core::config::Config;
 use crate::core::users::{UserManager, Role};
-use std::process::Command;
+use tokio::process::Command;
 use log::{info, error, warn};
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 use serde::{Deserialize, Serialize};
@@ -493,10 +493,20 @@ fn run_cli_toggle(service: &str, enable: bool) {
     info!("Web UI triggering: server_manager {} {}", action, service);
 
     if let Ok(exe) = std::env::current_exe() {
-        let _ = Command::new(exe)
-            .arg(action)
-            .arg(service)
-            .spawn();
+        match Command::new(exe).arg(action).arg(service).spawn() {
+            Ok(mut child) => {
+                // Spawn a background task to wait for the child process to exit.
+                // This prevents zombie processes by collecting the exit status.
+                tokio::spawn(async move {
+                    if let Err(e) = child.wait().await {
+                        error!("Failed to wait on child process: {}", e);
+                    }
+                });
+            }
+            Err(e) => {
+                error!("Failed to spawn command: {}", e);
+            }
+        }
     } else {
         error!("Failed to determine current executable path.");
     }
