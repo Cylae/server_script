@@ -86,8 +86,8 @@ fn generate_hex(bytes: usize) -> Result<String> {
     let mut buffer = vec![0u8; bytes];
     file.read_exact(&mut buffer).context("Failed to read from /dev/urandom")?;
 
-    let mut s = String::with_capacity(bytes * 2);
     const HEX_CHARS: &[u8] = b"0123456789abcdef";
+    let mut s = String::with_capacity(bytes * 2);
     for b in buffer {
         s.push(HEX_CHARS[(b >> 4) as usize] as char);
         s.push(HEX_CHARS[(b & 0x0f) as usize] as char);
