@@ -5,6 +5,7 @@ use axum::{
     Router,
     http::StatusCode,
 };
+use std::fmt::Write;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use crate::services;
@@ -287,7 +288,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
             "<span>Read-only</span>".to_string()
         };
 
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{}</td>
@@ -302,7 +303,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
         status_class,
         status_text,
         action_html
-        ));
+        );
     }
 
     html.push_str(r#"

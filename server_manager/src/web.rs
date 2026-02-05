@@ -4,6 +4,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use std::fmt::Write;
 use std::net::SocketAddr;
 use crate::services;
 use crate::core::config::Config;
