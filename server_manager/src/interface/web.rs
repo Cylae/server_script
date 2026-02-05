@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::services;
 use crate::core::config::Config;
 use crate::core::users::{UserManager, Role};
-use std::process::Command;
+use tokio::process::Command;
 use log::{info, error, warn};
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 use serde::{Deserialize, Serialize};
