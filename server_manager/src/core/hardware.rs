@@ -31,7 +31,6 @@ impl HardwareInfo {
         sys.refresh_memory();
         sys.refresh_cpu();
         sys.refresh_disks_list();
-        sys.refresh_disks();
 
         let total_memory = sys.total_memory(); // Bytes
         let ram_gb = total_memory / 1024 / 1024 / 1024;
@@ -126,4 +125,5 @@ mod tests {
         assert_eq!(HardwareInfo::evaluate_profile(6, 4, 0), HardwareProfile::Low); // 6GB RAM No Swap -> Low
         assert_eq!(HardwareInfo::evaluate_profile(6, 4, 2), HardwareProfile::Standard); // 6GB RAM + Swap -> Standard
     }
+
 }

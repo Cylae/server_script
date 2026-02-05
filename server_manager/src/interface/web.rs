@@ -187,8 +187,8 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
 
     // System Stats
     let mut sys = System::new();
-    sys.refresh_memory();
     sys.refresh_cpu();
+    sys.refresh_memory();
     sys.refresh_disks_list();
     sys.refresh_disks();
     let ram_used = sys.used_memory() / 1024 / 1024; // MB
