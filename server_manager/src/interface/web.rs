@@ -1,11 +1,12 @@
 use axum::{
-    extract::{Path, Form},
+    extract::{Path, Form, State},
     response::{Html, IntoResponse, Redirect},
     routing::{get, post},
     Router,
     http::StatusCode,
 };
 use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
 use crate::services;
 use crate::core::config::Config;
 use crate::core::users::{UserManager, Role};
@@ -24,12 +25,19 @@ struct SessionUser {
 
 const SESSION_KEY: &str = "user";
 
+type SharedSystem = Arc<Mutex<System>>;
+
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Session setup
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
         .with_secure(false) // Localhost/LAN, http usually
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
+
+    // Initialize System once
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    let app_state = Arc::new(Mutex::new(sys));
 
     let app = Router::new()
         .route("/", get(dashboard))
@@ -40,7 +48,8 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/api/services/:name/disable", post(disable_service))
         .route("/logout", post(logout))
         .route("/login", get(login_page).post(login_handler))
-        .layer(session_layer);
+        .layer(session_layer)
+        .with_state(app_state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("Starting Web UI on http://{}", addr);
@@ -99,7 +108,10 @@ async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> i
             username: user.username,
             role: user.role,
         };
-        session.insert(SESSION_KEY, session_user).await.expect("Failed to insert session");
+        if let Err(e) = session.insert(SESSION_KEY, session_user).await {
+            error!("Failed to insert session: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create session").into_response();
+        }
         Redirect::to("/").into_response()
     } else {
         // Simple error handling: redirect back to login
@@ -157,7 +169,7 @@ fn html_foot() -> String {
 }
 
 // Protected Dashboard
-async fn dashboard(session: Session) -> impl IntoResponse {
+async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -171,7 +183,7 @@ async fn dashboard(session: Session) -> impl IntoResponse {
                                         .replace('\'', "&#39;");
 
     let services = services::get_all_services();
-    let config = Config::load().unwrap_or_else(|_| Config::default());
+    let config = Config::load_async().await.unwrap_or_else(|_| Config::default());
 
     // System Stats
     let mut sys = System::new();
