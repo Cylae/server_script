@@ -4,6 +4,17 @@ use std::fs;
 use std::path::Path;
 use anyhow::{Result, Context};
 use log::info;
+use std::sync::OnceLock;
+use tokio::sync::RwLock;
+use std::time::SystemTime;
+
+#[derive(Debug, Clone)]
+struct CachedConfig {
+    config: Config,
+    last_mtime: Option<SystemTime>,
+}
+
+static CONFIG_CACHE: OnceLock<RwLock<CachedConfig>> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Config {
@@ -27,17 +38,69 @@ impl Config {
     }
 
     pub async fn load_async() -> Result<Self> {
-        match tokio::fs::read_to_string("config.yaml").await {
-            Ok(content) => {
-                if content.trim().is_empty() {
-                    return Ok(Config::default());
+        let cache = CONFIG_CACHE.get_or_init(|| {
+            RwLock::new(CachedConfig {
+                config: Config::default(),
+                last_mtime: None,
+            })
+        });
+
+        // Fast path: Optimistic read
+        {
+            let guard = cache.read().await;
+            if let Some(cached_mtime) = guard.last_mtime {
+                // Check if file still matches
+                 if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
+                     if let Ok(modified) = metadata.modified() {
+                         if modified == cached_mtime {
+                             return Ok(guard.config.clone());
+                         }
+                     }
+                 }
+            }
+        }
+
+        // Slow path: Update cache
+        let mut guard = cache.write().await;
+
+        // Check metadata again (double-checked locking pattern)
+        let metadata_res = tokio::fs::metadata("config.yaml").await;
+
+        match metadata_res {
+            Ok(metadata) => {
+                let modified = metadata.modified().unwrap_or(SystemTime::now());
+
+                if let Some(cached_mtime) = guard.last_mtime {
+                    if modified == cached_mtime {
+                        return Ok(guard.config.clone());
+                    }
                 }
-                serde_yaml_ng::from_str(&content).context("Failed to parse config.yaml")
+
+                // Load file
+                match tokio::fs::read_to_string("config.yaml").await {
+                    Ok(content) => {
+                        let config = if content.trim().is_empty() {
+                            Config::default()
+                        } else {
+                            serde_yaml_ng::from_str(&content).context("Failed to parse config.yaml")?
+                        };
+
+                        guard.config = config.clone();
+                        guard.last_mtime = Some(modified);
+                        Ok(config)
+                    },
+                    Err(e) => Err(anyhow::Error::new(e).context("Failed to read config.yaml")),
+                }
             },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                Ok(Config::default())
+                // File not found -> Default
+                guard.config = Config::default();
+                guard.last_mtime = None;
+                Ok(guard.config.clone())
             },
-            Err(e) => Err(anyhow::Error::new(e).context("Failed to read config.yaml")),
+            Err(e) => {
+                 Err(anyhow::Error::new(e).context("Failed to read config metadata"))
+            }
         }
     }
 
