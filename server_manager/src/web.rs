@@ -9,6 +9,7 @@ use crate::services;
 use crate::core::config::Config;
 use std::process::Command;
 use log::{info, error};
+use std::fmt::Write;
 
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
     let app = Router::new()
@@ -42,6 +43,10 @@ async fn dashboard() -> impl IntoResponse {
         }
     };
 
+    Html(render_dashboard_html(&services, &config))
+}
+
+fn render_dashboard_html(services: &[Box<dyn crate::services::Service>], config: &Config) -> String {
     let mut html = String::from(r#"
     <!DOCTYPE html>
     <html>
@@ -79,7 +84,7 @@ async fn dashboard() -> impl IntoResponse {
         let status_class = if enabled { "status-enabled" } else { "status-disabled" };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
 
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{}</td>
@@ -99,7 +104,7 @@ async fn dashboard() -> impl IntoResponse {
         if enabled { "disable" } else { "enable" },
         if enabled { "btn-disable" } else { "btn-enable" },
         if enabled { "Disable" } else { "Enable" }
-        ));
+        );
     }
 
     html.push_str(r#"
@@ -110,7 +115,7 @@ async fn dashboard() -> impl IntoResponse {
     </html>
     "#);
 
-    Html(html)
+    html
 }
 
 async fn enable_service(Path(name): Path<String>) -> impl IntoResponse {
@@ -145,5 +150,38 @@ fn run_cli_toggle(service: &str, enable: bool) {
             .spawn(); // Spawn async/detached so we don't block the web request too long
     } else {
         error!("Failed to determine current executable path.");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn test_render_content() {
+        let services = crate::services::get_all_services();
+        let config = Config::default();
+        let html = render_dashboard_html(&services, &config);
+
+        assert!(html.contains("Server Manager Dashboard"));
+        assert!(html.contains("<td>plex</td>"));
+        assert!(html.contains("<th>Service</th>"));
+    }
+
+    #[test]
+    fn benchmark_render() {
+        let services = crate::services::get_all_services();
+        let config = Config::default();
+
+        let start = Instant::now();
+        let iterations = 10_000;
+
+        for _ in 0..iterations {
+            let _ = render_dashboard_html(&services, &config);
+        }
+
+        let elapsed = start.elapsed();
+        println!("Benchmark: {:?} for {} iterations", elapsed, iterations);
     }
 }
