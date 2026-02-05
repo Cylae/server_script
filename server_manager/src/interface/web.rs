@@ -183,11 +183,11 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
     let config = Config::load_async().await.unwrap_or_else(|_| Config::default());
 
     // System Stats
-    let mut sys = state.lock().unwrap();
-    sys.refresh_cpu();
+    let mut sys = System::new();
     sys.refresh_memory();
+    sys.refresh_cpu();
+    sys.refresh_disks_list();
     sys.refresh_disks();
-
     let ram_used = sys.used_memory() / 1024 / 1024; // MB
     let ram_total = sys.total_memory() / 1024 / 1024; // MB
     let swap_used = sys.used_swap() / 1024 / 1024; // MB
