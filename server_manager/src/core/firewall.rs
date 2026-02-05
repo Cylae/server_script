@@ -1,12 +1,13 @@
 use std::process::Command;
 use anyhow::{Result, Context, bail};
 use log::{info, warn};
+use which::which;
 
 pub fn configure() -> Result<()> {
     info!("Configuring Firewall (UFW)...");
 
     // Check if ufw exists
-    if Command::new("which").arg("ufw").output().is_err() {
+    if which("ufw").is_err() {
         warn!("UFW not found. Skipping firewall configuration.");
         return Ok(());
     }

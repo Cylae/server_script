@@ -93,6 +93,7 @@ The tool provides several subcommands:
 *   `server_manager web`: Starts the Web Administration Interface (Default: http://0.0.0.0:8099).
 *   `server_manager user add <username> --quota <GB>`: Create a new user (Role: Admin/Observer) and set storage quota.
 *   `server_manager user delete <username>`: Delete a user and their data.
+*   `server_manager user list`: List all users.
 *   `server_manager user passwd <username>`: Reset a user's password.
 
 ### 🌐 Web Administration Interface
@@ -235,6 +236,7 @@ L'outil dispose de plusieurs sous-commandes :
 *   `server_manager web` : Démarre l'Interface d'Administration Web (Défaut : http://0.0.0.0:8099).
 *   `server_manager user add <username> --quota <GB>` : Crée un nouvel utilisateur (Rôle : Admin/Observer) et définit un quota de stockage.
 *   `server_manager user delete <username>` : Supprime un utilisateur et ses données.
+*   `server_manager user list` : Liste tous les utilisateurs.
 *   `server_manager user passwd <username>` : Réinitialise le mot de passe d'un utilisateur.
 
 ### 🌐 Interface d'Administration Web

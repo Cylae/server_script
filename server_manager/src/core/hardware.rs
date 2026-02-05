@@ -1,5 +1,5 @@
 use sysinfo::{System, SystemExt, DiskExt};
-use std::process::Command;
+use which::which;
 use std::path::Path;
 use log::{info, warn};
 use nix::unistd::User;
@@ -86,9 +86,9 @@ impl HardwareInfo {
 
     fn check_nvidia() -> bool {
         // Check for nvidia-smi AND (nvidia-container-cli OR nvidia-container-runtime)
-        let has_smi = Command::new("which").arg("nvidia-smi").output().map(|o| o.status.success()).unwrap_or(false);
-        let has_cli = Command::new("which").arg("nvidia-container-cli").output().map(|o| o.status.success()).unwrap_or(false);
-        let has_runtime = Command::new("which").arg("nvidia-container-runtime").output().map(|o| o.status.success()).unwrap_or(false);
+        let has_smi = which("nvidia-smi").is_ok();
+        let has_cli = which("nvidia-container-cli").is_ok();
+        let has_runtime = which("nvidia-container-runtime").is_ok();
 
         has_smi && (has_cli || has_runtime)
     }

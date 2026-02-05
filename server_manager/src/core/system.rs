@@ -6,6 +6,7 @@ use std::io::Write;
 use anyhow::{Result, Context, bail};
 use log::{info, warn};
 use sysinfo::{System, SystemExt};
+use which::which;
 
 pub fn check_root() -> Result<()> {
     if !Uid::effective().is_root() {
@@ -18,7 +19,7 @@ pub fn install_dependencies() -> Result<()> {
     info!("Checking system dependencies...");
 
     // Check for apt-get
-    if Command::new("which").arg("apt-get").output().is_err() {
+    if which("apt-get").is_err() {
         bail!("apt-get not found. This tool supports Debian/Ubuntu based systems only.");
     }
 
@@ -174,7 +175,7 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     info!("Setting quota for user '{}': {} GB", username, quota_gb);
 
     // Check if quota command exists
-    if Command::new("which").arg("setquota").output().is_err() {
+    if which("setquota").is_err() {
         warn!("quota tool not found. Skipping quota setup.");
         return Ok(());
     }
