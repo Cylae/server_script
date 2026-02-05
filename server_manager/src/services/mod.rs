@@ -65,9 +65,8 @@ pub trait Service: Send + Sync {
     fn logging(&self) -> LoggingConfig { LoggingConfig::default() }
 }
 
-static SERVICES: OnceLock<Vec<Box<dyn Service>>> = OnceLock::new();
-
 pub fn get_all_services() -> &'static [Box<dyn Service>] {
+    static SERVICES: OnceLock<Vec<Box<dyn Service>>> = OnceLock::new();
     SERVICES.get_or_init(|| vec![
         Box::new(media::PlexService),
         Box::new(media::TautulliService),
@@ -96,7 +95,7 @@ pub fn get_all_services() -> &'static [Box<dyn Service>] {
         Box::new(apps::RoundcubeService),
         Box::new(apps::NextcloudService),
         Box::new(apps::MailService),
-    ]).as_slice()
+    ])
 }
 
 #[cfg(test)]
