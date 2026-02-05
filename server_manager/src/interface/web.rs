@@ -108,7 +108,10 @@ async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> i
             username: user.username,
             role: user.role,
         };
-        session.insert(SESSION_KEY, session_user).await.expect("Failed to insert session");
+        if let Err(e) = session.insert(SESSION_KEY, session_user).await {
+            error!("Failed to insert session: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create session").into_response();
+        }
         Redirect::to("/").into_response()
     } else {
         // Simple error handling: redirect back to login
