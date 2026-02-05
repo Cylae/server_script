@@ -94,7 +94,15 @@ async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> i
     // Reload users on login attempt to get fresh data
     let user_manager = UserManager::load().unwrap_or_default();
 
-    if let Some(user) = user_manager.verify(&payload.username, &payload.password) {
+    // Verify involves bcrypt, which is CPU intensive and blocking.
+    // Offload to blocking thread pool to avoid starving the async executor.
+    let username = payload.username.clone();
+    let password = payload.password.clone();
+    let verification_result = tokio::task::spawn_blocking(move || {
+        user_manager.verify(&username, &password)
+    }).await.unwrap_or(None);
+
+    if let Some(user) = verification_result {
         let session_user = SessionUser {
             username: user.username,
             role: user.role,
