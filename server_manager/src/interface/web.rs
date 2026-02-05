@@ -101,17 +101,9 @@ struct LoginPayload {
 
 async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
-    let user_manager = UserManager::load().unwrap_or_default();
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
 
-    // Verify involves bcrypt, which is CPU intensive and blocking.
-    // Offload to blocking thread pool to avoid starving the async executor.
-    let username = payload.username.clone();
-    let password = payload.password.clone();
-    let verification_result = tokio::task::spawn_blocking(move || {
-        user_manager.verify(&username, &password)
-    }).await.unwrap_or(None);
-
-    if let Some(user) = verification_result {
+    if let Some(user) = user_manager.verify_async(&payload.username, &payload.password).await {
         let session_user = SessionUser {
             username: user.username,
             role: user.role,
@@ -334,7 +326,7 @@ async fn users_page(session: Session) -> impl IntoResponse {
         return Redirect::to("/").into_response();
     }
 
-    let user_manager = UserManager::load().unwrap_or_default();
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
     let mut html = html_head("User Management - Server Manager");
 
     html.push_str(r#"
@@ -443,7 +435,7 @@ async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>)
         None => None,
     };
 
-    let mut user_manager = UserManager::load().unwrap_or_default();
+    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
     if let Err(e) = user_manager.add_user(&payload.username, &payload.password, role_enum, quota_val) {
         error!("Failed to add user: {}", e);
         // In a real app we'd flash a message. Here just redirect.
@@ -464,7 +456,7 @@ async fn delete_user_handler(session: Session, Path(username): Path<String>) -> 
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut user_manager = UserManager::load().unwrap_or_default();
+    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
     if let Err(e) = user_manager.delete_user(&username) {
         error!("Failed to delete user: {}", e);
     } else {
