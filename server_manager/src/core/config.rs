@@ -26,6 +26,21 @@ impl Config {
         }
     }
 
+    pub async fn load_async() -> Result<Self> {
+        match tokio::fs::read_to_string("config.yaml").await {
+            Ok(content) => {
+                if content.trim().is_empty() {
+                    return Ok(Config::default());
+                }
+                serde_yaml_ng::from_str(&content).context("Failed to parse config.yaml")
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Ok(Config::default())
+            },
+            Err(e) => Err(anyhow::Error::new(e).context("Failed to read config.yaml")),
+        }
+    }
+
     pub fn save(&self) -> Result<()> {
         let content = serde_yaml_ng::to_string(self)?;
         fs::write("config.yaml", content).context("Failed to write config.yaml")?;

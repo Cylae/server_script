@@ -171,7 +171,7 @@ async fn dashboard(session: Session) -> impl IntoResponse {
                                         .replace('\'', "&#39;");
 
     let services = services::get_all_services();
-    let config = Config::load().unwrap_or_else(|_| Config::default());
+    let config = Config::load_async().await.unwrap_or_else(|_| Config::default());
 
     // System Stats
     let mut sys = System::new_all();
