@@ -5,17 +5,20 @@ use axum::{
     Router,
     http::StatusCode,
 };
+use std::fmt::Write;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use crate::services;
 use crate::core::config::Config;
 use crate::core::users::{UserManager, Role};
-use std::process::Command;
+use tokio::process::Command;
 use log::{info, error, warn};
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 use serde::{Deserialize, Serialize};
 use time::Duration;
 use sysinfo::{System, SystemExt, CpuExt, DiskExt};
+use tokio::sync::RwLock;
+use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
@@ -25,7 +28,53 @@ struct SessionUser {
 
 const SESSION_KEY: &str = "user";
 
-type SharedSystem = Arc<Mutex<System>>;
+struct CachedConfig {
+    config: Config,
+    last_modified: Option<SystemTime>,
+}
+
+struct AppState {
+    system: Mutex<System>,
+    last_system_refresh: Mutex<SystemTime>,
+    config_cache: RwLock<CachedConfig>,
+}
+
+type SharedState = Arc<AppState>;
+
+impl AppState {
+    async fn get_config(&self) -> Config {
+        // Fast path: check metadata
+        let current_mtime = tokio::fs::metadata("config.yaml").await
+            .and_then(|m| m.modified())
+            .ok();
+
+        {
+            let cache = self.config_cache.read().await;
+            if cache.last_modified == current_mtime {
+                return cache.config.clone();
+            }
+        }
+
+        // Slow path: reload
+        let mut cache = self.config_cache.write().await;
+
+        // Re-check mtime under write lock to avoid race
+        let current_mtime_2 = tokio::fs::metadata("config.yaml").await
+            .and_then(|m| m.modified())
+            .ok();
+
+        if cache.last_modified == current_mtime_2 {
+            return cache.config.clone();
+        }
+
+        if let Ok(cfg) = Config::load_async().await {
+            cache.config = cfg;
+            cache.last_modified = current_mtime_2;
+        }
+
+        cache.config.clone()
+    }
+}
 
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Session setup
@@ -37,7 +86,18 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Initialize System once
     let mut sys = System::new_all();
     sys.refresh_all();
-    let app_state = Arc::new(Mutex::new(sys));
+
+    let initial_config = Config::load().unwrap_or_default();
+    let initial_mtime = std::fs::metadata("config.yaml").ok().and_then(|m| m.modified().ok());
+
+    let app_state = Arc::new(AppState {
+        system: Mutex::new(sys),
+        last_system_refresh: Mutex::new(SystemTime::now()),
+        config_cache: RwLock::new(CachedConfig {
+            config: initial_config,
+            last_modified: initial_mtime,
+        }),
+    });
 
     let app = Router::new()
         .route("/", get(dashboard))
@@ -101,17 +161,9 @@ struct LoginPayload {
 
 async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
-    let user_manager = UserManager::load().unwrap_or_default();
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
 
-    // Verify involves bcrypt, which is CPU intensive and blocking.
-    // Offload to blocking thread pool to avoid starving the async executor.
-    let username = payload.username.clone();
-    let password = payload.password.clone();
-    let verification_result = tokio::task::spawn_blocking(move || {
-        user_manager.verify(&username, &password)
-    }).await.unwrap_or(None);
-
-    if let Some(user) = verification_result {
+    if let Some(user) = user_manager.verify_async(&payload.username, &payload.password).await {
         let session_user = SessionUser {
             username: user.username,
             role: user.role,
@@ -177,7 +229,7 @@ fn html_foot() -> String {
 }
 
 // Protected Dashboard
-async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl IntoResponse {
+async fn dashboard(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -191,14 +243,21 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
                                         .replace('\'', "&#39;");
 
     let services = services::get_all_services();
-    let config = Config::load_async().await.unwrap_or_else(|_| Config::default());
+    let config = state.get_config().await;
 
     // System Stats
-    let mut sys = System::new();
-    sys.refresh_cpu();
-    sys.refresh_memory();
-    sys.refresh_disks_list();
-    sys.refresh_disks();
+    let mut sys = state.system.lock().unwrap();
+    let now = SystemTime::now();
+    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+
+    // Throttle refresh to max once every 500ms
+    if now.duration_since(*last_refresh).unwrap_or_default().as_millis() > 500 {
+        sys.refresh_cpu();
+        sys.refresh_memory();
+        sys.refresh_disks_list();
+        sys.refresh_disks();
+        *last_refresh = now;
+    }
     let ram_used = sys.used_memory() / 1024 / 1024; // MB
     let ram_total = sys.total_memory() / 1024 / 1024; // MB
     let swap_used = sys.used_swap() / 1024 / 1024; // MB
@@ -215,6 +274,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
             break;
         }
     }
+    drop(sys); // Release lock explicitely
 
     let mut html = html_head("Dashboard - Server Manager");
 
@@ -295,7 +355,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
             "<span>Read-only</span>".to_string()
         };
 
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{}</td>
@@ -310,7 +370,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
         status_class,
         status_text,
         action_html
-        ));
+        );
     }
 
     html.push_str(r#"
@@ -334,7 +394,7 @@ async fn users_page(session: Session) -> impl IntoResponse {
         return Redirect::to("/").into_response();
     }
 
-    let user_manager = UserManager::load().unwrap_or_default();
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
     let mut html = html_head("User Management - Server Manager");
 
     html.push_str(r#"
@@ -443,7 +503,7 @@ async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>)
         None => None,
     };
 
-    let mut user_manager = UserManager::load().unwrap_or_default();
+    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
     if let Err(e) = user_manager.add_user(&payload.username, &payload.password, role_enum, quota_val) {
         error!("Failed to add user: {}", e);
         // In a real app we'd flash a message. Here just redirect.
@@ -464,7 +524,7 @@ async fn delete_user_handler(session: Session, Path(username): Path<String>) -> 
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut user_manager = UserManager::load().unwrap_or_default();
+    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
     if let Err(e) = user_manager.delete_user(&username) {
         error!("Failed to delete user: {}", e);
     } else {
@@ -501,10 +561,20 @@ fn run_cli_toggle(service: &str, enable: bool) {
     info!("Web UI triggering: server_manager {} {}", action, service);
 
     if let Ok(exe) = std::env::current_exe() {
-        let _ = Command::new(exe)
-            .arg(action)
-            .arg(service)
-            .spawn();
+        match Command::new(exe).arg(action).arg(service).spawn() {
+            Ok(mut child) => {
+                // Spawn a background task to wait for the child process to exit.
+                // This prevents zombie processes by collecting the exit status.
+                tokio::spawn(async move {
+                    if let Err(e) = child.wait().await {
+                        error!("Failed to wait on child process: {}", e);
+                    }
+                });
+            }
+            Err(e) => {
+                error!("Failed to spawn command: {}", e);
+            }
+        }
     } else {
         error!("Failed to determine current executable path.");
     }
