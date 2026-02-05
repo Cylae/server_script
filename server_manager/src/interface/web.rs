@@ -16,6 +16,8 @@ use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 use serde::{Deserialize, Serialize};
 use time::Duration;
 use sysinfo::{System, SystemExt, CpuExt, DiskExt};
+use tokio::sync::RwLock;
+use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
@@ -25,7 +27,53 @@ struct SessionUser {
 
 const SESSION_KEY: &str = "user";
 
-type SharedSystem = Arc<Mutex<System>>;
+struct CachedConfig {
+    config: Config,
+    last_modified: Option<SystemTime>,
+}
+
+struct AppState {
+    system: Mutex<System>,
+    last_system_refresh: Mutex<SystemTime>,
+    config_cache: RwLock<CachedConfig>,
+}
+
+type SharedState = Arc<AppState>;
+
+impl AppState {
+    async fn get_config(&self) -> Config {
+        // Fast path: check metadata
+        let current_mtime = tokio::fs::metadata("config.yaml").await
+            .and_then(|m| m.modified())
+            .ok();
+
+        {
+            let cache = self.config_cache.read().await;
+            if cache.last_modified == current_mtime {
+                return cache.config.clone();
+            }
+        }
+
+        // Slow path: reload
+        let mut cache = self.config_cache.write().await;
+
+        // Re-check mtime under write lock to avoid race
+        let current_mtime_2 = tokio::fs::metadata("config.yaml").await
+            .and_then(|m| m.modified())
+            .ok();
+
+        if cache.last_modified == current_mtime_2 {
+            return cache.config.clone();
+        }
+
+        if let Ok(cfg) = Config::load_async().await {
+            cache.config = cfg;
+            cache.last_modified = current_mtime_2;
+        }
+
+        cache.config.clone()
+    }
+}
 
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Session setup
@@ -37,7 +85,18 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Initialize System once
     let mut sys = System::new_all();
     sys.refresh_all();
-    let app_state = Arc::new(Mutex::new(sys));
+
+    let initial_config = Config::load().unwrap_or_default();
+    let initial_mtime = std::fs::metadata("config.yaml").ok().and_then(|m| m.modified().ok());
+
+    let app_state = Arc::new(AppState {
+        system: Mutex::new(sys),
+        last_system_refresh: Mutex::new(SystemTime::now()),
+        config_cache: RwLock::new(CachedConfig {
+            config: initial_config,
+            last_modified: initial_mtime,
+        }),
+    });
 
     let app = Router::new()
         .route("/", get(dashboard))
@@ -177,7 +236,7 @@ fn html_foot() -> String {
 }
 
 // Protected Dashboard
-async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl IntoResponse {
+async fn dashboard(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -191,14 +250,21 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
                                         .replace('\'', "&#39;");
 
     let services = services::get_all_services();
-    let config = Config::load_async().await.unwrap_or_else(|_| Config::default());
+    let config = state.get_config().await;
 
     // System Stats
-    let mut sys = System::new();
-    sys.refresh_cpu();
-    sys.refresh_memory();
-    sys.refresh_disks_list();
-    sys.refresh_disks();
+    let mut sys = state.system.lock().unwrap();
+    let now = SystemTime::now();
+    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+
+    // Throttle refresh to max once every 500ms
+    if now.duration_since(*last_refresh).unwrap_or_default().as_millis() > 500 {
+        sys.refresh_cpu();
+        sys.refresh_memory();
+        sys.refresh_disks_list();
+        sys.refresh_disks();
+        *last_refresh = now;
+    }
     let ram_used = sys.used_memory() / 1024 / 1024; // MB
     let ram_total = sys.total_memory() / 1024 / 1024; // MB
     let swap_used = sys.used_swap() / 1024 / 1024; // MB
@@ -215,6 +281,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
             break;
         }
     }
+    drop(sys); // Release lock explicitely
 
     let mut html = html_head("Dashboard - Server Manager");
 
