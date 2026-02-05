@@ -5,12 +5,13 @@ use axum::{
     Router,
     http::StatusCode,
 };
+use std::fmt::Write;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use crate::services;
 use crate::core::config::Config;
 use crate::core::users::{UserManager, Role};
-use std::process::Command;
+use tokio::process::Command;
 use log::{info, error, warn};
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 use serde::{Deserialize, Serialize};
@@ -101,17 +102,9 @@ struct LoginPayload {
 
 async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
-    let user_manager = UserManager::load().unwrap_or_default();
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
 
-    // Verify involves bcrypt, which is CPU intensive and blocking.
-    // Offload to blocking thread pool to avoid starving the async executor.
-    let username = payload.username.clone();
-    let password = payload.password.clone();
-    let verification_result = tokio::task::spawn_blocking(move || {
-        user_manager.verify(&username, &password)
-    }).await.unwrap_or(None);
-
-    if let Some(user) = verification_result {
+    if let Some(user) = user_manager.verify_async(&payload.username, &payload.password).await {
         let session_user = SessionUser {
             username: user.username,
             role: user.role,
@@ -295,7 +288,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
             "<span>Read-only</span>".to_string()
         };
 
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{}</td>
@@ -310,7 +303,7 @@ async fn dashboard(State(state): State<SharedSystem>, session: Session) -> impl 
         status_class,
         status_text,
         action_html
-        ));
+        );
     }
 
     html.push_str(r#"
@@ -334,7 +327,7 @@ async fn users_page(session: Session) -> impl IntoResponse {
         return Redirect::to("/").into_response();
     }
 
-    let user_manager = UserManager::load().unwrap_or_default();
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
     let mut html = html_head("User Management - Server Manager");
 
     html.push_str(r#"
@@ -443,7 +436,7 @@ async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>)
         None => None,
     };
 
-    let mut user_manager = UserManager::load().unwrap_or_default();
+    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
     if let Err(e) = user_manager.add_user(&payload.username, &payload.password, role_enum, quota_val) {
         error!("Failed to add user: {}", e);
         // In a real app we'd flash a message. Here just redirect.
@@ -464,7 +457,7 @@ async fn delete_user_handler(session: Session, Path(username): Path<String>) -> 
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut user_manager = UserManager::load().unwrap_or_default();
+    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
     if let Err(e) = user_manager.delete_user(&username) {
         error!("Failed to delete user: {}", e);
     } else {
@@ -501,10 +494,20 @@ fn run_cli_toggle(service: &str, enable: bool) {
     info!("Web UI triggering: server_manager {} {}", action, service);
 
     if let Ok(exe) = std::env::current_exe() {
-        let _ = Command::new(exe)
-            .arg(action)
-            .arg(service)
-            .spawn();
+        match Command::new(exe).arg(action).arg(service).spawn() {
+            Ok(mut child) => {
+                // Spawn a background task to wait for the child process to exit.
+                // This prevents zombie processes by collecting the exit status.
+                tokio::spawn(async move {
+                    if let Err(e) = child.wait().await {
+                        error!("Failed to wait on child process: {}", e);
+                    }
+                });
+            }
+            Err(e) => {
+                error!("Failed to spawn command: {}", e);
+            }
+        }
     } else {
         error!("Failed to determine current executable path.");
     }

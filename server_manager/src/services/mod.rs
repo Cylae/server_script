@@ -112,4 +112,5 @@ mod tests {
         assert!(names.contains(&"sonarr"));
         assert!(names.contains(&"mariadb"));
     }
+
 }
