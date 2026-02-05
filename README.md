@@ -1,10 +1,10 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.3-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.4-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
-**Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 24 Docker services for optimal performance.
+**Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 27 Docker services for optimal performance.
 
-**Server Manager** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 24 services Docker pour des performances optimales.
+**Server Manager** est un outil puissant et intelligent écrit en Rust pour déployer, gérer et optimiser une pile complète de serveur multimédia et cloud personnel. Il détecte votre matériel et configure automatiquement 27 services Docker pour des performances optimales.
 
 ---
 
@@ -21,7 +21,7 @@
 Welcome to the Server Manager documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
 
 ## ✨ Key Features
-*   **24 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **27 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
@@ -172,7 +172,7 @@ Here is the matrix of deployed services:
 Bienvenue sur la documentation de Server Manager. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
 
 ## ✨ Fonctionnalités Clés
-*   **24 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **27 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Détection Matérielle Intelligente** : Adapte la configuration (RAM, Transcodage, Swap) selon votre machine (Low/Standard/High Profile).
 *   **Sécurité par Défaut** : Pare-feu UFW configuré, mots de passe générés, réseaux isolés.
 *   **Support GPU** : Détection et configuration automatique Nvidia & Intel QuickSync.
