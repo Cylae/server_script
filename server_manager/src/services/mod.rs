@@ -7,7 +7,6 @@ pub mod apps;
 use crate::core::hardware::HardwareInfo;
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
-use std::sync::OnceLock;
 use anyhow::Result;
 
 #[derive(Debug, Clone)]

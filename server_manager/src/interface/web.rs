@@ -254,7 +254,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     if now.duration_since(*last_refresh).unwrap_or_default().as_millis() > 500 {
         sys.refresh_cpu();
         sys.refresh_memory();
-        sys.refresh_disks_list();
         sys.refresh_disks();
         *last_refresh = now;
     }
