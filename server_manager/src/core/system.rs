@@ -5,8 +5,8 @@ use std::fs;
 use std::io::Write;
 use anyhow::{Result, Context, bail};
 use log::{info, warn};
-use sysinfo::{System, SystemExt};
 use which::which;
+use crate::core::hardware::HardwareInfo;
 
 pub fn check_root() -> Result<()> {
     if !Uid::effective().is_root() {
@@ -219,15 +219,11 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn apply_optimizations() -> Result<()> {
+pub fn apply_optimizations(hw: &HardwareInfo) -> Result<()> {
     info!("Applying system optimizations for media server performance...");
 
-    let mut sys = System::new();
-    sys.refresh_memory();
-    let ram_gb = sys.total_memory() / 1024 / 1024 / 1024;
-
     // Aggressive swappiness reduction for high RAM
-    let swappiness = if ram_gb > 16 { 1 } else { 10 };
+    let swappiness = if hw.ram_gb > 16 { 1 } else { 10 };
 
     let config = format!(r#"# Server Manager Media Server Optimizations
 fs.inotify.max_user_watches=524288
