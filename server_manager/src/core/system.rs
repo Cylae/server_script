@@ -1,12 +1,12 @@
+use crate::core::hardware::HardwareInfo;
+use anyhow::{bail, Context, Result};
+use log::{info, warn};
 use nix::unistd::{Uid, User};
-use std::process::Command;
-use std::path::Path;
 use std::fs;
 use std::io::Write;
-use anyhow::{Result, Context, bail};
-use log::{info, warn};
+use std::path::Path;
+use std::process::Command;
 use which::which;
-use crate::core::hardware::HardwareInfo;
 
 pub fn check_root() -> Result<()> {
     if !Uid::effective().is_root() {
@@ -24,9 +24,17 @@ pub fn install_dependencies() -> Result<()> {
     }
 
     let pkgs = vec![
-        "curl", "git", "ufw", "lsb-release", "ca-certificates", "gnupg",
-        "htop", "iotop", "net-tools", "quota", // Useful utils
-        "build-essential"
+        "curl",
+        "git",
+        "ufw",
+        "lsb-release",
+        "ca-certificates",
+        "gnupg",
+        "htop",
+        "iotop",
+        "net-tools",
+        "quota", // Useful utils
+        "build-essential",
     ];
 
     info!("Updating package lists...");
@@ -59,7 +67,10 @@ fn validate_username(username: &str) -> Result<()> {
         bail!("Username cannot be empty");
     }
     // Allow alphanumeric, dashes, underscores. No spaces.
-    if !username.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+    if !username
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
         bail!("Username contains invalid characters. Use alphanumeric, '-' or '_'.");
     }
     Ok(())
@@ -77,7 +88,10 @@ pub fn create_system_user(username: &str, password: &str) -> Result<()> {
 
     // Check if user exists to prevent hijacking
     if get_uid(username).is_ok() {
-        bail!("System user '{}' already exists. Aborting creation to prevent hijacking.", username);
+        bail!(
+            "System user '{}' already exists. Aborting creation to prevent hijacking.",
+            username
+        );
     }
 
     info!("Creating system user '{}'...", username);
@@ -103,7 +117,11 @@ pub fn delete_system_user(username: &str) -> Result<()> {
     // Security check: Don't delete system users (UID < 1000)
     let uid = get_uid(username)?;
     if uid < 1000 {
-        bail!("Cannot delete protected system user '{}' (UID {} < 1000).", username, uid);
+        bail!(
+            "Cannot delete protected system user '{}' (UID {} < 1000).",
+            username,
+            uid
+        );
     }
 
     info!("Deleting system user '{}'...", username);
@@ -130,7 +148,11 @@ pub fn set_system_user_password(username: &str, password: &str) -> Result<()> {
     // So this check is safe for new users too.
     let uid = get_uid(username)?;
     if uid < 1000 {
-        bail!("Cannot modify password for protected system user '{}' (UID {} < 1000).", username, uid);
+        bail!(
+            "Cannot modify password for protected system user '{}' (UID {} < 1000).",
+            username,
+            uid
+        );
     }
 
     info!("Setting password for system user '{}'...", username);
@@ -183,7 +205,10 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     let device = match get_home_device() {
         Ok(d) => d,
         Err(e) => {
-            warn!("Could not determine filesystem for /home: {}. Skipping quota.", e);
+            warn!(
+                "Could not determine filesystem for /home: {}. Skipping quota.",
+                e
+            );
             return Ok(());
         }
     };
@@ -207,13 +232,17 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     match status {
         Ok(s) => {
             if !s.success() {
-                warn!("setquota failed. Quotas might not be enabled on {}. (Exit code: {:?})", device, s.code());
+                warn!(
+                    "setquota failed. Quotas might not be enabled on {}. (Exit code: {:?})",
+                    device,
+                    s.code()
+                );
             } else {
                 info!("Quota set successfully.");
             }
-        },
+        }
         Err(e) => {
-             warn!("Failed to execute setquota: {}", e);
+            warn!("Failed to execute setquota: {}", e);
         }
     }
     Ok(())
@@ -225,7 +254,8 @@ pub fn apply_optimizations(hw: &HardwareInfo) -> Result<()> {
     // Aggressive swappiness reduction for high RAM
     let swappiness = if hw.ram_gb > 16 { 1 } else { 10 };
 
-    let config = format!(r#"# Server Manager Media Server Optimizations
+    let config = format!(
+        r#"# Server Manager Media Server Optimizations
 fs.inotify.max_user_watches=524288
 vm.swappiness={}
 vm.dirty_ratio=10
@@ -237,7 +267,9 @@ net.ipv4.tcp_fastopen=3
 vm.max_map_count=262144
 net.core.rmem_max=4194304
 net.core.wmem_max=1048576
-"#, swappiness);
+"#,
+        swappiness
+    );
 
     let path = Path::new("/etc/sysctl.d/99-server-manager-optimization.conf");
     fs::write(path, config).context("Failed to write sysctl config")?;

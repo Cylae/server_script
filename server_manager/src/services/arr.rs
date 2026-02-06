@@ -1,4 +1,4 @@
-use super::{Service, ResourceConfig};
+use super::{ResourceConfig, Service};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
@@ -7,9 +7,15 @@ macro_rules! define_arr_service {
     ($struct_name:ident, $name:expr, $image:expr, $port:expr) => {
         pub struct $struct_name;
         impl Service for $struct_name {
-            fn name(&self) -> &'static str { $name }
-            fn image(&self) -> &'static str { $image }
-            fn ports(&self) -> Vec<String> { vec![format!("127.0.0.1:{}:{}", $port, $port)] }
+            fn name(&self) -> &'static str {
+                $name
+            }
+            fn image(&self) -> &'static str {
+                $image
+            }
+            fn ports(&self) -> Vec<String> {
+                vec![format!("127.0.0.1:{}:{}", $port, $port)]
+            }
             fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
                 vec![
                     format!("./config/{}:/config", $name),
@@ -32,7 +38,7 @@ macro_rules! define_arr_service {
             }
 
             fn resources(&self, hw: &HardwareInfo) -> Option<ResourceConfig> {
-                 let memory_limit = match hw.profile {
+                let memory_limit = match hw.profile {
                     HardwareProfile::High => "2G",
                     _ => "1G",
                 };
@@ -47,8 +53,33 @@ macro_rules! define_arr_service {
     };
 }
 
-define_arr_service!(SonarrService, "sonarr", "lscr.io/linuxserver/sonarr:latest", 8989);
-define_arr_service!(RadarrService, "radarr", "lscr.io/linuxserver/radarr:latest", 7878);
-define_arr_service!(ProwlarrService, "prowlarr", "lscr.io/linuxserver/prowlarr:latest", 9696);
-define_arr_service!(JackettService, "jackett", "lscr.io/linuxserver/jackett:latest", 9117);
-define_arr_service!(BazarrService, "bazarr", "lscr.io/linuxserver/bazarr:latest", 6767);
+define_arr_service!(
+    SonarrService,
+    "sonarr",
+    "lscr.io/linuxserver/sonarr:latest",
+    8989
+);
+define_arr_service!(
+    RadarrService,
+    "radarr",
+    "lscr.io/linuxserver/radarr:latest",
+    7878
+);
+define_arr_service!(
+    ProwlarrService,
+    "prowlarr",
+    "lscr.io/linuxserver/prowlarr:latest",
+    9696
+);
+define_arr_service!(
+    JackettService,
+    "jackett",
+    "lscr.io/linuxserver/jackett:latest",
+    9117
+);
+define_arr_service!(
+    BazarrService,
+    "bazarr",
+    "lscr.io/linuxserver/bazarr:latest",
+    6767
+);

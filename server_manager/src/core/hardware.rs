@@ -1,8 +1,8 @@
-use sysinfo::{System, SystemExt, DiskExt};
-use which::which;
-use std::path::Path;
 use log::{info, warn};
 use nix::unistd::User;
+use std::path::Path;
+use sysinfo::{DiskExt, System, SystemExt};
+use which::which;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HardwareProfile {
@@ -50,9 +50,16 @@ impl HardwareInfo {
         let has_nvidia = Self::check_nvidia();
         let has_intel_quicksync = Path::new("/dev/dri").exists();
 
-        info!("Hardware Detected: RAM={}GB, Swap={}GB, Disk={}GB, Cores={}, Profile={:?}", ram_gb, swap_gb, disk_gb, cpu_cores, profile);
-        if has_nvidia { info!("Nvidia GPU Detected"); }
-        if has_intel_quicksync { info!("Intel QuickSync Detected"); }
+        info!(
+            "Hardware Detected: RAM={}GB, Swap={}GB, Disk={}GB, Cores={}, Profile={:?}",
+            ram_gb, swap_gb, disk_gb, cpu_cores, profile
+        );
+        if has_nvidia {
+            info!("Nvidia GPU Detected");
+        }
+        if has_intel_quicksync {
+            info!("Intel QuickSync Detected");
+        }
         info!("User Context: UID={}, GID={}", user_id, group_id);
 
         Self {
@@ -100,14 +107,14 @@ impl HardwareInfo {
         } else if ram_gb < 4 || cpu_cores <= 2 {
             HardwareProfile::Low
         } else {
-             // Standard range (4-16GB RAM, >2 Cores)
-             // If RAM is on the lower end (4-8GB) and no swap, downgrade to Low for safety
-             // (This is a defensive measure to prevent OOM on machines with just enough RAM but no swap buffer)
-             if ram_gb < 8 && swap_gb < 1 {
-                 HardwareProfile::Low
-             } else {
-                 HardwareProfile::Standard
-             }
+            // Standard range (4-16GB RAM, >2 Cores)
+            // If RAM is on the lower end (4-8GB) and no swap, downgrade to Low for safety
+            // (This is a defensive measure to prevent OOM on machines with just enough RAM but no swap buffer)
+            if ram_gb < 8 && swap_gb < 1 {
+                HardwareProfile::Low
+            } else {
+                HardwareProfile::Standard
+            }
         }
     }
 }
@@ -118,12 +125,29 @@ mod tests {
 
     #[test]
     fn test_hardware_profile_evaluation() {
-        assert_eq!(HardwareInfo::evaluate_profile(2, 4, 2), HardwareProfile::Low); // Low RAM
-        assert_eq!(HardwareInfo::evaluate_profile(8, 1, 2), HardwareProfile::Low); // Low Cores
-        assert_eq!(HardwareInfo::evaluate_profile(32, 8, 0), HardwareProfile::High); // High RAM ignores Swap
-        assert_eq!(HardwareInfo::evaluate_profile(8, 4, 0), HardwareProfile::Standard); // 8GB RAM No Swap -> Standard
-        assert_eq!(HardwareInfo::evaluate_profile(6, 4, 0), HardwareProfile::Low); // 6GB RAM No Swap -> Low
-        assert_eq!(HardwareInfo::evaluate_profile(6, 4, 2), HardwareProfile::Standard); // 6GB RAM + Swap -> Standard
+        assert_eq!(
+            HardwareInfo::evaluate_profile(2, 4, 2),
+            HardwareProfile::Low
+        ); // Low RAM
+        assert_eq!(
+            HardwareInfo::evaluate_profile(8, 1, 2),
+            HardwareProfile::Low
+        ); // Low Cores
+        assert_eq!(
+            HardwareInfo::evaluate_profile(32, 8, 0),
+            HardwareProfile::High
+        ); // High RAM ignores Swap
+        assert_eq!(
+            HardwareInfo::evaluate_profile(8, 4, 0),
+            HardwareProfile::Standard
+        ); // 8GB RAM No Swap -> Standard
+        assert_eq!(
+            HardwareInfo::evaluate_profile(6, 4, 0),
+            HardwareProfile::Low
+        ); // 6GB RAM No Swap -> Low
+        assert_eq!(
+            HardwareInfo::evaluate_profile(6, 4, 2),
+            HardwareProfile::Standard
+        ); // 6GB RAM + Swap -> Standard
     }
-
 }
