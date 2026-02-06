@@ -21,7 +21,7 @@
 Welcome to the Server Manager documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
 
 ## ✨ Key Features
-*   **27 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
@@ -47,7 +47,7 @@ The script will:
 1.  **Harden the System**: Configure UFW firewall, Fail2Ban, and secure system users.
 2.  **Configure Storage**: Automatically enable filesystem quotas (`usrquota`, `grpquota`) and optimize mount points.
 3.  **Bootstrap Environment**: Install Docker, Rust, and all necessary dependencies.
-4.  **Deploy Server Manager**: Compile and launch the orchestration engine to configure your 24+ Docker services.
+4.  **Deploy Server Manager**: Compile and launch the orchestration engine to configure your 28 Docker services.
 
 Once finished, go to `http://YOUR-SERVER-IP` (or the specific ports listed below).
 
@@ -164,6 +164,7 @@ Here is the matrix of deployed services:
 | | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
+| | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | File Synchronization |
 
 ---
 
@@ -173,7 +174,7 @@ Here is the matrix of deployed services:
 Bienvenue sur la documentation de Server Manager. Que vous soyez débutant ou expert, cet outil est conçu pour vous faciliter la vie.
 
 ## ✨ Fonctionnalités Clés
-*   **27 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **28 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Détection Matérielle Intelligente** : Adapte la configuration (RAM, Transcodage, Swap) selon votre machine (Low/Standard/High Profile).
 *   **Sécurité par Défaut** : Pare-feu UFW configuré, mots de passe générés, réseaux isolés.
 *   **Support GPU** : Détection et configuration automatique Nvidia & Intel QuickSync.
@@ -199,7 +200,7 @@ Le script va :
 1.  **Sécuriser le Système** : Configurer le pare-feu UFW, Fail2Ban et sécuriser les utilisateurs système.
 2.  **Configurer le Stockage** : Activer automatiquement les quotas de système de fichiers (`usrquota`, `grpquota`) et optimiser les points de montage.
 3.  **Initialiser l'Environnement** : Installer Docker, Rust et toutes les dépendances nécessaires.
-4.  **Déployer Server Manager** : Compiler et lancer le moteur d'orchestration pour configurer vos 24+ services Docker.
+4.  **Déployer Server Manager** : Compiler et lancer le moteur d'orchestration pour configurer vos 28 services Docker.
 
 Une fois terminé, rendez-vous sur `http://IP-DE-VOTRE-SERVEUR` (ou les ports spécifiques ci-dessous).
 
@@ -307,6 +308,7 @@ Voici la matrice des services déployés :
 | | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
+| | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | Synchronisation de Fichiers |
 
 ---
 

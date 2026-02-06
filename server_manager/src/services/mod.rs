@@ -94,6 +94,7 @@ pub fn get_all_services() -> &'static [Box<dyn Service>] {
         Box::new(apps::RoundcubeService),
         Box::new(apps::NextcloudService),
         Box::new(apps::MailService),
+        Box::new(apps::SyncthingService),
     ])
 }
 
