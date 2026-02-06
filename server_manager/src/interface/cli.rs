@@ -208,7 +208,7 @@ async fn run_install() -> Result<()> {
 
     // 3. System Dependencies & Optimization
     system::install_dependencies()?;
-    system::apply_optimizations()?;
+    system::apply_optimizations(&hw)?;
 
     // 4. Firewall
     firewall::configure()?;

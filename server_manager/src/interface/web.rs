@@ -185,6 +185,22 @@ async fn logout(session: Session) -> impl IntoResponse {
     Redirect::to("/login")
 }
 
+// Helper for HTML escaping
+fn escape_html(s: &str) -> String {
+    let mut output = String::with_capacity(s.len() + 10);
+    for c in s.chars() {
+        match c {
+            '&' => output.push_str("&amp;"),
+            '<' => output.push_str("&lt;"),
+            '>' => output.push_str("&gt;"),
+            '"' => output.push_str("&quot;"),
+            '\'' => output.push_str("&#39;"),
+            _ => output.push(c),
+        }
+    }
+    output
+}
+
 // Helper for common HTML head
 fn html_head(title: &str) -> String {
     format!(r#"
@@ -236,11 +252,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     };
 
     let is_admin = matches!(user.role, Role::Admin);
-    let escaped_username = user.username.replace('&', "&amp;")
-                                        .replace('<', "&lt;")
-                                        .replace('>', "&gt;")
-                                        .replace('"', "&quot;")
-                                        .replace('\'', "&#39;");
+    let escaped_username = escape_html(&user.username);
 
     let services = services::get_all_services();
     let config = state.get_config().await;
@@ -277,14 +289,14 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
 
     let mut html = html_head("Dashboard - Server Manager");
 
-    html.push_str(&format!(r#"
+    let _ = write!(html, r#"
         <div class="header">
             <h1>Server Manager 🚀</h1>
             <form method="POST" action="/logout" style="margin: 0;">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
-    "#, escaped_username));
+    "#, escaped_username);
 
     // Navigation
     if is_admin {
@@ -297,7 +309,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     }
 
     // Stats Grid
-    html.push_str(&format!(r#"
+    let _ = write!(html, r#"
         <div class="stats-grid">
             <div class="stat-card">
                 <div>CPU Usage</div>
@@ -316,7 +328,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 <div class="stat-value">{} / {} GB</div>
             </div>
         </div>
-    "#, cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total));
+    "#, cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total);
 
     // Services Table
     html.push_str(r#"
@@ -339,8 +351,16 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         let status_class = if enabled { "status-enabled" } else { "status-disabled" };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
 
-        let action_html = if is_admin {
-             format!(r#"
+        let _ = write!(html, r#"
+            <tr>
+                <td>{}</td>
+                <td>{}</td>
+                <td class="{}">{}</td>
+                <td>
+        "#, name, svc.image(), status_class, status_text);
+
+        if is_admin {
+             let _ = write!(html, r#"
                     <form method="POST" action="/api/services/{}/{}">
                         <button type="submit" class="btn {}">{}</button>
                     </form>
@@ -349,27 +369,12 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
              if enabled { "disable" } else { "enable" },
              if enabled { "btn-disable" } else { "btn-enable" },
              if enabled { "Disable" } else { "Enable" }
-             )
+             );
         } else {
-            "<span>Read-only</span>".to_string()
+            html.push_str("<span>Read-only</span>");
         };
 
-        let _ = write!(html, r#"
-            <tr>
-                <td>{}</td>
-                <td>{}</td>
-                <td class="{}">{}</td>
-                <td>
-                   {}
-                </td>
-            </tr>
-        "#,
-        name,
-        svc.image(),
-        status_class,
-        status_text,
-        action_html
-        );
+        html.push_str("</td></tr>");
     }
 
     html.push_str(r#"
