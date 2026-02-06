@@ -39,16 +39,21 @@ fn test_generate_compose_structure() {
     // 4. Verify Networks
     assert!(compose.networks.contains_key("server_manager_net"));
 
-    // 5. Verify Services Count (Should be 27)
-    assert_eq!(compose.services.len(), 27, "Expected 27 services");
+    // 5. Verify Services Count (Should be 28)
+    assert_eq!(compose.services.len(), 28, "Expected 28 services");
 
-    // 6. Verify specific service (Plex, Jellyfin, Bazarr)
+    // 6. Verify specific service (Plex, Jellyfin, Bazarr, Syncthing)
     assert!(compose.services.contains_key("plex"));
     assert!(compose.services.contains_key("jellyfin"));
     assert!(compose.services.contains_key("bazarr"));
+    assert!(compose.services.contains_key("syncthing"));
 
     let plex = compose.services.get("plex").unwrap();
     assert_eq!(plex.image, "lscr.io/linuxserver/plex:latest");
+
+    let syncthing = compose.services.get("syncthing").unwrap();
+    let st_ports = syncthing.ports.as_ref().unwrap();
+    assert!(st_ports.iter().any(|p| p.starts_with("127.0.0.1:8384")));
 
     // 7. Verify Network attachment
     let plex_nets = plex.networks.as_ref().unwrap();

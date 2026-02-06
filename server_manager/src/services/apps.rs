@@ -204,3 +204,29 @@ impl Service for MailService {
     fn security_opts(&self) -> Vec<String> { vec!["no-new-privileges:true".to_string()] }
     fn cap_add(&self) -> Vec<String> { vec!["NET_ADMIN".to_string()] }
 }
+
+pub struct SyncthingService;
+impl Service for SyncthingService {
+    fn name(&self) -> &'static str { "syncthing" }
+    fn image(&self) -> &'static str { "lscr.io/linuxserver/syncthing:latest" }
+    fn ports(&self) -> Vec<String> {
+        vec![
+            "127.0.0.1:8384:8384".to_string(),
+            "22000:22000/tcp".to_string(),
+            "22000:22000/udp".to_string(),
+            "21027:21027/udp".to_string()
+        ]
+    }
+    fn env_vars(&self, hw: &HardwareInfo, _secrets: &Secrets) -> HashMap<String, String> {
+        let mut vars = HashMap::new();
+        vars.insert("PUID".to_string(), hw.user_id.clone());
+        vars.insert("PGID".to_string(), hw.group_id.clone());
+        vars
+    }
+    fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
+        vec![
+            "./config/syncthing:/config".to_string(),
+            "./media:/media".to_string()
+        ]
+    }
+}
