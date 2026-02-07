@@ -186,24 +186,27 @@ async fn logout(session: Session) -> impl IntoResponse {
 }
 
 // Helper for HTML escaping
-fn escape_html(s: &str) -> String {
-    let mut output = String::with_capacity(s.len() + 10);
-    for c in s.chars() {
-        match c {
-            '&' => output.push_str("&amp;"),
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#39;"),
-            _ => output.push(c),
+struct Escaped<'a>(&'a str);
+
+impl<'a> std::fmt::Display for Escaped<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for c in self.0.chars() {
+            match c {
+                '&' => f.write_str("&amp;")?,
+                '<' => f.write_str("&lt;")?,
+                '>' => f.write_str("&gt;")?,
+                '"' => f.write_str("&quot;")?,
+                '\'' => f.write_str("&#39;")?,
+                _ => f.write_char(c)?,
+            }
         }
+        Ok(())
     }
-    output
 }
 
 // Helper for common HTML head
-fn html_head(title: &str) -> String {
-    format!(r#"
+fn write_html_head(out: &mut String, title: &str) {
+    let _ = write!(out, r#"
     <!DOCTYPE html>
     <html>
     <head>
@@ -233,15 +236,15 @@ fn html_head(title: &str) -> String {
     </head>
     <body>
         <div class="container">
-    "#, title)
+    "#, title);
 }
 
-fn html_foot() -> String {
-    r#"
+fn write_html_foot(out: &mut String) {
+    out.push_str(r#"
         </div>
     </body>
     </html>
-    "#.to_string()
+    "#);
 }
 
 // Protected Dashboard
@@ -252,7 +255,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     };
 
     let is_admin = matches!(user.role, Role::Admin);
-    let escaped_username = escape_html(&user.username);
 
     let services = services::get_all_services();
     let config = state.get_config().await;
@@ -287,7 +289,8 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     }
     drop(sys); // Release lock explicitely
 
-    let mut html = html_head("Dashboard - Server Manager");
+    let mut html = String::with_capacity(8192);
+    write_html_head(&mut html, "Dashboard - Server Manager");
 
     let _ = write!(html, r#"
         <div class="header">
@@ -296,7 +299,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
-    "#, escaped_username);
+    "#, Escaped(&user.username));
 
     // Navigation
     if is_admin {
@@ -382,7 +385,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         </table>
         <p><em>Note: Actions may take a moment to apply.</em></p>
     "#);
-    html.push_str(&html_foot());
+    write_html_foot(&mut html);
 
     Html(html).into_response()
 }
@@ -399,7 +402,8 @@ async fn users_page(session: Session) -> impl IntoResponse {
     }
 
     let user_manager = UserManager::load_async().await.unwrap_or_default();
-    let mut html = html_head("User Management - Server Manager");
+    let mut html = String::with_capacity(4096);
+    write_html_head(&mut html, "User Management - Server Manager");
 
     html.push_str(r#"
         <div class="header">
@@ -458,7 +462,7 @@ async fn users_page(session: Session) -> impl IntoResponse {
 
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{:?}</td>
@@ -469,11 +473,11 @@ async fn users_page(session: Session) -> impl IntoResponse {
                     </form>
                 </td>
             </tr>
-        "#, u.username, u.role, quota_display, u.username));
+        "#, Escaped(&u.username), u.role, quota_display, Escaped(&u.username));
     }
 
     html.push_str("</tbody></table>");
-    html.push_str(&html_foot());
+    write_html_foot(&mut html);
 
     Html(html).into_response()
 }
