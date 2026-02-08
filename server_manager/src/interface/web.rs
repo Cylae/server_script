@@ -33,10 +33,16 @@ struct CachedConfig {
     last_modified: Option<SystemTime>,
 }
 
+struct CachedUsers {
+    manager: UserManager,
+    last_modified: Option<SystemTime>,
+}
+
 struct AppState {
     system: Mutex<System>,
     last_system_refresh: Mutex<SystemTime>,
     config_cache: RwLock<CachedConfig>,
+    users_cache: RwLock<CachedUsers>,
 }
 
 type SharedState = Arc<AppState>;
@@ -74,6 +80,45 @@ impl AppState {
 
         cache.config.clone()
     }
+
+    async fn get_users(&self) -> UserManager {
+        // Determine path logic (matches UserManager::load)
+        let path = std::path::Path::new("users.yaml");
+        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+        let file_path = if path.exists() { path } else { fallback_path };
+
+        // Fast path: check metadata
+        let current_mtime = tokio::fs::metadata(file_path).await
+            .and_then(|m| m.modified())
+            .ok();
+
+        {
+            let cache = self.users_cache.read().await;
+            // If mtime matches (or both None), return cached
+            if cache.last_modified == current_mtime {
+                return cache.manager.clone();
+            }
+        }
+
+        // Slow path: reload
+        let mut cache = self.users_cache.write().await;
+
+        // Re-check mtime under write lock
+        let current_mtime_2 = tokio::fs::metadata(file_path).await
+            .and_then(|m| m.modified())
+            .ok();
+
+        if cache.last_modified == current_mtime_2 {
+            return cache.manager.clone();
+        }
+
+        if let Ok(mgr) = UserManager::load_async().await {
+            cache.manager = mgr;
+            cache.last_modified = current_mtime_2;
+        }
+
+        cache.manager.clone()
+    }
 }
 
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
@@ -90,12 +135,22 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     let initial_config = Config::load().unwrap_or_default();
     let initial_mtime = std::fs::metadata("config.yaml").ok().and_then(|m| m.modified().ok());
 
+    let initial_users = UserManager::load().unwrap_or_default();
+    let u_path = std::path::Path::new("users.yaml");
+    let u_fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+    let u_file_path = if u_path.exists() { u_path } else { u_fallback_path };
+    let initial_users_mtime = std::fs::metadata(u_file_path).ok().and_then(|m| m.modified().ok());
+
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
         last_system_refresh: Mutex::new(SystemTime::now()),
         config_cache: RwLock::new(CachedConfig {
             config: initial_config,
             last_modified: initial_mtime,
+        }),
+        users_cache: RwLock::new(CachedUsers {
+            manager: initial_users,
+            last_modified: initial_users_mtime,
         }),
     });
 
@@ -159,9 +214,9 @@ struct LoginPayload {
     password: String,
 }
 
-async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
+async fn login_handler(State(state): State<SharedState>, session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
-    let user_manager = UserManager::load_async().await.unwrap_or_default();
+    let user_manager = state.get_users().await;
 
     if let Some(user) = user_manager.verify_async(&payload.username, &payload.password).await {
         let session_user = SessionUser {
@@ -388,7 +443,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
 }
 
 // User Management Page
-async fn users_page(session: Session) -> impl IntoResponse {
+async fn users_page(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -398,7 +453,7 @@ async fn users_page(session: Session) -> impl IntoResponse {
         return Redirect::to("/").into_response();
     }
 
-    let user_manager = UserManager::load_async().await.unwrap_or_default();
+    let user_manager = state.get_users().await;
     let mut html = html_head("User Management - Server Manager");
 
     html.push_str(r#"
@@ -486,7 +541,7 @@ struct AddUserPayload {
     quota: Option<u64>,
 }
 
-async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>) -> impl IntoResponse {
+async fn add_user_handler(State(state): State<SharedState>, session: Session, Form(payload): Form<AddUserPayload>) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -507,18 +562,29 @@ async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>)
         None => None,
     };
 
-    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
-    if let Err(e) = user_manager.add_user(&payload.username, &payload.password, role_enum, quota_val) {
+    let mut cache = state.users_cache.write().await;
+    let res = tokio::task::block_in_place(|| {
+        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
+    });
+
+    if let Err(e) = res {
         error!("Failed to add user: {}", e);
         // In a real app we'd flash a message. Here just redirect.
     } else {
         info!("User {} added via Web UI by {}", payload.username, session_user.username);
+        // Update mtime to prevent unnecessary reload
+        let path = std::path::Path::new("users.yaml");
+        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+        let file_path = if path.exists() { path } else { fallback_path };
+        if let Ok(m) = std::fs::metadata(file_path) {
+             cache.last_modified = m.modified().ok();
+        }
     }
 
     Redirect::to("/users").into_response()
 }
 
-async fn delete_user_handler(session: Session, Path(username): Path<String>) -> impl IntoResponse {
+async fn delete_user_handler(State(state): State<SharedState>, session: Session, Path(username): Path<String>) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -528,11 +594,22 @@ async fn delete_user_handler(session: Session, Path(username): Path<String>) -> 
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut user_manager = UserManager::load_async().await.unwrap_or_default();
-    if let Err(e) = user_manager.delete_user(&username) {
+    let mut cache = state.users_cache.write().await;
+    let res = tokio::task::block_in_place(|| {
+        cache.manager.delete_user(&username)
+    });
+
+    if let Err(e) = res {
         error!("Failed to delete user: {}", e);
     } else {
         info!("User {} deleted via Web UI by {}", username, session_user.username);
+         // Update mtime to prevent unnecessary reload
+        let path = std::path::Path::new("users.yaml");
+        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+        let file_path = if path.exists() { path } else { fallback_path };
+        if let Ok(m) = std::fs::metadata(file_path) {
+             cache.last_modified = m.modified().ok();
+        }
     }
 
     Redirect::to("/users").into_response()

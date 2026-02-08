@@ -23,7 +23,7 @@ pub struct User {
     pub quota_gb: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct UserManager {
     users: HashMap<String, User>,
 }
