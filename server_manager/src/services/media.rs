@@ -1,4 +1,4 @@
-use super::{Service, ResourceConfig};
+use super::{ResourceConfig, Service};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
@@ -6,8 +6,12 @@ use std::collections::HashMap;
 pub struct PlexService;
 
 impl Service for PlexService {
-    fn name(&self) -> &'static str { "plex" }
-    fn image(&self) -> &'static str { "lscr.io/linuxserver/plex:latest" }
+    fn name(&self) -> &'static str {
+        "plex"
+    }
+    fn image(&self) -> &'static str {
+        "lscr.io/linuxserver/plex:latest"
+    }
 
     fn ports(&self) -> Vec<String> {
         vec!["32400:32400".to_string()]
@@ -20,11 +24,17 @@ impl Service for PlexService {
         vars.insert("VERSION".to_string(), "docker".to_string());
 
         // Legacy requirement
-        vars.insert("PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS".to_string(), "2".to_string());
+        vars.insert(
+            "PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS".to_string(),
+            "2".to_string(),
+        );
 
         if hw.has_nvidia {
-             vars.insert("NVIDIA_VISIBLE_DEVICES".to_string(), "all".to_string());
-             vars.insert("NVIDIA_DRIVER_CAPABILITIES".to_string(), "compute,video,utility".to_string());
+            vars.insert("NVIDIA_VISIBLE_DEVICES".to_string(), "all".to_string());
+            vars.insert(
+                "NVIDIA_DRIVER_CAPABILITIES".to_string(),
+                "compute,video,utility".to_string(),
+            );
         }
 
         vars
@@ -75,8 +85,12 @@ impl Service for PlexService {
 pub struct JellyfinService;
 
 impl Service for JellyfinService {
-    fn name(&self) -> &'static str { "jellyfin" }
-    fn image(&self) -> &'static str { "lscr.io/linuxserver/jellyfin:latest" }
+    fn name(&self) -> &'static str {
+        "jellyfin"
+    }
+    fn image(&self) -> &'static str {
+        "lscr.io/linuxserver/jellyfin:latest"
+    }
 
     fn ports(&self) -> Vec<String> {
         vec!["8096:8096".to_string()]
@@ -88,8 +102,11 @@ impl Service for JellyfinService {
         vars.insert("PGID".to_string(), hw.group_id.clone());
 
         if hw.has_nvidia {
-             vars.insert("NVIDIA_VISIBLE_DEVICES".to_string(), "all".to_string());
-             vars.insert("NVIDIA_DRIVER_CAPABILITIES".to_string(), "compute,video,utility".to_string());
+            vars.insert("NVIDIA_VISIBLE_DEVICES".to_string(), "all".to_string());
+            vars.insert(
+                "NVIDIA_DRIVER_CAPABILITIES".to_string(),
+                "compute,video,utility".to_string(),
+            );
         }
 
         vars
@@ -139,10 +156,16 @@ impl Service for JellyfinService {
 
 pub struct JellyseerrService;
 impl Service for JellyseerrService {
-    fn name(&self) -> &'static str { "jellyseerr" }
-    fn image(&self) -> &'static str { "fallenbagel/jellyseerr:latest" }
+    fn name(&self) -> &'static str {
+        "jellyseerr"
+    }
+    fn image(&self) -> &'static str {
+        "fallenbagel/jellyseerr:latest"
+    }
     // Internal port 5055, exposed as 5056 to avoid conflict with Overseerr
-    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:5056:5055".to_string()] }
+    fn ports(&self) -> Vec<String> {
+        vec!["127.0.0.1:5056:5055".to_string()]
+    }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/jellyseerr:/app/config".to_string()]
     }
@@ -158,13 +181,21 @@ impl Service for JellyseerrService {
 
 pub struct TautulliService;
 impl Service for TautulliService {
-    fn name(&self) -> &'static str { "tautulli" }
-    fn image(&self) -> &'static str { "lscr.io/linuxserver/tautulli:latest" }
-    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:8181:8181".to_string()] }
+    fn name(&self) -> &'static str {
+        "tautulli"
+    }
+    fn image(&self) -> &'static str {
+        "lscr.io/linuxserver/tautulli:latest"
+    }
+    fn ports(&self) -> Vec<String> {
+        vec!["127.0.0.1:8181:8181".to_string()]
+    }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/tautulli:/config".to_string()]
     }
-    fn depends_on(&self) -> Vec<String> { vec!["plex".to_string()] }
+    fn depends_on(&self) -> Vec<String> {
+        vec!["plex".to_string()]
+    }
     fn resources(&self, _hw: &HardwareInfo) -> Option<ResourceConfig> {
         Some(ResourceConfig {
             memory_limit: Some("512M".to_string()),
@@ -177,9 +208,15 @@ impl Service for TautulliService {
 
 pub struct OverseerrService;
 impl Service for OverseerrService {
-    fn name(&self) -> &'static str { "overseerr" }
-    fn image(&self) -> &'static str { "lscr.io/linuxserver/overseerr:latest" }
-    fn ports(&self) -> Vec<String> { vec!["127.0.0.1:5055:5055".to_string()] }
+    fn name(&self) -> &'static str {
+        "overseerr"
+    }
+    fn image(&self) -> &'static str {
+        "lscr.io/linuxserver/overseerr:latest"
+    }
+    fn ports(&self) -> Vec<String> {
+        vec!["127.0.0.1:5055:5055".to_string()]
+    }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec!["./config/overseerr:/config".to_string()]
     }
