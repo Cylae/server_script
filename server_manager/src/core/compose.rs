@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize)]
 pub struct ComposeFile {

@@ -1,9 +1,9 @@
+use anyhow::{Context, Result};
+use log::info;
+use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
-use serde::{Serialize, Deserialize};
-use anyhow::{Result, Context};
-use log::info;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct Secrets {
@@ -84,7 +84,8 @@ impl Secrets {
 fn generate_hex(bytes: usize) -> Result<String> {
     let mut file = File::open("/dev/urandom").context("Failed to open /dev/urandom")?;
     let mut buffer = vec![0u8; bytes];
-    file.read_exact(&mut buffer).context("Failed to read from /dev/urandom")?;
+    file.read_exact(&mut buffer)
+        .context("Failed to read from /dev/urandom")?;
 
     const HEX_CHARS: &[u8] = b"0123456789abcdef";
     let mut s = String::with_capacity(bytes * 2);

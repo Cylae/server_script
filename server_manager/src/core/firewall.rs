@@ -1,6 +1,6 @@
-use std::process::Command;
-use anyhow::{Result, Context, bail};
+use anyhow::{bail, Context, Result};
 use log::{info, warn};
+use std::process::Command;
 use which::which;
 
 pub fn configure() -> Result<()> {

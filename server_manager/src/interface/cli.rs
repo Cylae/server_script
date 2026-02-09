@@ -1,13 +1,13 @@
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use log::{info, error};
-use anyhow::{Result, Context};
-use std::process::Command;
+use log::{error, info};
 use std::fs;
 use std::io::{self, Write};
+use std::process::Command;
 
-use crate::core::{system, hardware, firewall, docker, secrets, config, users};
-use crate::services;
 use crate::build_compose_structure;
+use crate::core::{config, docker, firewall, hardware, secrets, system, users};
+use crate::services;
 
 #[derive(Parser)]
 #[command(name = "server_manager")]
@@ -79,7 +79,11 @@ fn run_user_management(action: UserCommands) -> Result<()> {
     let mut user_manager = users::UserManager::load()?;
 
     match action {
-        UserCommands::Add { username, role, quota } => {
+        UserCommands::Add {
+            username,
+            role,
+            quota,
+        } => {
             let role_enum = match role.to_lowercase().as_str() {
                 "admin" => users::Role::Admin,
                 "observer" => users::Role::Observer,
@@ -113,7 +117,7 @@ fn run_user_management(action: UserCommands) -> Result<()> {
         UserCommands::Passwd { username } => {
             // Check existence first
             if user_manager.get_user(&username).is_none() {
-                 return Err(anyhow::anyhow!("User not found"));
+                return Err(anyhow::anyhow!("User not found"));
             }
             print!("Enter new password for {}: ", username);
             io::stdout().flush()?;
@@ -136,7 +140,9 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
     // 1. Load Config
     // We assume we are in the install directory or user provides it.
     // For safety, let's try to switch to /opt/server_manager if config not found locally
-    if !std::path::Path::new("config.yaml").exists() && std::path::Path::new("/opt/server_manager/config.yaml").exists() {
+    if !std::path::Path::new("config.yaml").exists()
+        && std::path::Path::new("/opt/server_manager/config.yaml").exists()
+    {
         std::env::set_current_dir("/opt/server_manager")?;
     }
 
@@ -177,7 +183,11 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
         .context("Failed to run docker compose up")?;
 
     if status.success() {
-        info!("Service '{}' {} successfully!", service_name, if enable { "enabled" } else { "disabled" });
+        info!(
+            "Service '{}' {} successfully!",
+            service_name,
+            if enable { "enabled" } else { "disabled" }
+        );
     } else {
         error!("Failed to apply changes via Docker Compose.");
     }
@@ -294,10 +304,14 @@ fn run_status() {
     println!("Intel QuickSync: {}", hw.has_intel_quicksync);
 
     println!("\n=== Docker Status ===");
-    if let Ok(true) = Command::new("docker").arg("ps").status().map(|s| s.success()) {
-         println!("Docker is running.");
+    if let Ok(true) = Command::new("docker")
+        .arg("ps")
+        .status()
+        .map(|s| s.success())
+    {
+        println!("Docker is running.");
     } else {
-         println!("Docker is NOT running.");
+        println!("Docker is NOT running.");
     }
 }
 
@@ -305,37 +319,54 @@ async fn run_generate() -> Result<()> {
     let hw = hardware::HardwareInfo::detect();
     // For generate, we might not be in /opt/server_manager, but let's try to load secrets from CWD.
     // We propagate the error because generating a compose file with empty passwords is bad.
-    let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
+    let secrets =
+        secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     let config = config::Config::load()?;
     configure_services(&hw, &secrets, &config)?;
     generate_compose(&hw, &secrets, &config).await
 }
 
-fn configure_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
+fn configure_services(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<()> {
     info!("Configuring services (generating config files)...");
     let services = services::get_all_services();
     for service in services {
         if !config.is_enabled(service.name()) {
             continue;
         }
-        service.configure(hw, secrets).with_context(|| format!("Failed to configure service: {}", service.name()))?;
+        service
+            .configure(hw, secrets)
+            .with_context(|| format!("Failed to configure service: {}", service.name()))?;
     }
     Ok(())
 }
 
-fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
+fn initialize_services(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<()> {
     info!("Initializing services (system setup)...");
     let services = services::get_all_services();
     for service in services {
         if !config.is_enabled(service.name()) {
             continue;
         }
-        service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
+        service
+            .initialize(hw, secrets)
+            .with_context(|| format!("Failed to initialize service: {}", service.name()))?;
     }
     Ok(())
 }
 
-async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
+async fn generate_compose(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<()> {
     info!("Generating docker-compose.yml based on hardware profile...");
     let top_level = build_compose_structure(hw, secrets, config)?;
     let yaml_output = serde_yaml_ng::to_string(&top_level)?;
