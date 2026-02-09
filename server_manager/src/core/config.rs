@@ -1,12 +1,12 @@
+use anyhow::{Context, Result};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
-use anyhow::{Result, Context};
-use log::info;
 use std::sync::OnceLock;
-use tokio::sync::RwLock;
 use std::time::SystemTime;
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 struct CachedConfig {
@@ -50,13 +50,13 @@ impl Config {
             let guard = cache.read().await;
             if let Some(cached_mtime) = guard.last_mtime {
                 // Check if file still matches
-                 if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
-                     if let Ok(modified) = metadata.modified() {
-                         if modified == cached_mtime {
-                             return Ok(guard.config.clone());
-                         }
-                     }
-                 }
+                if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
+                    if let Ok(modified) = metadata.modified() {
+                        if modified == cached_mtime {
+                            return Ok(guard.config.clone());
+                        }
+                    }
+                }
             }
         }
 
@@ -82,25 +82,24 @@ impl Config {
                         let config = if content.trim().is_empty() {
                             Config::default()
                         } else {
-                            serde_yaml_ng::from_str(&content).context("Failed to parse config.yaml")?
+                            serde_yaml_ng::from_str(&content)
+                                .context("Failed to parse config.yaml")?
                         };
 
                         guard.config = config.clone();
                         guard.last_mtime = Some(modified);
                         Ok(config)
-                    },
+                    }
                     Err(e) => Err(anyhow::Error::new(e).context("Failed to read config.yaml")),
                 }
-            },
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // File not found -> Default
                 guard.config = Config::default();
                 guard.last_mtime = None;
                 Ok(guard.config.clone())
-            },
-            Err(e) => {
-                 Err(anyhow::Error::new(e).context("Failed to read config metadata"))
             }
+            Err(e) => Err(anyhow::Error::new(e).context("Failed to read config metadata")),
         }
     }
 

@@ -1,13 +1,13 @@
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use log::{info, error};
-use anyhow::{Result, Context};
-use std::process::Command;
+use log::{error, info};
 use std::fs;
 use std::io::{self, Write};
+use std::process::Command;
 
-use crate::core::{system, hardware, firewall, docker, secrets, config, users};
-use crate::services;
 use crate::build_compose_structure;
+use crate::core::{config, docker, firewall, hardware, secrets, system, users};
+use crate::services;
 
 #[derive(Parser)]
 #[command(name = "server_manager")]
@@ -79,7 +79,11 @@ fn run_user_management(action: UserCommands) -> Result<()> {
     let mut user_manager = users::UserManager::load()?;
 
     match action {
-        UserCommands::Add { username, role, quota } => {
+        UserCommands::Add {
+            username,
+            role,
+            quota,
+        } => {
             let role_enum = match role.to_lowercase().as_str() {
                 "admin" => users::Role::Admin,
                 "observer" => users::Role::Observer,
@@ -113,7 +117,7 @@ fn run_user_management(action: UserCommands) -> Result<()> {
         UserCommands::Passwd { username } => {
             // Check existence first
             if user_manager.get_user(&username).is_none() {
-                 return Err(anyhow::anyhow!("User not found"));
+                return Err(anyhow::anyhow!("User not found"));
             }
             print!("Enter new password for {}: ", username);
             io::stdout().flush()?;
@@ -136,7 +140,9 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
     // 1. Load Config
     // We assume we are in the install directory or user provides it.
     // For safety, let's try to switch to /opt/server_manager if config not found locally
-    if !std::path::Path::new("config.yaml").exists() && std::path::Path::new("/opt/server_manager/config.yaml").exists() {
+    if !std::path::Path::new("config.yaml").exists()
+        && std::path::Path::new("/opt/server_manager/config.yaml").exists()
+    {
         std::env::set_current_dir("/opt/server_manager")?;
     }
 
@@ -177,7 +183,11 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
         .context("Failed to run docker compose up")?;
 
     if status.success() {
-        info!("Service '{}' {} successfully!", service_name, if enable { "enabled" } else { "disabled" });
+        info!(
+            "Service '{}' {} successfully!",
+            service_name,
+            if enable { "enabled" } else { "disabled" }
+        );
     } else {
         error!("Failed to apply changes via Docker Compose.");
     }
@@ -241,33 +251,45 @@ async fn run_install() -> Result<()> {
 }
 
 fn print_deployment_summary(secrets: &secrets::Secrets) {
-    println!("\n=================================================================================");
-    println!("                           DEPLOYMENT SUMMARY 🚀");
-    println!("=================================================================================");
-    println!("{:<15} | {:<25} | {:<15} | Password / Info", "Service", "URL", "User");
-    println!("{:<15} | {:<25} | {:<15} | ---------------", "-------", "---", "----");
+    let mut summary = String::new();
+    summary.push_str("\n=================================================================================\n");
+    summary.push_str("                           DEPLOYMENT SUMMARY 🚀\n");
+    summary.push_str("=================================================================================\n");
+    summary.push_str(&format!("{:<15} | {:<25} | {:<15} | Password / Info\n", "Service", "URL", "User"));
+    summary.push_str(&format!("{:<15} | {:<25} | {:<15} | ---------------\n", "-------", "---", "----"));
 
-    let print_row = |service: &str, url: &str, user: &str, pass: &str| {
-        println!("{:<15} | {:<25} | {:<15} | {}", service, url, user, pass);
+    let mut append_row = |service: &str, url: &str, user: &str, pass: &str| {
+        summary.push_str(&format!("{:<15} | {:<25} | {:<15} | {}\n", service, url, user, pass));
     };
 
     // Helper to format Option<String>
     let pass = |opt: &Option<String>| opt.clone().unwrap_or_else(|| "ERROR".to_string());
 
-    print_row("Nginx Proxy", "http://<IP>:81", "admin@example.com", "changeme");
-    print_row("Portainer", "http://<IP>:9000", "admin", "Set on first login");
-    print_row("Nextcloud", "https://<IP>:4443", "admin", &pass(&secrets.nextcloud_admin_password));
-    print_row("Vaultwarden", "http://<IP>:8001/admin", "(Token)", &pass(&secrets.vaultwarden_admin_token));
-    print_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
-    print_row("GLPI", "http://<IP>:8088", "glpi", "glpi (Change immediately!)");
-    print_row("Yourls", "http://<IP>:8003/admin", "admin", &pass(&secrets.yourls_admin_password));
-    print_row("Roundcube", "http://<IP>:8090", "-", "Login with Mail creds");
-    print_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec -ti mailserver setup ...");
-    print_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
-    print_row("ArrStack", "http://<IP>:8989 (Sonarr)", "-", "No auth by default");
+    append_row("Nginx Proxy", "http://<IP>:81", "admin@example.com", "changeme");
+    append_row("Portainer", "http://<IP>:9000", "admin", "Set on first login");
+    append_row("Nextcloud", "https://<IP>:4443", "admin", &pass(&secrets.nextcloud_admin_password));
+    append_row("Vaultwarden", "http://<IP>:8001/admin", "(Token)", &pass(&secrets.vaultwarden_admin_token));
+    append_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
+    append_row("GLPI", "http://<IP>:8088", "glpi", "glpi (Change immediately!)");
+    append_row("Yourls", "http://<IP>:8003/admin", "admin", &pass(&secrets.yourls_admin_password));
+    append_row("Roundcube", "http://<IP>:8090", "-", "Login with Mail creds");
+    append_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec -ti mailserver setup ...");
+    append_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
+    append_row("ArrStack", "http://<IP>:8989 (Sonarr)", "-", "No auth by default");
 
-    println!("=================================================================================\n");
-    println!("NOTE: Replace <IP> with your server's IP address.");
+    summary.push_str("=================================================================================\n\n");
+    summary.push_str("NOTE: Replace <IP> with your server's IP address.");
+
+    println!("{}", summary);
+
+    // Save to /root/credentials.txt if running as root
+    if nix::unistd::Uid::effective().is_root() {
+        if let Err(e) = std::fs::write("/root/credentials.txt", &summary) {
+            error!("Failed to save credentials to /root/credentials.txt: {}", e);
+        } else {
+            info!("Credentials saved to /root/credentials.txt");
+        }
+    }
 }
 
 fn run_status() {
@@ -282,10 +304,14 @@ fn run_status() {
     println!("Intel QuickSync: {}", hw.has_intel_quicksync);
 
     println!("\n=== Docker Status ===");
-    if let Ok(true) = Command::new("docker").arg("ps").status().map(|s| s.success()) {
-         println!("Docker is running.");
+    if let Ok(true) = Command::new("docker")
+        .arg("ps")
+        .status()
+        .map(|s| s.success())
+    {
+        println!("Docker is running.");
     } else {
-         println!("Docker is NOT running.");
+        println!("Docker is NOT running.");
     }
 }
 
@@ -293,37 +319,54 @@ async fn run_generate() -> Result<()> {
     let hw = hardware::HardwareInfo::detect();
     // For generate, we might not be in /opt/server_manager, but let's try to load secrets from CWD.
     // We propagate the error because generating a compose file with empty passwords is bad.
-    let secrets = secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
+    let secrets =
+        secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     let config = config::Config::load()?;
     configure_services(&hw, &secrets, &config)?;
     generate_compose(&hw, &secrets, &config).await
 }
 
-fn configure_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
+fn configure_services(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<()> {
     info!("Configuring services (generating config files)...");
     let services = services::get_all_services();
     for service in services {
         if !config.is_enabled(service.name()) {
             continue;
         }
-        service.configure(hw, secrets).with_context(|| format!("Failed to configure service: {}", service.name()))?;
+        service
+            .configure(hw, secrets)
+            .with_context(|| format!("Failed to configure service: {}", service.name()))?;
     }
     Ok(())
 }
 
-fn initialize_services(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
+fn initialize_services(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<()> {
     info!("Initializing services (system setup)...");
     let services = services::get_all_services();
     for service in services {
         if !config.is_enabled(service.name()) {
             continue;
         }
-        service.initialize(hw, secrets).with_context(|| format!("Failed to initialize service: {}", service.name()))?;
+        service
+            .initialize(hw, secrets)
+            .with_context(|| format!("Failed to initialize service: {}", service.name()))?;
     }
     Ok(())
 }
 
-async fn generate_compose(hw: &hardware::HardwareInfo, secrets: &secrets::Secrets, config: &config::Config) -> Result<()> {
+async fn generate_compose(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<()> {
     info!("Generating docker-compose.yml based on hardware profile...");
     let top_level = build_compose_structure(hw, secrets, config)?;
     let yaml_output = serde_yaml_ng::to_string(&top_level)?;

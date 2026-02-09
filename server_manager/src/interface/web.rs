@@ -1,24 +1,24 @@
+use crate::core::config::Config;
+use crate::core::users::{Role, UserManager};
+use crate::services;
 use axum::{
-    extract::{Path, Form, State},
+    extract::{Form, Path, State},
+    http::StatusCode,
     response::{Html, IntoResponse, Redirect},
     routing::{get, post},
     Router,
-    http::StatusCode,
 };
+use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use crate::services;
-use crate::core::config::Config;
-use crate::core::users::{UserManager, Role};
-use tokio::process::Command;
-use log::{info, error, warn};
-use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
-use serde::{Deserialize, Serialize};
-use time::Duration;
-use sysinfo::{System, SystemExt, CpuExt, DiskExt};
-use tokio::sync::RwLock;
 use std::time::SystemTime;
+use sysinfo::{CpuExt, DiskExt, System, SystemExt};
+use time::Duration;
+use tokio::process::Command;
+use tokio::sync::RwLock;
+use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
@@ -50,7 +50,8 @@ type SharedState = Arc<AppState>;
 impl AppState {
     async fn get_config(&self) -> Config {
         // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata("config.yaml").await
+        let current_mtime = tokio::fs::metadata("config.yaml")
+            .await
             .and_then(|m| m.modified())
             .ok();
 
@@ -65,7 +66,8 @@ impl AppState {
         let mut cache = self.config_cache.write().await;
 
         // Re-check mtime under write lock to avoid race
-        let current_mtime_2 = tokio::fs::metadata("config.yaml").await
+        let current_mtime_2 = tokio::fs::metadata("config.yaml")
+            .await
             .and_then(|m| m.modified())
             .ok();
 
@@ -133,7 +135,19 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     sys.refresh_all();
 
     let initial_config = Config::load().unwrap_or_default();
-    let initial_mtime = std::fs::metadata("config.yaml").ok().and_then(|m| m.modified().ok());
+    let initial_config_mtime = std::fs::metadata("config.yaml")
+        .ok()
+        .and_then(|m| m.modified().ok());
+
+    let initial_users = UserManager::load().unwrap_or_default();
+    let initial_users_mtime = std::fs::metadata("users.yaml")
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .or_else(|| {
+            std::fs::metadata("/opt/server_manager/users.yaml")
+                .ok()
+                .and_then(|m| m.modified().ok())
+        });
 
     let initial_users = UserManager::load().unwrap_or_default();
     let u_path = std::path::Path::new("users.yaml");
@@ -146,7 +160,11 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         last_system_refresh: Mutex::new(SystemTime::now()),
         config_cache: RwLock::new(CachedConfig {
             config: initial_config,
-            last_modified: initial_mtime,
+            last_modified: initial_config_mtime,
+        }),
+        users_cache: RwLock::new(CachedUsers {
+            manager: initial_users,
+            last_modified: initial_users_mtime,
         }),
         users_cache: RwLock::new(CachedUsers {
             manager: initial_users,
@@ -176,7 +194,11 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
 }
 
 async fn login_page(session: Session) -> impl IntoResponse {
-    if let Some(_user) = session.get::<SessionUser>(SESSION_KEY).await.unwrap_or(None) {
+    if let Some(_user) = session
+        .get::<SessionUser>(SESSION_KEY)
+        .await
+        .unwrap_or(None)
+    {
         return Redirect::to("/").into_response();
     }
 
@@ -225,7 +247,11 @@ async fn login_handler(State(state): State<SharedState>, session: Session, Form(
         };
         if let Err(e) = session.insert(SESSION_KEY, session_user).await {
             error!("Failed to insert session: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create session").into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to create session",
+            )
+                .into_response();
         }
         Redirect::to("/").into_response()
     } else {
@@ -241,24 +267,27 @@ async fn logout(session: Session) -> impl IntoResponse {
 }
 
 // Helper for HTML escaping
-fn escape_html(s: &str) -> String {
-    let mut output = String::with_capacity(s.len() + 10);
-    for c in s.chars() {
-        match c {
-            '&' => output.push_str("&amp;"),
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#39;"),
-            _ => output.push(c),
+struct Escaped<'a>(&'a str);
+
+impl<'a> std::fmt::Display for Escaped<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for c in self.0.chars() {
+            match c {
+                '&' => f.write_str("&amp;")?,
+                '<' => f.write_str("&lt;")?,
+                '>' => f.write_str("&gt;")?,
+                '"' => f.write_str("&quot;")?,
+                '\'' => f.write_str("&#39;")?,
+                _ => f.write_char(c)?,
+            }
         }
+        Ok(())
     }
-    output
 }
 
 // Helper for common HTML head
-fn html_head(title: &str) -> String {
-    format!(r#"
+fn write_html_head(out: &mut String, title: &str) {
+    let _ = write!(out, r#"
     <!DOCTYPE html>
     <html>
     <head>
@@ -288,15 +317,15 @@ fn html_head(title: &str) -> String {
     </head>
     <body>
         <div class="container">
-    "#, title)
+    "#, title);
 }
 
-fn html_foot() -> String {
-    r#"
+fn write_html_foot(out: &mut String) {
+    out.push_str(r#"
         </div>
     </body>
     </html>
-    "#.to_string()
+    "#);
 }
 
 // Protected Dashboard
@@ -307,7 +336,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     };
 
     let is_admin = matches!(user.role, Role::Admin);
-    let escaped_username = escape_html(&user.username);
 
     let services = services::get_all_services();
     let config = state.get_config().await;
@@ -318,7 +346,12 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let mut last_refresh = state.last_system_refresh.lock().unwrap();
 
     // Throttle refresh to max once every 500ms
-    if now.duration_since(*last_refresh).unwrap_or_default().as_millis() > 500 {
+    if now
+        .duration_since(*last_refresh)
+        .unwrap_or_default()
+        .as_millis()
+        > 500
+    {
         sys.refresh_cpu();
         sys.refresh_memory();
         sys.refresh_disks();
@@ -342,29 +375,36 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     }
     drop(sys); // Release lock explicitely
 
-    let mut html = html_head("Dashboard - Server Manager");
+    let mut html = String::with_capacity(8192);
+    write_html_head(&mut html, "Dashboard - Server Manager");
 
-    let _ = write!(html, r#"
+    let _ = write!(
+        html,
+        r#"
         <div class="header">
             <h1>Server Manager 🚀</h1>
             <form method="POST" action="/logout" style="margin: 0;">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
-    "#, escaped_username);
+    "#, Escaped(&user.username));
 
     // Navigation
     if is_admin {
-        html.push_str(r#"
+        html.push_str(
+            r#"
         <div class="nav">
             <a href="/">Dashboard</a>
             <a href="/users">User Management</a>
         </div>
-        "#);
+        "#,
+        );
     }
 
     // Stats Grid
-    let _ = write!(html, r#"
+    let _ = write!(
+        html,
+        r#"
         <div class="stats-grid">
             <div class="stat-card">
                 <div>CPU Usage</div>
@@ -383,10 +423,13 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 <div class="stat-value">{} / {} GB</div>
             </div>
         </div>
-    "#, cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total);
+    "#,
+        cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total
+    );
 
     // Services Table
-    html.push_str(r#"
+    html.push_str(
+        r#"
         <h2>Services</h2>
         <table>
             <thead>
@@ -398,33 +441,47 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 </tr>
             </thead>
             <tbody>
-    "#);
+    "#,
+    );
 
     for svc in services {
         let name = svc.name();
         let enabled = config.is_enabled(name);
-        let status_class = if enabled { "status-enabled" } else { "status-disabled" };
+        let status_class = if enabled {
+            "status-enabled"
+        } else {
+            "status-disabled"
+        };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
 
-        let _ = write!(html, r#"
+        let _ = write!(
+            html,
+            r#"
             <tr>
                 <td>{}</td>
                 <td>{}</td>
                 <td class="{}">{}</td>
                 <td>
-        "#, name, svc.image(), status_class, status_text);
+        "#,
+            name,
+            svc.image(),
+            status_class,
+            status_text
+        );
 
         if is_admin {
-             let _ = write!(html, r#"
+            let _ = write!(
+                html,
+                r#"
                     <form method="POST" action="/api/services/{}/{}">
                         <button type="submit" class="btn {}">{}</button>
                     </form>
              "#,
-             name,
-             if enabled { "disable" } else { "enable" },
-             if enabled { "btn-disable" } else { "btn-enable" },
-             if enabled { "Disable" } else { "Enable" }
-             );
+                name,
+                if enabled { "disable" } else { "enable" },
+                if enabled { "btn-disable" } else { "btn-enable" },
+                if enabled { "Disable" } else { "Enable" }
+            );
         } else {
             html.push_str("<span>Read-only</span>");
         };
@@ -432,12 +489,13 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         html.push_str("</td></tr>");
     }
 
-    html.push_str(r#"
+    html.push_str(
+        r#"
             </tbody>
         </table>
         <p><em>Note: Actions may take a moment to apply.</em></p>
     "#);
-    html.push_str(&html_foot());
+    write_html_foot(&mut html);
 
     Html(html).into_response()
 }
@@ -513,7 +571,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
 
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{:?}</td>
@@ -524,11 +582,11 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                     </form>
                 </td>
             </tr>
-        "#, u.username, u.role, quota_display, u.username));
+        "#, Escaped(&u.username), u.role, quota_display, Escaped(&u.username));
     }
 
     html.push_str("</tbody></table>");
-    html.push_str(&html_foot());
+    write_html_foot(&mut html);
 
     Html(html).into_response()
 }

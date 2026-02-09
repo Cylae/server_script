@@ -1,7 +1,7 @@
+use server_manager::build_compose_structure;
+use server_manager::core::config::Config;
 use server_manager::core::hardware::{HardwareInfo, HardwareProfile};
 use server_manager::core::secrets::Secrets;
-use server_manager::core::config::Config;
-use server_manager::build_compose_structure;
 
 #[test]
 fn test_generate_compose_structure() {
@@ -87,13 +87,21 @@ fn test_security_bindings() {
     let sonarr = compose.services.get("sonarr").unwrap();
     let ports = sonarr.ports.as_ref().unwrap();
     let port_str = &ports[0];
-    assert!(port_str.starts_with("127.0.0.1:"), "Sonarr port should be bound to localhost: {}", port_str);
+    assert!(
+        port_str.starts_with("127.0.0.1:"),
+        "Sonarr port should be bound to localhost: {}",
+        port_str
+    );
 
     // 3. Plex should still be exposed (host mapping implied or explicit 0.0.0.0)
     let plex = compose.services.get("plex").unwrap();
     let ports = plex.ports.as_ref().unwrap();
     let port_str = &ports[0];
-    assert!(!port_str.starts_with("127.0.0.1:"), "Plex port should be exposed: {}", port_str);
+    assert!(
+        !port_str.starts_with("127.0.0.1:"),
+        "Plex port should be exposed: {}",
+        port_str
+    );
 }
 
 #[test]
@@ -145,7 +153,10 @@ fn test_profile_logic_standard() {
 
     // Check for ENABLE_SPAMASSASSIN=1
     let has_enabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=1");
-    assert!(has_enabled_spam, "Standard profile should enable SpamAssassin");
+    assert!(
+        has_enabled_spam,
+        "Standard profile should enable SpamAssassin"
+    );
 }
 
 #[test]
@@ -200,6 +211,12 @@ fn test_disabled_service_filtering() {
 
     let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
 
-    assert!(!compose.services.contains_key("plex"), "Plex should be disabled");
-    assert!(compose.services.contains_key("jellyfin"), "Jellyfin should still be enabled");
+    assert!(
+        !compose.services.contains_key("plex"),
+        "Plex should be disabled"
+    );
+    assert!(
+        compose.services.contains_key("jellyfin"),
+        "Jellyfin should still be enabled"
+    );
 }
