@@ -149,22 +149,12 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
                 .and_then(|m| m.modified().ok())
         });
 
-    let initial_users = UserManager::load().unwrap_or_default();
-    let u_path = std::path::Path::new("users.yaml");
-    let u_fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-    let u_file_path = if u_path.exists() { u_path } else { u_fallback_path };
-    let initial_users_mtime = std::fs::metadata(u_file_path).ok().and_then(|m| m.modified().ok());
-
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
         last_system_refresh: Mutex::new(SystemTime::now()),
         config_cache: RwLock::new(CachedConfig {
             config: initial_config,
             last_modified: initial_config_mtime,
-        }),
-        users_cache: RwLock::new(CachedUsers {
-            manager: initial_users,
-            last_modified: initial_users_mtime,
         }),
         users_cache: RwLock::new(CachedUsers {
             manager: initial_users,
@@ -363,15 +353,19 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let swap_total = sys.total_swap() / 1024 / 1024; // MB
     let cpu_usage = sys.global_cpu_info().cpu_usage();
 
-    // Simple Disk Usage (Root)
+    // Simple Disk Usage (Root or fallback)
     let mut disk_total = 0;
     let mut disk_used = 0;
-    for disk in sys.disks() {
-        if disk.mount_point() == std::path::Path::new("/") {
-            disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
-            disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
-            break;
-        }
+
+    let target_disk = sys
+        .disks()
+        .iter()
+        .find(|d| d.mount_point() == std::path::Path::new("/"))
+        .or_else(|| sys.disks().first());
+
+    if let Some(disk) = target_disk {
+        disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
+        disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
     }
     drop(sys); // Release lock explicitely
 
@@ -512,7 +506,8 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     }
 
     let user_manager = state.get_users().await;
-    let mut html = html_head("User Management - Server Manager");
+    let mut html = String::with_capacity(4096);
+    write_html_head(&mut html, "User Management - Server Manager");
 
     html.push_str(r#"
         <div class="header">
@@ -564,25 +559,36 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     "#);
 
     for u in user_manager.list_users() {
-        let quota_display = match u.quota_gb {
-            Some(gb) if gb > 0 => format!("{} GB", gb),
-            _ => "Unlimited".to_string(),
-        };
-
-        // Don't allow deleting self or last admin logic is handled in delete handler/manager
-        // But let's show delete button generally
-        let _ = write!(html, r#"
+        let _ = write!(
+            html,
+            r#"
             <tr>
                 <td>{}</td>
                 <td>{:?}</td>
-                <td>{}</td>
+                <td>"#,
+            Escaped(&u.username),
+            u.role
+        );
+
+        match u.quota_gb {
+            Some(gb) if gb > 0 => {
+                let _ = write!(html, "{} GB", gb);
+            }
+            _ => {
+                html.push_str("Unlimited");
+            }
+        }
+
+        // Don't allow deleting self or last admin logic is handled in delete handler/manager
+        // But let's show delete button generally
+        let _ = write!(html, r#"</td>
                 <td>
                     <form method="POST" action="/users/delete/{}" onsubmit="return confirm('Are you sure you want to delete this user? This will delete their system account and data.');">
                         <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
                 </td>
             </tr>
-        "#, Escaped(&u.username), u.role, quota_display, Escaped(&u.username));
+        "#, Escaped(&u.username));
     }
 
     html.push_str("</tbody></table>");
