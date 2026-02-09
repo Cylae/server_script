@@ -278,26 +278,27 @@ async fn logout(session: Session) -> impl IntoResponse {
 }
 
 // Helper for HTML escaping
-fn escape_html(s: &str) -> String {
-    let mut output = String::with_capacity(s.len() + 10);
-    for c in s.chars() {
-        match c {
-            '&' => output.push_str("&amp;"),
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#39;"),
-            _ => output.push(c),
+struct Escaped<'a>(&'a str);
+
+impl<'a> std::fmt::Display for Escaped<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for c in self.0.chars() {
+            match c {
+                '&' => f.write_str("&amp;")?,
+                '<' => f.write_str("&lt;")?,
+                '>' => f.write_str("&gt;")?,
+                '"' => f.write_str("&quot;")?,
+                '\'' => f.write_str("&#39;")?,
+                _ => f.write_char(c)?,
+            }
         }
+        Ok(())
     }
-    output
 }
 
 // Helper for common HTML head
-fn write_html_head(buf: &mut String, title: &str) {
-    let _ = write!(
-        buf,
-        r#"
+fn write_html_head(out: &mut String, title: &str) {
+    let _ = write!(out, r#"
     <!DOCTYPE html>
     <html>
     <head>
@@ -327,19 +328,15 @@ fn write_html_head(buf: &mut String, title: &str) {
     </head>
     <body>
         <div class="container">
-    "#,
-        title
-    );
+    "#, title);
 }
 
-fn write_html_foot(buf: &mut String) {
-    buf.push_str(
-        r#"
+fn write_html_foot(out: &mut String) {
+    out.push_str(r#"
         </div>
     </body>
     </html>
-    "#,
-    );
+    "#);
 }
 
 // Protected Dashboard
@@ -350,7 +347,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     };
 
     let is_admin = matches!(user.role, Role::Admin);
-    let escaped_username = escape_html(&user.username);
 
     let services = services::get_all_services();
     let config = state.get_config().await;
@@ -402,9 +398,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
-    "#,
-        escaped_username
-    );
+    "#, Escaped(&user.username));
 
     // Navigation
     if is_admin {
@@ -511,8 +505,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             </tbody>
         </table>
         <p><em>Note: Actions may take a moment to apply.</em></p>
-    "#,
-    );
+    "#);
     write_html_foot(&mut html);
 
     Html(html).into_response()
@@ -529,8 +522,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
         return Redirect::to("/").into_response();
     }
 
-    // Use cached user manager
-    let user_manager = state.get_users().await;
+    let user_manager = UserManager::load_async().await.unwrap_or_default();
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "User Management - Server Manager");
 
@@ -591,7 +583,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
 
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
-        html.push_str(&format!(r#"
+        let _ = write!(html, r#"
             <tr>
                 <td>{}</td>
                 <td>{:?}</td>
@@ -602,7 +594,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                     </form>
                 </td>
             </tr>
-        "#, u.username, u.role, quota_display, u.username));
+        "#, Escaped(&u.username), u.role, quota_display, Escaped(&u.username));
     }
 
     html.push_str("</tbody></table>");

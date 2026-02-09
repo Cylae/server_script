@@ -251,84 +251,45 @@ async fn run_install() -> Result<()> {
 }
 
 fn print_deployment_summary(secrets: &secrets::Secrets) {
-    println!("\n=================================================================================");
-    println!("                           DEPLOYMENT SUMMARY 🚀");
-    println!("=================================================================================");
-    println!(
-        "{:<15} | {:<25} | {:<15} | Password / Info",
-        "Service", "URL", "User"
-    );
-    println!(
-        "{:<15} | {:<25} | {:<15} | ---------------",
-        "-------", "---", "----"
-    );
+    let mut summary = String::new();
+    summary.push_str("\n=================================================================================\n");
+    summary.push_str("                           DEPLOYMENT SUMMARY 🚀\n");
+    summary.push_str("=================================================================================\n");
+    summary.push_str(&format!("{:<15} | {:<25} | {:<15} | Password / Info\n", "Service", "URL", "User"));
+    summary.push_str(&format!("{:<15} | {:<25} | {:<15} | ---------------\n", "-------", "---", "----"));
 
-    let print_row = |service: &str, url: &str, user: &str, pass: &str| {
-        println!("{:<15} | {:<25} | {:<15} | {}", service, url, user, pass);
+    let mut append_row = |service: &str, url: &str, user: &str, pass: &str| {
+        summary.push_str(&format!("{:<15} | {:<25} | {:<15} | {}\n", service, url, user, pass));
     };
 
     // Helper to format Option<String>
     let pass = |opt: &Option<String>| opt.clone().unwrap_or_else(|| "ERROR".to_string());
 
-    print_row(
-        "Nginx Proxy",
-        "http://<IP>:81",
-        "admin@example.com",
-        "changeme",
-    );
-    print_row(
-        "Portainer",
-        "http://<IP>:9000",
-        "admin",
-        "Set on first login",
-    );
-    print_row(
-        "Nextcloud",
-        "https://<IP>:4443",
-        "admin",
-        &pass(&secrets.nextcloud_admin_password),
-    );
-    print_row(
-        "Vaultwarden",
-        "http://<IP>:8001/admin",
-        "(Token)",
-        &pass(&secrets.vaultwarden_admin_token),
-    );
-    print_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
-    print_row(
-        "GLPI",
-        "http://<IP>:8088",
-        "glpi",
-        "glpi (Change immediately!)",
-    );
-    print_row(
-        "Yourls",
-        "http://<IP>:8003/admin",
-        "admin",
-        &pass(&secrets.yourls_admin_password),
-    );
-    print_row(
-        "Roundcube",
-        "http://<IP>:8090",
-        "-",
-        "Login with Mail creds",
-    );
-    print_row(
-        "MailServer",
-        "PORTS: 25, 143...",
-        "CLI",
-        "docker exec -ti mailserver setup ...",
-    );
-    print_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
-    print_row(
-        "ArrStack",
-        "http://<IP>:8989 (Sonarr)",
-        "-",
-        "No auth by default",
-    );
+    append_row("Nginx Proxy", "http://<IP>:81", "admin@example.com", "changeme");
+    append_row("Portainer", "http://<IP>:9000", "admin", "Set on first login");
+    append_row("Nextcloud", "https://<IP>:4443", "admin", &pass(&secrets.nextcloud_admin_password));
+    append_row("Vaultwarden", "http://<IP>:8001/admin", "(Token)", &pass(&secrets.vaultwarden_admin_token));
+    append_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
+    append_row("GLPI", "http://<IP>:8088", "glpi", "glpi (Change immediately!)");
+    append_row("Yourls", "http://<IP>:8003/admin", "admin", &pass(&secrets.yourls_admin_password));
+    append_row("Roundcube", "http://<IP>:8090", "-", "Login with Mail creds");
+    append_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec -ti mailserver setup ...");
+    append_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
+    append_row("ArrStack", "http://<IP>:8989 (Sonarr)", "-", "No auth by default");
 
-    println!("=================================================================================\n");
-    println!("NOTE: Replace <IP> with your server's IP address.");
+    summary.push_str("=================================================================================\n\n");
+    summary.push_str("NOTE: Replace <IP> with your server's IP address.");
+
+    println!("{}", summary);
+
+    // Save to /root/credentials.txt if running as root
+    if nix::unistd::Uid::effective().is_root() {
+        if let Err(e) = std::fs::write("/root/credentials.txt", &summary) {
+            error!("Failed to save credentials to /root/credentials.txt: {}", e);
+        } else {
+            info!("Credentials saved to /root/credentials.txt");
+        }
+    }
 }
 
 fn run_status() {
