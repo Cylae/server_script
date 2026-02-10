@@ -42,6 +42,12 @@ impl HardwareInfo {
 
         let mut disk_gb = 0;
         for disk in sys.disks() {
+            // Filter out virtual filesystems to prevent double counting (e.g., overlayfs)
+            let fs_type = std::str::from_utf8(disk.file_system()).unwrap_or("unknown");
+            match fs_type {
+                "overlay" | "tmpfs" | "devtmpfs" | "squashfs" | "sysfs" | "proc" => continue,
+                _ => {}
+            }
             disk_gb += disk.total_space() / 1024 / 1024 / 1024;
         }
 
