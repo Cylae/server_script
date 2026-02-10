@@ -1,6 +1,6 @@
 use crate::core::hardware::HardwareInfo;
 use anyhow::{bail, Context, Result};
-use log::{info, warn};
+use log::{error, info, warn};
 use nix::unistd::{Uid, User};
 use std::fs;
 use std::io::Write;
@@ -108,7 +108,21 @@ pub fn create_system_user(username: &str, password: &str) -> Result<()> {
         bail!("useradd failed to create user '{}'", username);
     }
 
-    set_system_user_password(username, password)
+    if let Err(e) = set_system_user_password(username, password) {
+        warn!(
+            "Failed to set password for '{}': {}. Rolling back user creation.",
+            username, e
+        );
+        if let Err(del_err) = delete_system_user(username) {
+            error!(
+                "CRITICAL: Failed to rollback user creation for '{}': {}",
+                username, del_err
+            );
+        }
+        return Err(e);
+    }
+
+    Ok(())
 }
 
 pub fn delete_system_user(username: &str) -> Result<()> {
