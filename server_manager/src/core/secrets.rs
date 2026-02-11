@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use log::info;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::Read;
+use rand::RngExt;
+use std::fs;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -82,10 +82,8 @@ impl Secrets {
 }
 
 fn generate_hex(bytes: usize) -> Result<String> {
-    let mut file = File::open("/dev/urandom").context("Failed to open /dev/urandom")?;
     let mut buffer = vec![0u8; bytes];
-    file.read_exact(&mut buffer)
-        .context("Failed to read from /dev/urandom")?;
+    rand::rng().fill(&mut buffer[..]);
 
     const HEX_CHARS: &[u8] = b"0123456789abcdef";
     let mut s = String::with_capacity(bytes * 2);

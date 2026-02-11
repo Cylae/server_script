@@ -129,6 +129,16 @@ Passwords are stored in `secrets.yaml`.
 *   Automatically generated on first launch.
 *   You can modify this file *before* running `install` or `generate` if you wish to set your own passwords.
 
+### 💾 Data Persistence
+
+Server Manager stores its configuration and data in the following locations:
+*   **Configuration**: `/opt/server_manager/config.yaml` (Enabled/Disabled services)
+*   **Secrets**: `/opt/server_manager/secrets.yaml` (Passwords and tokens)
+*   **Users**: `/opt/server_manager/users.yaml` (Web and System users)
+*   **Docker Data**: Docker volumes are managed by Docker (usually `/var/lib/docker/volumes`).
+
+**Backup Recommendation**: Backup the `/opt/server_manager` directory to save your configuration and user accounts.
+
 ### 🛠 Services and Ports List
 
 Here is the matrix of deployed services:
@@ -272,6 +282,16 @@ Server Manager ajuste la configuration via `HardwareManager` :
 Les mots de passe sont stockés dans `secrets.yaml`.
 *   Générés automatiquement au premier lancement.
 *   Vous pouvez modifier ce fichier *avant* de lancer `install` ou `generate` si vous souhaitez définir vos propres mots de passe.
+
+### 💾 Persistance des Données
+
+Server Manager stocke sa configuration et ses données aux emplacements suivants :
+*   **Configuration** : `/opt/server_manager/config.yaml` (Services activés/désactivés)
+*   **Secrets** : `/opt/server_manager/secrets.yaml` (Mots de passe et tokens)
+*   **Utilisateurs** : `/opt/server_manager/users.yaml` (Utilisateurs Web et Système)
+*   **Données Docker** : Les volumes Docker sont gérés par Docker (généralement `/var/lib/docker/volumes`).
+
+**Recommandation de Sauvegarde** : Sauvegardez le répertoire `/opt/server_manager` pour conserver votre configuration et vos comptes utilisateurs.
 
 ### 🛠 Liste des Services et Ports
 
