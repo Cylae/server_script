@@ -3,7 +3,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use rand::RngExt;
 use std::fs;
-use std::path::Path;
+use crate::core::paths;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct Secrets {
@@ -21,9 +21,9 @@ pub struct Secrets {
 
 impl Secrets {
     pub fn load_or_create() -> Result<Self> {
-        let path = Path::new("secrets.yaml");
+        let path = paths::get_secrets_path();
         let mut secrets: Secrets = if path.exists() {
-            let content = fs::read_to_string(path).context("Failed to read secrets.yaml")?;
+            let content = fs::read_to_string(&path).context("Failed to read secrets.yaml")?;
             serde_yaml_ng::from_str(&content).context("Failed to parse secrets.yaml")?
         } else {
             Secrets::default()
@@ -74,7 +74,8 @@ impl Secrets {
         if changed {
             info!("Generated new secrets.");
             let content = serde_yaml_ng::to_string(&secrets)?;
-            fs::write(path, content).context("Failed to write secrets.yaml")?;
+            let save_path = paths::get_save_path("secrets.yaml");
+            fs::write(save_path, content).context("Failed to write secrets.yaml")?;
         }
 
         Ok(secrets)

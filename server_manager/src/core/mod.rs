@@ -6,3 +6,4 @@ pub mod hardware;
 pub mod secrets;
 pub mod system;
 pub mod users;
+pub mod paths;

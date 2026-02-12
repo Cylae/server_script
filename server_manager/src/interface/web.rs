@@ -1,4 +1,5 @@
 use crate::core::config::Config;
+use crate::core::paths;
 use crate::core::users::{Role, UserManager};
 use crate::services;
 use axum::{
@@ -49,15 +50,17 @@ type SharedState = Arc<AppState>;
 
 impl AppState {
     async fn get_config(&self) -> Config {
+        let path = paths::get_config_path();
+
         // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata("config.yaml")
+        let current_mtime = tokio::fs::metadata(&path)
             .await
             .and_then(|m| m.modified())
             .ok();
 
         {
             let cache = self.config_cache.read().await;
-            if cache.last_modified == current_mtime {
+            if cache.last_modified == current_mtime && current_mtime.is_some() {
                 return cache.config.clone();
             }
         }
@@ -65,13 +68,13 @@ impl AppState {
         // Slow path: reload
         let mut cache = self.config_cache.write().await;
 
-        // Re-check mtime under write lock to avoid race
-        let current_mtime_2 = tokio::fs::metadata("config.yaml")
+        // Re-check mtime under write lock
+        let current_mtime_2 = tokio::fs::metadata(&path)
             .await
             .and_then(|m| m.modified())
             .ok();
 
-        if cache.last_modified == current_mtime_2 {
+        if cache.last_modified == current_mtime_2 && current_mtime_2.is_some() {
             return cache.config.clone();
         }
 
@@ -84,20 +87,17 @@ impl AppState {
     }
 
     async fn get_users(&self) -> UserManager {
-        // Determine path logic (matches UserManager::load)
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
+        let path = paths::get_users_path();
 
         // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata(file_path).await
+        let current_mtime = tokio::fs::metadata(&path).await
             .and_then(|m| m.modified())
             .ok();
 
         {
             let cache = self.users_cache.read().await;
             // If mtime matches (or both None), return cached
-            if cache.last_modified == current_mtime {
+            if cache.last_modified == current_mtime && current_mtime.is_some() {
                 return cache.manager.clone();
             }
         }
@@ -106,11 +106,11 @@ impl AppState {
         let mut cache = self.users_cache.write().await;
 
         // Re-check mtime under write lock
-        let current_mtime_2 = tokio::fs::metadata(file_path).await
+        let current_mtime_2 = tokio::fs::metadata(&path).await
             .and_then(|m| m.modified())
             .ok();
 
-        if cache.last_modified == current_mtime_2 {
+        if cache.last_modified == current_mtime_2 && current_mtime_2.is_some() {
             return cache.manager.clone();
         }
 
@@ -135,19 +135,14 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     sys.refresh_all();
 
     let initial_config = Config::load().unwrap_or_default();
-    let initial_config_mtime = std::fs::metadata("config.yaml")
+    let initial_config_mtime = std::fs::metadata(paths::get_config_path())
         .ok()
         .and_then(|m| m.modified().ok());
 
     let initial_users = UserManager::load().unwrap_or_default();
-    let initial_users_mtime = std::fs::metadata("users.yaml")
+    let initial_users_mtime = std::fs::metadata(paths::get_users_path())
         .ok()
-        .and_then(|m| m.modified().ok())
-        .or_else(|| {
-            std::fs::metadata("/opt/server_manager/users.yaml")
-                .ok()
-                .and_then(|m| m.modified().ok())
-        });
+        .and_then(|m| m.modified().ok());
 
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
@@ -637,10 +632,8 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
     } else {
         info!("User {} added via Web UI by {}", payload.username, session_user.username);
         // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
+        let path = paths::get_save_path("users.yaml");
+        if let Ok(m) = tokio::fs::metadata(path).await {
              cache.last_modified = m.modified().ok();
         }
     }
@@ -668,10 +661,8 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
     } else {
         info!("User {} deleted via Web UI by {}", username, session_user.username);
          // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
+        let path = paths::get_save_path("users.yaml");
+        if let Ok(m) = tokio::fs::metadata(path).await {
              cache.last_modified = m.modified().ok();
         }
     }

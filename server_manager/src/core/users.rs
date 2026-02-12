@@ -6,7 +6,7 @@ use nix::unistd::Uid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use crate::core::paths;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -34,22 +34,10 @@ impl UserManager {
     }
 
     pub fn load() -> Result<Self> {
-        // Try CWD or /opt/server_manager
-        let path = Path::new("users.yaml");
-        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let path = paths::get_users_path();
 
-        // Priority: /opt/server_manager/users.yaml > ./users.yaml
-        // This aligns with save() behavior which prefers /opt if available.
-        let load_path = if fallback_path.exists() {
-            Some(fallback_path)
-        } else if path.exists() {
-            Some(path)
-        } else {
-            None
-        };
-
-        let mut manager = if let Some(p) = load_path {
-            let content = fs::read_to_string(p).context("Failed to read users.yaml")?;
+        let mut manager = if path.exists() {
+            let content = fs::read_to_string(path).context("Failed to read users.yaml")?;
             if content.trim().is_empty() {
                 UserManager::default()
             } else {
@@ -88,15 +76,8 @@ impl UserManager {
     }
 
     pub fn save(&self) -> Result<()> {
-        // Prefer saving to /opt/server_manager if it exists/is writable, else CWD
-        let target = if Path::new("/opt/server_manager").exists() {
-            Path::new("/opt/server_manager/users.yaml")
-        } else {
-            Path::new("users.yaml")
-        };
-
         let content = serde_yaml_ng::to_string(self)?;
-        fs::write(target, content).context("Failed to write users.yaml")?;
+        fs::write(paths::get_save_path("users.yaml"), content).context("Failed to write users.yaml")?;
         Ok(())
     }
 
