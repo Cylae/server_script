@@ -3,10 +3,10 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
+use crate::core::paths;
 
 #[derive(Debug, Clone)]
 struct CachedConfig {
@@ -24,7 +24,7 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        let path = Path::new("config.yaml");
+        let path = paths::get_load_path("config.yaml");
         if path.exists() {
             let content = fs::read_to_string(path).context("Failed to read config.yaml")?;
             // If empty file, return default
@@ -45,12 +45,14 @@ impl Config {
             })
         });
 
+        let path = paths::get_load_path("config.yaml");
+
         // Fast path: Optimistic read
         {
             let guard = cache.read().await;
             if let Some(cached_mtime) = guard.last_mtime {
                 // Check if file still matches
-                if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
+                if let Ok(metadata) = tokio::fs::metadata(&path).await {
                     if let Ok(modified) = metadata.modified() {
                         if modified == cached_mtime {
                             return Ok(guard.config.clone());
@@ -64,7 +66,7 @@ impl Config {
         let mut guard = cache.write().await;
 
         // Check metadata again (double-checked locking pattern)
-        let metadata_res = tokio::fs::metadata("config.yaml").await;
+        let metadata_res = tokio::fs::metadata(&path).await;
 
         match metadata_res {
             Ok(metadata) => {
@@ -77,7 +79,7 @@ impl Config {
                 }
 
                 // Load file
-                match tokio::fs::read_to_string("config.yaml").await {
+                match tokio::fs::read_to_string(&path).await {
                     Ok(content) => {
                         let config = if content.trim().is_empty() {
                             Config::default()
@@ -105,7 +107,8 @@ impl Config {
 
     pub fn save(&self) -> Result<()> {
         let content = serde_yaml_ng::to_string(self)?;
-        fs::write("config.yaml", content).context("Failed to write config.yaml")?;
+        let path = paths::get_save_path("config.yaml");
+        fs::write(path, content).context("Failed to write config.yaml")?;
         Ok(())
     }
 

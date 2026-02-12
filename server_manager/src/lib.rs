@@ -135,7 +135,7 @@ pub fn build_compose_structure(
 
         let service = Service {
             image: service_impl.image().to_string(),
-            container_name: service_impl.name().to_string(),
+            container_name: name.clone(),
             restart: "unless-stopped".to_string(),
             ports,
             environment,
