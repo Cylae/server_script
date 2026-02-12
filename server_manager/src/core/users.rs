@@ -38,10 +38,12 @@ impl UserManager {
         let path = Path::new("users.yaml");
         let fallback_path = Path::new("/opt/server_manager/users.yaml");
 
-        let load_path = if path.exists() {
-            Some(path)
-        } else if fallback_path.exists() {
+        // Priority: /opt/server_manager/users.yaml > ./users.yaml
+        // This aligns with save() behavior which prefers /opt if available.
+        let load_path = if fallback_path.exists() {
             Some(fallback_path)
+        } else if path.exists() {
+            Some(path)
         } else {
             None
         };
