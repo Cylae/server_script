@@ -130,24 +130,32 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .with_secure(false) // Localhost/LAN, http usually
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
-    // Initialize System once
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    // Initialize System once (non-blocking)
+    let sys = tokio::task::spawn_blocking(|| {
+        let mut s = System::new_all();
+        s.refresh_all();
+        s
+    })
+    .await?;
 
-    let initial_config = Config::load().unwrap_or_default();
-    let initial_config_mtime = std::fs::metadata("config.yaml")
+    let initial_config = Config::load_async().await.unwrap_or_default();
+    let initial_config_mtime = tokio::fs::metadata("config.yaml")
+        .await
         .ok()
         .and_then(|m| m.modified().ok());
 
-    let initial_users = UserManager::load().unwrap_or_default();
-    let initial_users_mtime = std::fs::metadata("users.yaml")
+    let initial_users = UserManager::load_async().await.unwrap_or_default();
+    let mut initial_users_mtime = tokio::fs::metadata("users.yaml")
+        .await
         .ok()
-        .and_then(|m| m.modified().ok())
-        .or_else(|| {
-            std::fs::metadata("/opt/server_manager/users.yaml")
-                .ok()
-                .and_then(|m| m.modified().ok())
-        });
+        .and_then(|m| m.modified().ok());
+
+    if initial_users_mtime.is_none() {
+        initial_users_mtime = tokio::fs::metadata("/opt/server_manager/users.yaml")
+            .await
+            .ok()
+            .and_then(|m| m.modified().ok());
+    }
 
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
