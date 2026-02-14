@@ -330,44 +330,53 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let services = services::get_all_services();
     let config = state.get_config().await;
 
-    // System Stats
-    let mut sys = state.system.lock().unwrap();
-    let now = SystemTime::now();
-    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+    // System Stats - Offload blocking refresh to a separate thread
+    let state_clone = Arc::clone(&state);
+    let (cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total) =
+        tokio::task::spawn_blocking(move || {
+            let mut sys = state_clone.system.lock().unwrap();
+            let now = SystemTime::now();
+            let mut last_refresh = state_clone.last_system_refresh.lock().unwrap();
 
-    // Throttle refresh to max once every 500ms
-    if now
-        .duration_since(*last_refresh)
-        .unwrap_or_default()
-        .as_millis()
-        > 500
-    {
-        sys.refresh_cpu();
-        sys.refresh_memory();
-        sys.refresh_disks();
-        *last_refresh = now;
-    }
-    let ram_used = sys.used_memory() / 1024 / 1024; // MB
-    let ram_total = sys.total_memory() / 1024 / 1024; // MB
-    let swap_used = sys.used_swap() / 1024 / 1024; // MB
-    let swap_total = sys.total_swap() / 1024 / 1024; // MB
-    let cpu_usage = sys.global_cpu_info().cpu_usage();
+            // Throttle refresh to max once every 500ms
+            if now
+                .duration_since(*last_refresh)
+                .unwrap_or_default()
+                .as_millis()
+                > 500
+            {
+                sys.refresh_cpu();
+                sys.refresh_memory();
+                sys.refresh_disks();
+                *last_refresh = now;
+            }
+            let ram_used = sys.used_memory() / 1024 / 1024; // MB
+            let ram_total = sys.total_memory() / 1024 / 1024; // MB
+            let swap_used = sys.used_swap() / 1024 / 1024; // MB
+            let swap_total = sys.total_swap() / 1024 / 1024; // MB
+            let cpu_usage = sys.global_cpu_info().cpu_usage();
 
-    // Simple Disk Usage (Root or fallback)
-    let mut disk_total = 0;
-    let mut disk_used = 0;
+            // Simple Disk Usage (Root or fallback)
+            let mut disk_total = 0;
+            let mut disk_used = 0;
 
-    let target_disk = sys
-        .disks()
-        .iter()
-        .find(|d| d.mount_point() == std::path::Path::new("/"))
-        .or_else(|| sys.disks().first());
+            let target_disk = sys
+                .disks()
+                .iter()
+                .find(|d| d.mount_point() == std::path::Path::new("/"))
+                .or_else(|| sys.disks().first());
 
-    if let Some(disk) = target_disk {
-        disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
-        disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
-    }
-    drop(sys); // Release lock explicitely
+            if let Some(disk) = target_disk {
+                disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
+                disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
+            }
+
+            (
+                cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total,
+            )
+        })
+        .await
+        .unwrap_or((0.0, 0, 0, 0, 0, 0, 0));
 
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
