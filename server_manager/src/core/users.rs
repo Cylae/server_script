@@ -6,7 +6,20 @@ use nix::unistd::Uid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant, SystemTime};
+use tokio::sync::RwLock;
+
+#[derive(Debug)]
+struct CachedUsers {
+    manager: UserManager,
+    last_mtime: Option<SystemTime>,
+    last_check: Option<Instant>,
+    loaded_path: Option<PathBuf>,
+}
+
+static USERS_CACHE: OnceLock<RwLock<CachedUsers>> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -30,16 +43,144 @@ pub struct UserManager {
 
 impl UserManager {
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load).await?
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+                loaded_path: None,
+            })
+        });
+
+        {
+            let guard = cache.read().await;
+            if let Some(last_check) = guard.last_check {
+                if last_check.elapsed() < Duration::from_millis(500) {
+                    return Ok(guard.manager.clone());
+                }
+            }
+        }
+
+        let mut guard = cache.write().await;
+        if let Some(last_check) = guard.last_check {
+            if last_check.elapsed() < Duration::from_millis(500) {
+                return Ok(guard.manager.clone());
+            }
+        }
+
+        Self::reload_guard(&mut guard).await?;
+
+        guard.last_check = Some(Instant::now());
+        Ok(guard.manager.clone())
+    }
+
+    async fn reload_guard(guard: &mut tokio::sync::RwLockWriteGuard<'_, CachedUsers>) -> Result<()> {
+        let last_mtime = guard.last_mtime;
+        let last_path = guard.loaded_path.clone();
+
+        let res = tokio::task::spawn_blocking(move || -> Result<Option<(UserManager, Option<SystemTime>, PathBuf)>> {
+            let path = Path::new("users.yaml");
+            let fallback_path = Path::new("/opt/server_manager/users.yaml");
+            let target = if fallback_path.exists() { fallback_path } else { path };
+
+            let mtime = std::fs::metadata(target).ok().and_then(|m| m.modified().ok());
+
+            if Some(target.to_path_buf()) == last_path && mtime == last_mtime && last_mtime.is_some() {
+                return Ok(None);
+            }
+
+            let mgr = Self::load()?;
+            Ok(Some((mgr, mtime, target.to_path_buf())))
+        }).await.map_err(|e| anyhow!("Task join error: {}", e))??;
+
+        if let Some((mgr, mtime, path)) = res {
+            guard.manager = mgr;
+            guard.last_mtime = mtime;
+            guard.loaded_path = Some(path);
+        }
+        Ok(())
+    }
+
+    pub async fn add_user_async(
+        username: String,
+        password: String,
+        role: Role,
+        quota_gb: Option<u64>,
+    ) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+                loaded_path: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+
+        // Ensure latest state before modifying
+        Self::reload_guard(&mut guard).await?;
+
+        let mut manager = guard.manager.clone();
+
+        let (new_manager, new_mtime) = tokio::task::spawn_blocking(move || -> Result<(UserManager, Option<SystemTime>)> {
+            manager.add_user(&username, &password, role, quota_gb)?;
+
+            // Get new mtime to update cache
+            let target = if Path::new("/opt/server_manager").exists() {
+                Path::new("/opt/server_manager/users.yaml")
+            } else {
+                Path::new("users.yaml")
+            };
+            let mtime = std::fs::metadata(target).ok().and_then(|m| m.modified().ok());
+            Ok((manager, mtime))
+        }).await.map_err(|e| anyhow!("Task join error: {}", e))??;
+
+        guard.manager = new_manager;
+        guard.last_mtime = new_mtime;
+        guard.last_check = Some(Instant::now());
+
+        Ok(())
+    }
+
+    pub async fn delete_user_async(username: String) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+                loaded_path: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        Self::reload_guard(&mut guard).await?;
+
+        let mut manager = guard.manager.clone();
+
+        let (new_manager, new_mtime) = tokio::task::spawn_blocking(move || -> Result<(UserManager, Option<SystemTime>)> {
+            manager.delete_user(&username)?;
+
+            let target = if Path::new("/opt/server_manager").exists() {
+                Path::new("/opt/server_manager/users.yaml")
+            } else {
+                Path::new("users.yaml")
+            };
+            let mtime = std::fs::metadata(target).ok().and_then(|m| m.modified().ok());
+            Ok((manager, mtime))
+        }).await.map_err(|e| anyhow!("Task join error: {}", e))??;
+
+        guard.manager = new_manager;
+        guard.last_mtime = new_mtime;
+        guard.last_check = Some(Instant::now());
+
+        Ok(())
     }
 
     pub fn load() -> Result<Self> {
-        // Try CWD or /opt/server_manager
         let path = Path::new("users.yaml");
         let fallback_path = Path::new("/opt/server_manager/users.yaml");
 
-        // Priority: /opt/server_manager/users.yaml > ./users.yaml
-        // This aligns with save() behavior which prefers /opt if available.
         let load_path = if fallback_path.exists() {
             Some(fallback_path)
         } else if path.exists() {
@@ -59,16 +200,8 @@ impl UserManager {
             UserManager::default()
         };
 
-        // Ensure default admin exists if no users
         if manager.users.is_empty() {
             info!("No users found. Creating default 'admin' user.");
-            // We use a generated secret for the initial password if secrets exist,
-            // otherwise generate one.
-            // Better: use 'admin' / 'admin' but WARN, or generate random.
-            // Let's generate a random one and print it, safer.
-            // Re-using secrets generation logic if possible, or just simple random.
-            // For simplicity in this context, let's look for a stored password or default to 'admin' and log a warning.
-
             let pass = "admin";
             let hash = hash(pass, DEFAULT_COST)?;
             manager.users.insert(
@@ -88,7 +221,6 @@ impl UserManager {
     }
 
     pub fn save(&self) -> Result<()> {
-        // Prefer saving to /opt/server_manager if it exists/is writable, else CWD
         let target = if Path::new("/opt/server_manager").exists() {
             Path::new("/opt/server_manager/users.yaml")
         } else {
@@ -111,7 +243,6 @@ impl UserManager {
             return Err(anyhow!("User already exists"));
         }
 
-        // System User Integration
         if Uid::effective().is_root() {
             system::create_system_user(username, password)?;
             if let Some(gb) = quota_gb {
@@ -145,7 +276,6 @@ impl UserManager {
             return Err(anyhow!("Cannot delete the last admin user"));
         }
 
-        // System User Deletion
         if Uid::effective().is_root() {
             system::delete_system_user(username)?;
         } else {
@@ -161,7 +291,6 @@ impl UserManager {
 
     pub fn update_password(&mut self, username: &str, new_password: &str) -> Result<()> {
         if let Some(user) = self.users.get_mut(username) {
-            // System Password Update
             if Uid::effective().is_root() {
                 system::set_system_user_password(username, new_password)?;
             } else {

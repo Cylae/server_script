@@ -1,17 +1,18 @@
 use anyhow::{Context, Result};
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 struct CachedConfig {
     config: Config,
     last_mtime: Option<SystemTime>,
+    last_check: Option<Instant>,
 }
 
 static CONFIG_CACHE: OnceLock<RwLock<CachedConfig>> = OnceLock::new();
@@ -27,7 +28,6 @@ impl Config {
         let path = Path::new("config.yaml");
         if path.exists() {
             let content = fs::read_to_string(path).context("Failed to read config.yaml")?;
-            // If empty file, return default
             if content.trim().is_empty() {
                 return Ok(Config::default());
             }
@@ -42,65 +42,126 @@ impl Config {
             RwLock::new(CachedConfig {
                 config: Config::default(),
                 last_mtime: None,
+                last_check: None,
             })
         });
 
-        // Fast path: Optimistic read
         {
             let guard = cache.read().await;
-            if let Some(cached_mtime) = guard.last_mtime {
-                // Check if file still matches
-                if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
-                    if let Ok(modified) = metadata.modified() {
-                        if modified == cached_mtime {
-                            return Ok(guard.config.clone());
-                        }
-                    }
+            if let Some(last_check) = guard.last_check {
+                if last_check.elapsed() < Duration::from_millis(500) {
+                    return Ok(guard.config.clone());
                 }
             }
         }
 
-        // Slow path: Update cache
         let mut guard = cache.write().await;
-
-        // Check metadata again (double-checked locking pattern)
-        let metadata_res = tokio::fs::metadata("config.yaml").await;
-
-        match metadata_res {
-            Ok(metadata) => {
-                let modified = metadata.modified().unwrap_or(SystemTime::now());
-
-                if let Some(cached_mtime) = guard.last_mtime {
-                    if modified == cached_mtime {
-                        return Ok(guard.config.clone());
-                    }
-                }
-
-                // Load file
-                match tokio::fs::read_to_string("config.yaml").await {
-                    Ok(content) => {
-                        let config = if content.trim().is_empty() {
-                            Config::default()
-                        } else {
-                            serde_yaml_ng::from_str(&content)
-                                .context("Failed to parse config.yaml")?
-                        };
-
-                        guard.config = config.clone();
-                        guard.last_mtime = Some(modified);
-                        Ok(config)
-                    }
-                    Err(e) => Err(anyhow::Error::new(e).context("Failed to read config.yaml")),
-                }
+        if let Some(last_check) = guard.last_check {
+            if last_check.elapsed() < Duration::from_millis(500) {
+                return Ok(guard.config.clone());
             }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // File not found -> Default
-                guard.config = Config::default();
-                guard.last_mtime = None;
-                Ok(guard.config.clone())
-            }
-            Err(e) => Err(anyhow::Error::new(e).context("Failed to read config metadata")),
         }
+
+        Self::reload_guard(&mut guard).await?;
+
+        guard.last_check = Some(Instant::now());
+        Ok(guard.config.clone())
+    }
+
+    async fn reload_guard(guard: &mut tokio::sync::RwLockWriteGuard<'_, CachedConfig>) -> Result<()> {
+        let last_mtime = guard.last_mtime;
+
+        // Use blocking IO inside spawn_blocking to be consistent with load() and robust
+        let res = tokio::task::spawn_blocking(move || -> Result<Option<(Config, Option<SystemTime>)>> {
+            let path = Path::new("config.yaml");
+            let mtime = match std::fs::metadata(path) {
+                Ok(m) => m.modified().ok(),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(e) => return Err(anyhow::Error::new(e).context("Failed to read config metadata")),
+            };
+
+            if mtime == last_mtime && last_mtime.is_some() {
+                 return Ok(None);
+            }
+
+            // Reload
+            // load() handles file reading/parsing
+            match Self::load() {
+                Ok(cfg) => Ok(Some((cfg, mtime))),
+                Err(e) => {
+                     // If parsing fails, we might return error.
+                     // But load_async behavior was to return cached config on error.
+                     // Here we return Err. The caller (reload_guard) needs to handle this policy?
+                     // Or load() should handle it? load() returns Err on parse failure.
+                     // The previous load_async implementation swallowed errors.
+                     // To match that:
+                     warn!("Failed to reload config: {}. Preserving cache.", e);
+                     Ok(None)
+                }
+            }
+        }).await.map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
+
+        if let Some((cfg, mtime)) = res {
+             guard.config = cfg;
+             guard.last_mtime = mtime;
+        }
+        Ok(())
+    }
+
+    pub async fn enable_service_async(service_name: String) -> Result<()> {
+        let cache = CONFIG_CACHE.get_or_init(|| {
+            RwLock::new(CachedConfig {
+                config: Config::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        Self::reload_guard(&mut guard).await?;
+
+        let mut config = guard.config.clone();
+
+        let (new_config, new_mtime) = tokio::task::spawn_blocking(move || -> Result<(Config, Option<SystemTime>)> {
+            config.enable_service(&service_name);
+            config.save()?;
+            let mtime = std::fs::metadata("config.yaml").ok().and_then(|m| m.modified().ok());
+            Ok((config, mtime))
+        }).await.map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
+
+        guard.config = new_config;
+        guard.last_mtime = new_mtime;
+        guard.last_check = Some(Instant::now());
+
+        Ok(())
+    }
+
+    pub async fn disable_service_async(service_name: String) -> Result<()> {
+        let cache = CONFIG_CACHE.get_or_init(|| {
+            RwLock::new(CachedConfig {
+                config: Config::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        Self::reload_guard(&mut guard).await?;
+
+        let mut config = guard.config.clone();
+
+        let (new_config, new_mtime) = tokio::task::spawn_blocking(move || -> Result<(Config, Option<SystemTime>)> {
+            config.disable_service(&service_name);
+            config.save()?;
+            let mtime = std::fs::metadata("config.yaml").ok().and_then(|m| m.modified().ok());
+            Ok((config, mtime))
+        }).await.map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
+
+        guard.config = new_config;
+        guard.last_mtime = new_mtime;
+        guard.last_check = Some(Instant::now());
+
+        Ok(())
     }
 
     pub fn save(&self) -> Result<()> {

@@ -17,7 +17,6 @@ use std::time::SystemTime;
 use sysinfo::{CpuExt, DiskExt, System, SystemExt};
 use time::Duration;
 use tokio::process::Command;
-use tokio::sync::RwLock;
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -28,100 +27,12 @@ struct SessionUser {
 
 const SESSION_KEY: &str = "user";
 
-struct CachedConfig {
-    config: Config,
-    last_modified: Option<SystemTime>,
-}
-
-struct CachedUsers {
-    manager: UserManager,
-    last_modified: Option<SystemTime>,
-}
-
 struct AppState {
     system: Mutex<System>,
     last_system_refresh: Mutex<SystemTime>,
-    config_cache: RwLock<CachedConfig>,
-    users_cache: RwLock<CachedUsers>,
 }
 
 type SharedState = Arc<AppState>;
-
-impl AppState {
-    async fn get_config(&self) -> Config {
-        // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata("config.yaml")
-            .await
-            .and_then(|m| m.modified())
-            .ok();
-
-        {
-            let cache = self.config_cache.read().await;
-            if cache.last_modified == current_mtime {
-                return cache.config.clone();
-            }
-        }
-
-        // Slow path: reload
-        let mut cache = self.config_cache.write().await;
-
-        // Re-check mtime under write lock to avoid race
-        let current_mtime_2 = tokio::fs::metadata("config.yaml")
-            .await
-            .and_then(|m| m.modified())
-            .ok();
-
-        if cache.last_modified == current_mtime_2 {
-            return cache.config.clone();
-        }
-
-        if let Ok(cfg) = Config::load_async().await {
-            cache.config = cfg;
-            cache.last_modified = current_mtime_2;
-        }
-
-        cache.config.clone()
-    }
-
-    async fn get_users(&self) -> UserManager {
-        // Determine path logic (matches UserManager::load)
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-
-        // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata(file_path).await
-            .and_then(|m| m.modified())
-            .ok();
-
-        {
-            let cache = self.users_cache.read().await;
-            // If mtime matches (or both None), return cached
-            if cache.last_modified == current_mtime {
-                return cache.manager.clone();
-            }
-        }
-
-        // Slow path: reload
-        let mut cache = self.users_cache.write().await;
-
-        // Re-check mtime under write lock
-        let current_mtime_2 = tokio::fs::metadata(file_path).await
-            .and_then(|m| m.modified())
-            .ok();
-
-        if cache.last_modified == current_mtime_2 {
-            return cache.manager.clone();
-        }
-
-        if let Ok(mgr) = UserManager::load_async().await {
-            cache.manager = mgr;
-            cache.last_modified = current_mtime_2;
-        }
-
-        cache.manager.clone()
-    }
-}
 
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Session setup
@@ -134,32 +45,9 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let initial_config = Config::load().unwrap_or_default();
-    let initial_config_mtime = std::fs::metadata("config.yaml")
-        .ok()
-        .and_then(|m| m.modified().ok());
-
-    let initial_users = UserManager::load().unwrap_or_default();
-    let initial_users_mtime = std::fs::metadata("users.yaml")
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .or_else(|| {
-            std::fs::metadata("/opt/server_manager/users.yaml")
-                .ok()
-                .and_then(|m| m.modified().ok())
-        });
-
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
         last_system_refresh: Mutex::new(SystemTime::now()),
-        config_cache: RwLock::new(CachedConfig {
-            config: initial_config,
-            last_modified: initial_config_mtime,
-        }),
-        users_cache: RwLock::new(CachedUsers {
-            manager: initial_users,
-            last_modified: initial_users_mtime,
-        }),
     });
 
     let app = Router::new()
@@ -226,9 +114,19 @@ struct LoginPayload {
     password: String,
 }
 
-async fn login_handler(State(state): State<SharedState>, session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
+async fn login_handler(session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
-    let user_manager = state.get_users().await;
+    let user_manager = match UserManager::load_async().await {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to load users during login: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to load user database",
+            )
+                .into_response();
+        }
+    };
 
     if let Some(user) = user_manager.verify_async(&payload.username, &payload.password).await {
         let session_user = SessionUser {
@@ -328,7 +226,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let is_admin = matches!(user.role, Role::Admin);
 
     let services = services::get_all_services();
-    let config = state.get_config().await;
+    let config = Config::load_async().await.unwrap_or_default();
 
     // System Stats
     let mut sys = state.system.lock().unwrap();
@@ -495,7 +393,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
 }
 
 // User Management Page
-async fn users_page(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
+async fn users_page(session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -505,7 +403,18 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
         return Redirect::to("/").into_response();
     }
 
-    let user_manager = state.get_users().await;
+    let user_manager = match UserManager::load_async().await {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to load users: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to load user database",
+            )
+                .into_response();
+        }
+    };
+
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "User Management - Server Manager");
 
@@ -605,7 +514,7 @@ struct AddUserPayload {
     quota: Option<u64>,
 }
 
-async fn add_user_handler(State(state): State<SharedState>, session: Session, Form(payload): Form<AddUserPayload>) -> impl IntoResponse {
+async fn add_user_handler(session: Session, Form(payload): Form<AddUserPayload>) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -626,29 +535,16 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
         None => None,
     };
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
-
-    if let Err(e) = res {
+    if let Err(e) = UserManager::add_user_async(payload.username.clone(), payload.password.clone(), role_enum, quota_val).await {
         error!("Failed to add user: {}", e);
-        // In a real app we'd flash a message. Here just redirect.
     } else {
         info!("User {} added via Web UI by {}", payload.username, session_user.username);
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
-        }
     }
 
     Redirect::to("/users").into_response()
 }
 
-async fn delete_user_handler(State(state): State<SharedState>, session: Session, Path(username): Path<String>) -> impl IntoResponse {
+async fn delete_user_handler(session: Session, Path(username): Path<String>) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -658,22 +554,10 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
-
-    if let Err(e) = res {
+    if let Err(e) = UserManager::delete_user_async(username.clone()).await {
         error!("Failed to delete user: {}", e);
     } else {
         info!("User {} deleted via Web UI by {}", username, session_user.username);
-         // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
-        }
     }
 
     Redirect::to("/users").into_response()
@@ -695,6 +579,17 @@ async fn check_admin_role(session: Session, name: &str, enable: bool) -> impl In
 
     if !matches!(user.role, Role::Admin) {
         return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
+    }
+
+    // Update config first for immediate UI feedback
+    let res = if enable {
+        Config::enable_service_async(name.to_string()).await
+    } else {
+        Config::disable_service_async(name.to_string()).await
+    };
+
+    if let Err(e) = res {
+        error!("Failed to update config for service {}: {}", name, e);
     }
 
     run_cli_toggle(name, enable);

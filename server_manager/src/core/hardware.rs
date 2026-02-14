@@ -1,5 +1,5 @@
 use log::{info, warn};
-use nix::unistd::User;
+use nix::unistd::{Uid, User};
 use std::path::Path;
 use sysinfo::{DiskExt, System, SystemExt};
 use which::which;
@@ -90,6 +90,15 @@ impl HardwareInfo {
         if let Ok(username) = std::env::var("SUDO_USER") {
             if let Ok(Some(user)) = User::from_name(&username) {
                 return (user.uid.to_string(), user.gid.to_string());
+            }
+        }
+
+        // Try fallback with only SUDO_UID if present (e.g. if SUDO_GID missing)
+        if let Ok(uid_str) = std::env::var("SUDO_UID") {
+            if let Ok(uid) = uid_str.parse::<u32>() {
+                if let Ok(Some(user)) = User::from_uid(Uid::from_raw(uid)) {
+                    return (user.uid.to_string(), user.gid.to_string());
+                }
             }
         }
 
