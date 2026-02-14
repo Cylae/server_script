@@ -5,13 +5,14 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 struct CachedConfig {
     config: Config,
     last_mtime: Option<SystemTime>,
+    last_check: SystemTime,
 }
 
 static CONFIG_CACHE: OnceLock<RwLock<CachedConfig>> = OnceLock::new();
@@ -42,64 +43,77 @@ impl Config {
             RwLock::new(CachedConfig {
                 config: Config::default(),
                 last_mtime: None,
+                last_check: SystemTime::UNIX_EPOCH,
             })
         });
 
-        // Fast path: Optimistic read
+        let now = SystemTime::now();
+
+        // 1. Highly optimistic path: if we checked recently, return cache
+        // We throttle even if the file was missing (last_mtime is None)
         {
             let guard = cache.read().await;
-            if let Some(cached_mtime) = guard.last_mtime {
-                // Check if file still matches
-                if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
-                    if let Ok(modified) = metadata.modified() {
-                        if modified == cached_mtime {
-                            return Ok(guard.config.clone());
-                        }
-                    }
-                }
+            if now.duration_since(guard.last_check).unwrap_or_default() < Duration::from_millis(500) {
+                return Ok(guard.config.clone());
             }
         }
 
-        // Slow path: Update cache
+        // 2. Perform metadata check (outside of lock to minimize contention)
+        let metadata_res = tokio::fs::metadata("config.yaml").await;
+        let mtime = match &metadata_res {
+            Ok(m) => Some(m.modified().unwrap_or(SystemTime::now())),
+            Err(_) => None,
+        };
+
+        // 3. Update cache if needed
         let mut guard = cache.write().await;
 
-        // Check metadata again (double-checked locking pattern)
-        let metadata_res = tokio::fs::metadata("config.yaml").await;
+        // If file hasn't changed, just update last_check and return
+        if guard.last_mtime == mtime {
+            guard.last_check = now;
+            return Ok(guard.config.clone());
+        }
 
+        // Actually reload
         match metadata_res {
-            Ok(metadata) => {
-                let modified = metadata.modified().unwrap_or(SystemTime::now());
+            Ok(_) => match tokio::fs::read_to_string("config.yaml").await {
+                Ok(content) => {
+                    let config_res: Result<Config> = if content.trim().is_empty() {
+                        Ok(Config::default())
+                    } else {
+                        serde_yaml_ng::from_str(&content).map_err(|e| anyhow::anyhow!(e))
+                    };
 
-                if let Some(cached_mtime) = guard.last_mtime {
-                    if modified == cached_mtime {
-                        return Ok(guard.config.clone());
+                    match config_res {
+                        Ok(config) => {
+                            guard.config = config.clone();
+                            guard.last_mtime = mtime;
+                            guard.last_check = now;
+                            Ok(config)
+                        }
+                        Err(e) => {
+                            // On parse error, keep the old config but update last_check to prevent spamming
+                            guard.last_check = now;
+                            Err(e.context("Failed to parse config.yaml"))
+                        }
                     }
                 }
-
-                // Load file
-                match tokio::fs::read_to_string("config.yaml").await {
-                    Ok(content) => {
-                        let config = if content.trim().is_empty() {
-                            Config::default()
-                        } else {
-                            serde_yaml_ng::from_str(&content)
-                                .context("Failed to parse config.yaml")?
-                        };
-
-                        guard.config = config.clone();
-                        guard.last_mtime = Some(modified);
-                        Ok(config)
-                    }
-                    Err(e) => Err(anyhow::Error::new(e).context("Failed to read config.yaml")),
+                Err(e) => {
+                    guard.last_check = now;
+                    Err(anyhow::Error::new(e).context("Failed to read config.yaml"))
                 }
-            }
+            },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // File not found -> Default
                 guard.config = Config::default();
                 guard.last_mtime = None;
+                guard.last_check = now;
                 Ok(guard.config.clone())
             }
-            Err(e) => Err(anyhow::Error::new(e).context("Failed to read config metadata")),
+            Err(e) => {
+                guard.last_check = now;
+                Err(anyhow::Error::new(e).context("Failed to read config metadata"))
+            }
         }
     }
 
