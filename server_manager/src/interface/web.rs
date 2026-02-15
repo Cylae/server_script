@@ -627,9 +627,10 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
     };
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let res = cache
+        .manager
+        .add_user_async(&payload.username, &payload.password, role_enum, quota_val)
+        .await;
 
     if let Err(e) = res {
         error!("Failed to add user: {}", e);
@@ -659,9 +660,7 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
     }
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
+    let res = cache.manager.delete_user_async(&username).await;
 
     if let Err(e) = res {
         error!("Failed to delete user: {}", e);

@@ -159,6 +159,41 @@ impl UserManager {
         self.save()
     }
 
+    pub async fn add_user_async(
+        &mut self,
+        username: &str,
+        password: &str,
+        role: Role,
+        quota_gb: Option<u64>,
+    ) -> Result<()> {
+        let mut manager_clone = self.clone();
+        let username = username.to_string();
+        let password = password.to_string();
+
+        let updated_manager = tokio::task::spawn_blocking(move || {
+            manager_clone.add_user(&username, &password, role, quota_gb)?;
+            Ok::<UserManager, anyhow::Error>(manager_clone)
+        })
+        .await??;
+
+        *self = updated_manager;
+        Ok(())
+    }
+
+    pub async fn delete_user_async(&mut self, username: &str) -> Result<()> {
+        let mut manager_clone = self.clone();
+        let username = username.to_string();
+
+        let updated_manager = tokio::task::spawn_blocking(move || {
+            manager_clone.delete_user(&username)?;
+            Ok::<UserManager, anyhow::Error>(manager_clone)
+        })
+        .await??;
+
+        *self = updated_manager;
+        Ok(())
+    }
+
     pub fn update_password(&mut self, username: &str, new_password: &str) -> Result<()> {
         if let Some(user) = self.users.get_mut(username) {
             // System Password Update
