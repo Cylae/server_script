@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 struct CachedConfig {
     config: Config,
     last_mtime: Option<SystemTime>,
+    last_check: Option<SystemTime>,
 }
 
 static CONFIG_CACHE: OnceLock<RwLock<CachedConfig>> = OnceLock::new();
@@ -42,12 +43,23 @@ impl Config {
             RwLock::new(CachedConfig {
                 config: Config::default(),
                 last_mtime: None,
+                last_check: None,
             })
         });
 
         // Fast path: Optimistic read
         {
             let guard = cache.read().await;
+
+            // Throttle check
+            if let Some(last_check) = guard.last_check {
+                if let Ok(duration) = SystemTime::now().duration_since(last_check) {
+                    if duration.as_millis() < 500 {
+                        return Ok(guard.config.clone());
+                    }
+                }
+            }
+
             if let Some(cached_mtime) = guard.last_mtime {
                 // Check if file still matches
                 if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
@@ -63,12 +75,24 @@ impl Config {
         // Slow path: Update cache
         let mut guard = cache.write().await;
 
+        // Double-check throttle under write lock
+        if let Some(last_check) = guard.last_check {
+            if let Ok(duration) = SystemTime::now().duration_since(last_check) {
+                if duration.as_millis() < 500 {
+                    return Ok(guard.config.clone());
+                }
+            }
+        }
+
         // Check metadata again (double-checked locking pattern)
         let metadata_res = tokio::fs::metadata("config.yaml").await;
 
+        // Update check time
+        guard.last_check = Some(SystemTime::now());
+
         match metadata_res {
             Ok(metadata) => {
-                let modified = metadata.modified().unwrap_or(SystemTime::now());
+                let modified = metadata.modified().unwrap_or_else(|_| SystemTime::now());
 
                 if let Some(cached_mtime) = guard.last_mtime {
                     if modified == cached_mtime {
@@ -101,6 +125,52 @@ impl Config {
             }
             Err(e) => Err(anyhow::Error::new(e).context("Failed to read config metadata")),
         }
+    }
+
+    pub async fn enable_service_async(service_name: String) -> Result<()> {
+        let cache = CONFIG_CACHE.get_or_init(|| {
+            RwLock::new(CachedConfig {
+                config: Config::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        guard.config.enable_service(&service_name);
+
+        let config_clone = guard.config.clone();
+        tokio::task::spawn_blocking(move || config_clone.save()).await??;
+
+        if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+        guard.last_check = Some(SystemTime::now());
+
+        Ok(())
+    }
+
+    pub async fn disable_service_async(service_name: String) -> Result<()> {
+        let cache = CONFIG_CACHE.get_or_init(|| {
+            RwLock::new(CachedConfig {
+                config: Config::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        guard.config.disable_service(&service_name);
+
+        let config_clone = guard.config.clone();
+        tokio::task::spawn_blocking(move || config_clone.save()).await??;
+
+        if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+        guard.last_check = Some(SystemTime::now());
+
+        Ok(())
     }
 
     pub fn save(&self) -> Result<()> {
