@@ -6,7 +6,19 @@ use nix::unistd::Uid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::time::{Duration, SystemTime};
+use tokio::sync::RwLock;
+
+#[derive(Debug, Clone)]
+struct CachedUsers {
+    manager: UserManager,
+    last_mtime: Option<SystemTime>,
+    last_check: Option<SystemTime>,
+}
+
+static USERS_CACHE: OnceLock<RwLock<CachedUsers>> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -29,27 +41,123 @@ pub struct UserManager {
 }
 
 impl UserManager {
+    fn get_active_path() -> PathBuf {
+        let path = PathBuf::from("users.yaml");
+        let fallback_path = PathBuf::from("/opt/server_manager/users.yaml");
+
+        if fallback_path.exists() {
+            fallback_path
+        } else if path.exists() {
+            path
+        } else if Path::new("/opt/server_manager").exists() {
+            fallback_path
+        } else {
+            path
+        }
+    }
+
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load).await?
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        // Fast path
+        {
+            let guard = cache.read().await;
+            if let Some(last_check) = guard.last_check {
+                if let Ok(elapsed) = SystemTime::now().duration_since(last_check) {
+                    if elapsed < Duration::from_millis(500) {
+                        return Ok(guard.manager.clone());
+                    }
+                }
+            }
+        }
+
+        // Slow path
+        let mut guard = cache.write().await;
+        if let Some(last_check) = guard.last_check {
+            if let Ok(elapsed) = SystemTime::now().duration_since(last_check) {
+                if elapsed < Duration::from_millis(500) {
+                    return Ok(guard.manager.clone());
+                }
+            }
+        }
+
+        Self::sync_cache(&mut guard).await?;
+        guard.last_check = Some(SystemTime::now());
+        Ok(guard.manager.clone())
+    }
+
+    async fn sync_cache(guard: &mut CachedUsers) -> Result<()> {
+        let path = Self::get_active_path();
+        let metadata_res = tokio::fs::metadata(&path).await;
+
+        match metadata_res {
+            Ok(metadata) => {
+                let modified = metadata.modified().unwrap_or(SystemTime::now());
+                let reload = match guard.last_mtime {
+                    Some(cached) => modified != cached,
+                    None => true,
+                };
+
+                if reload {
+                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                        if content.trim().is_empty() {
+                            guard.manager = UserManager::default();
+                        } else {
+                            guard.manager = serde_yaml_ng::from_str(&content)
+                                .unwrap_or_else(|_| UserManager::default());
+                        }
+                    }
+                    guard.last_mtime = Some(modified);
+                }
+            }
+            Err(_) => {
+                // If file doesn't exist, we might need to create default admin
+                // But only if we are initializing?
+                // For simplicity, if no file, we default.
+                // But we must handle the "first run" logic of creating admin user.
+                if guard.manager.users.is_empty() {
+                    // Logic to create default admin if completely empty
+                    // This is slightly tricky inside sync_cache which is a helper.
+                    // But if we return empty manager, the caller might see it empty.
+                    // Let's handle it here or in load().
+                    // To match previous load() logic:
+                    let pass = "admin";
+                    // Blocking hash
+                    let hash = tokio::task::spawn_blocking(move || hash(pass, DEFAULT_COST))
+                        .await??;
+                    guard.manager.users.insert(
+                        "admin".to_string(),
+                        User {
+                            username: "admin".to_string(),
+                            password_hash: hash,
+                            role: Role::Admin,
+                            quota_gb: None,
+                        },
+                    );
+                    // Save immediately
+                    let content = serde_yaml_ng::to_string(&guard.manager)?;
+                    tokio::fs::write(&path, content).await?;
+                    if let Ok(m) = tokio::fs::metadata(&path).await {
+                        guard.last_mtime = m.modified().ok();
+                    }
+                    info!("Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!");
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn load() -> Result<Self> {
-        // Try CWD or /opt/server_manager
-        let path = Path::new("users.yaml");
-        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let path = Self::get_active_path();
 
-        // Priority: /opt/server_manager/users.yaml > ./users.yaml
-        // This aligns with save() behavior which prefers /opt if available.
-        let load_path = if fallback_path.exists() {
-            Some(fallback_path)
-        } else if path.exists() {
-            Some(path)
-        } else {
-            None
-        };
-
-        let mut manager = if let Some(p) = load_path {
-            let content = fs::read_to_string(p).context("Failed to read users.yaml")?;
+        let mut manager = if path.exists() {
+            let content = fs::read_to_string(&path).context("Failed to read users.yaml")?;
             if content.trim().is_empty() {
                 UserManager::default()
             } else {
@@ -59,16 +167,8 @@ impl UserManager {
             UserManager::default()
         };
 
-        // Ensure default admin exists if no users
         if manager.users.is_empty() {
             info!("No users found. Creating default 'admin' user.");
-            // We use a generated secret for the initial password if secrets exist,
-            // otherwise generate one.
-            // Better: use 'admin' / 'admin' but WARN, or generate random.
-            // Let's generate a random one and print it, safer.
-            // Re-using secrets generation logic if possible, or just simple random.
-            // For simplicity in this context, let's look for a stored password or default to 'admin' and log a warning.
-
             let pass = "admin";
             let hash = hash(pass, DEFAULT_COST)?;
             manager.users.insert(
@@ -80,7 +180,8 @@ impl UserManager {
                     quota_gb: None,
                 },
             );
-            manager.save()?;
+            let content = serde_yaml_ng::to_string(&manager)?;
+            fs::write(&path, content)?;
             info!("Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!");
         }
 
@@ -88,16 +189,177 @@ impl UserManager {
     }
 
     pub fn save(&self) -> Result<()> {
-        // Prefer saving to /opt/server_manager if it exists/is writable, else CWD
-        let target = if Path::new("/opt/server_manager").exists() {
-            Path::new("/opt/server_manager/users.yaml")
-        } else {
-            Path::new("users.yaml")
-        };
-
+        let path = Self::get_active_path();
         let content = serde_yaml_ng::to_string(self)?;
-        fs::write(target, content).context("Failed to write users.yaml")?;
+        fs::write(path, content).context("Failed to write users.yaml")?;
         Ok(())
+    }
+
+    pub async fn add_user_async(
+        username: String,
+        password: String,
+        role: Role,
+        quota_gb: Option<u64>,
+    ) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        Self::sync_cache(&mut guard).await?;
+
+        if guard.manager.users.contains_key(&username) {
+            return Err(anyhow!("User already exists"));
+        }
+
+        let u_clone = username.clone();
+        let p_clone = password.clone();
+        let q_clone = quota_gb;
+
+        tokio::task::spawn_blocking(move || {
+            if Uid::effective().is_root() {
+                system::create_system_user(&u_clone, &p_clone)?;
+                if let Some(gb) = q_clone {
+                    system::set_system_quota(&u_clone, gb)?;
+                }
+            } else {
+                warn!(
+                    "Not running as root. Skipping system user creation for '{}'.",
+                    u_clone
+                );
+            }
+            Ok::<(), anyhow::Error>(())
+        })
+        .await??;
+
+        let hash = tokio::task::spawn_blocking(move || hash(&password, DEFAULT_COST)).await??;
+
+        guard.manager.users.insert(
+            username.clone(),
+            User {
+                username: username.clone(),
+                password_hash: hash,
+                role,
+                quota_gb,
+            },
+        );
+
+        let content = serde_yaml_ng::to_string(&guard.manager)?;
+        let path = Self::get_active_path();
+        tokio::fs::write(&path, content).await?;
+
+        if let Ok(metadata) = tokio::fs::metadata(&path).await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete_user_async(username: String) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        Self::sync_cache(&mut guard).await?;
+
+        if !guard.manager.users.contains_key(&username) {
+            return Err(anyhow!("User not found"));
+        }
+        if username == "admin" && guard.manager.users.len() == 1 {
+            return Err(anyhow!("Cannot delete the last admin user"));
+        }
+
+        let u_clone = username.clone();
+        tokio::task::spawn_blocking(move || {
+            if Uid::effective().is_root() {
+                system::delete_system_user(&u_clone)?;
+            } else {
+                warn!(
+                    "Not running as root. Skipping system user deletion for '{}'.",
+                    u_clone
+                );
+            }
+            Ok::<(), anyhow::Error>(())
+        })
+        .await??;
+
+        guard.manager.users.remove(&username);
+
+        let content = serde_yaml_ng::to_string(&guard.manager)?;
+        let path = Self::get_active_path();
+        tokio::fs::write(&path, content).await?;
+
+        if let Ok(metadata) = tokio::fs::metadata(&path).await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+
+        Ok(())
+    }
+
+    pub async fn list_users_async() -> Result<Vec<User>> {
+        let manager = Self::load_async().await?;
+        Ok(manager.users.values().cloned().collect())
+    }
+
+    pub async fn get_user_async(username: &str) -> Option<User> {
+         if let Ok(manager) = Self::load_async().await {
+             manager.users.get(username).cloned()
+         } else {
+             None
+         }
+    }
+
+    pub async fn update_password_async(username: String, new_password: String) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+        Self::sync_cache(&mut guard).await?;
+
+        if let Some(user) = guard.manager.users.get_mut(&username) {
+             let u_clone = username.clone();
+             let p_clone = new_password.clone();
+
+             tokio::task::spawn_blocking(move || {
+                if Uid::effective().is_root() {
+                    system::set_system_user_password(&u_clone, &p_clone)?;
+                } else {
+                    warn!(
+                        "Not running as root. Skipping system password update for '{}'.",
+                        u_clone
+                    );
+                }
+                Ok::<(), anyhow::Error>(())
+            }).await??;
+
+            let hash = tokio::task::spawn_blocking(move || hash(&new_password, DEFAULT_COST)).await??;
+            user.password_hash = hash;
+
+            let content = serde_yaml_ng::to_string(&guard.manager)?;
+            let path = Self::get_active_path();
+            tokio::fs::write(&path, content).await?;
+
+            if let Ok(metadata) = tokio::fs::metadata(&path).await {
+                guard.last_mtime = metadata.modified().ok();
+            }
+            Ok(())
+        } else {
+            Err(anyhow!("User not found"))
+        }
     }
 
     pub fn add_user(
