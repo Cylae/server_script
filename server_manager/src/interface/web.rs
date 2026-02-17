@@ -131,8 +131,12 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     // Initialize System once
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let sys = tokio::task::spawn_blocking(|| {
+        let mut s = System::new_all();
+        s.refresh_all();
+        s
+    })
+    .await?;
 
     let initial_config = Config::load().unwrap_or_default();
     let initial_config_mtime = std::fs::metadata("config.yaml")
@@ -331,43 +335,55 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let config = state.get_config().await;
 
     // System Stats
-    let mut sys = state.system.lock().unwrap();
-    let now = SystemTime::now();
-    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+    let (cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total) = {
+        let state = state.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut sys = state.system.lock().expect("System lock poisoned");
+            let now = SystemTime::now();
+            let mut last_refresh = state
+                .last_system_refresh
+                .lock()
+                .expect("Last refresh lock poisoned");
 
-    // Throttle refresh to max once every 500ms
-    if now
-        .duration_since(*last_refresh)
-        .unwrap_or_default()
-        .as_millis()
-        > 500
-    {
-        sys.refresh_cpu();
-        sys.refresh_memory();
-        sys.refresh_disks();
-        *last_refresh = now;
-    }
-    let ram_used = sys.used_memory() / 1024 / 1024; // MB
-    let ram_total = sys.total_memory() / 1024 / 1024; // MB
-    let swap_used = sys.used_swap() / 1024 / 1024; // MB
-    let swap_total = sys.total_swap() / 1024 / 1024; // MB
-    let cpu_usage = sys.global_cpu_info().cpu_usage();
+            // Throttle refresh to max once every 500ms
+            if now
+                .duration_since(*last_refresh)
+                .unwrap_or_default()
+                .as_millis()
+                > 500
+            {
+                sys.refresh_cpu();
+                sys.refresh_memory();
+                sys.refresh_disks();
+                *last_refresh = now;
+            }
+            let ram_used = sys.used_memory() / 1024 / 1024; // MB
+            let ram_total = sys.total_memory() / 1024 / 1024; // MB
+            let swap_used = sys.used_swap() / 1024 / 1024; // MB
+            let swap_total = sys.total_swap() / 1024 / 1024; // MB
+            let cpu_usage = sys.global_cpu_info().cpu_usage();
 
-    // Simple Disk Usage (Root or fallback)
-    let mut disk_total = 0;
-    let mut disk_used = 0;
+            // Simple Disk Usage (Root or fallback)
+            let mut disk_total = 0;
+            let mut disk_used = 0;
 
-    let target_disk = sys
-        .disks()
-        .iter()
-        .find(|d| d.mount_point() == std::path::Path::new("/"))
-        .or_else(|| sys.disks().first());
+            let target_disk = sys
+                .disks()
+                .iter()
+                .find(|d| d.mount_point() == std::path::Path::new("/"))
+                .or_else(|| sys.disks().first());
 
-    if let Some(disk) = target_disk {
-        disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
-        disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
-    }
-    drop(sys); // Release lock explicitely
+            if let Some(disk) = target_disk {
+                disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
+                disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
+            }
+            (
+                cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total,
+            )
+        })
+        .await
+        .unwrap_or((0.0, 0, 0, 0, 0, 0, 0))
+    };
 
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
@@ -627,9 +643,10 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
     };
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let res = cache
+        .manager
+        .add_user_async(&payload.username, &payload.password, role_enum, quota_val)
+        .await;
 
     if let Err(e) = res {
         error!("Failed to add user: {}", e);
@@ -659,9 +676,7 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
     }
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
+    let res = cache.manager.delete_user_async(&username).await;
 
     if let Err(e) = res {
         error!("Failed to delete user: {}", e);
