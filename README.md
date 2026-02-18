@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.7-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.8-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -90,6 +90,7 @@ The tool provides several subcommands:
 *   `server_manager status`: Displays detected hardware statistics and the profile (Low/Standard/High).
 *   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
 *   `server_manager disable <service>`: Disable a service.
+*   `server_manager apply`: Apply current configuration (re-generate and deploy).
 *   `server_manager web`: Starts the Web Administration Interface (Default: http://0.0.0.0:8099).
 *   `server_manager user add <username> --quota <GB>`: Create a new user (Role: Admin/Observer) and set storage quota.
 *   `server_manager user delete <username>`: Delete a user and their data.
@@ -244,6 +245,7 @@ L'outil dispose de plusieurs sous-commandes :
 *   `server_manager status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
 *   `server_manager enable <service>` : Active un service (ex: `server_manager enable nextcloud`).
 *   `server_manager disable <service>` : Désactive un service.
+*   `server_manager apply` : Applique la configuration actuelle (re-génère et déploie).
 *   `server_manager web` : Démarre l'Interface d'Administration Web (Défaut : http://0.0.0.0:8099).
 *   `server_manager user add <username> --quota <GB>` : Crée un nouvel utilisateur (Rôle : Admin/Observer) et définit un quota de stockage.
 *   `server_manager user delete <username>` : Supprime un utilisateur et ses données.

@@ -7,6 +7,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
+use std::time::SystemTime;
+use tokio::sync::RwLock;
+
+#[derive(Clone)]
+struct CachedUsers {
+    manager: UserManager,
+    last_mtime: Option<SystemTime>,
+}
+
+static USERS_CACHE: OnceLock<RwLock<CachedUsers>> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -30,7 +41,61 @@ pub struct UserManager {
 
 impl UserManager {
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load).await?
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+            })
+        });
+
+        // Determine path asynchronously
+        let path = Path::new("users.yaml");
+        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let target_path = if tokio::fs::try_exists(fallback_path).await.unwrap_or(false) {
+            fallback_path
+        } else {
+            path
+        };
+
+        // Fast path
+        {
+            let guard = cache.read().await;
+            if let Some(cached_mtime) = guard.last_mtime {
+                if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+                    if let Ok(modified) = metadata.modified() {
+                        if modified == cached_mtime {
+                            return Ok(guard.manager.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Slow path
+        let mut guard = cache.write().await;
+        // Re-check mtime
+        if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+            let modified = metadata.modified().unwrap_or(SystemTime::now());
+            if guard.last_mtime == Some(modified) {
+                return Ok(guard.manager.clone());
+            }
+
+            // Reload via spawn_blocking because load() might do synchronous writes (save default admin)
+            // or reads.
+            let manager = tokio::task::spawn_blocking(Self::load).await??;
+            guard.manager = manager.clone();
+            guard.last_mtime = Some(modified);
+            Ok(manager)
+        } else {
+            // File might not exist, try loading anyway (it handles defaults)
+            let manager = tokio::task::spawn_blocking(Self::load).await??;
+            guard.manager = manager.clone();
+            // Try to get mtime again if created
+            if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+                guard.last_mtime = metadata.modified().ok();
+            }
+            Ok(manager)
+        }
     }
 
     pub fn load() -> Result<Self> {
@@ -211,6 +276,114 @@ impl UserManager {
 
     pub fn list_users(&self) -> Vec<&User> {
         self.users.values().collect()
+    }
+
+    pub async fn add_user_async(
+        username: String,
+        password: String,
+        role: Role,
+        quota_gb: Option<u64>,
+    ) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+
+        // Ensure fresh before modifying (simple reload check)
+        // We reuse load_async logic partially or just trust the next load will refresh?
+        // Better to refresh now to avoid overwriting changes made by others.
+        // But since we have write lock, others are blocked.
+        // We just need to check if file changed since we last loaded.
+
+        // Simpler: Just rely on load()'s path logic and reload if needed?
+        // Or duplicate the "ensure fresh" logic.
+        // Given complexity, let's just reload strictly if file exists.
+
+        let path = Path::new("users.yaml");
+        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let target_path = if tokio::fs::try_exists(fallback_path).await.unwrap_or(false) {
+            fallback_path
+        } else {
+            path
+        };
+
+        if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+            let modified = metadata.modified().unwrap_or(SystemTime::now());
+            if guard.last_mtime != Some(modified) {
+                 if let Ok(m) = tokio::task::spawn_blocking(Self::load).await? {
+                     guard.manager = m;
+                     guard.last_mtime = Some(modified);
+                 }
+            }
+        }
+
+        // Now modify
+        let mut manager = guard.manager.clone();
+
+        let manager = tokio::task::spawn_blocking(move || {
+            manager.add_user(&username, &password, role, quota_gb)?;
+            Ok::<_, anyhow::Error>(manager)
+        })
+        .await??;
+
+        guard.manager = manager;
+
+        // Update mtime
+        if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete_user_async(username: String) -> Result<()> {
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+
+        // Reload check (same as add)
+        let path = Path::new("users.yaml");
+        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let target_path = if tokio::fs::try_exists(fallback_path).await.unwrap_or(false) {
+            fallback_path
+        } else {
+            path
+        };
+
+        if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+            let modified = metadata.modified().unwrap_or(SystemTime::now());
+            if guard.last_mtime != Some(modified) {
+                 if let Ok(m) = tokio::task::spawn_blocking(Self::load).await? {
+                     guard.manager = m;
+                     guard.last_mtime = Some(modified);
+                 }
+            }
+        }
+
+        let mut manager = guard.manager.clone();
+
+        let manager = tokio::task::spawn_blocking(move || {
+            manager.delete_user(&username)?;
+            Ok::<_, anyhow::Error>(manager)
+        })
+        .await??;
+
+        guard.manager = manager;
+
+        if let Ok(metadata) = tokio::fs::metadata(target_path).await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+
+        Ok(())
     }
 }
 
