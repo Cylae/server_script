@@ -29,6 +29,8 @@ pub enum Commands {
     Enable { service: String },
     /// Disable a service
     Disable { service: String },
+    /// Apply current configuration (Generate & Deploy)
+    Apply,
     /// Start the Web Administration Interface
     Web {
         #[arg(long, default_value_t = 8099)]
@@ -68,6 +70,7 @@ pub async fn run() -> Result<()> {
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
         Commands::Disable { service } => run_toggle_service(service, false).await?,
+        Commands::Apply => run_apply().await?,
         Commands::Web { port } => crate::interface::web::start_server(port).await?,
         Commands::User { action } => run_user_management(action)?,
     }
@@ -165,13 +168,34 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 
     info!("Configuration updated. Re-running generation...");
 
-    // 2. Re-run generation logic (similar to run_generate/run_install subset)
-    // We need secrets for this
+    // 2. Re-run generation logic
+    run_apply_logic().await?;
+
+    info!(
+        "Service '{}' {} successfully!",
+        service_name,
+        if enable { "enabled" } else { "disabled" }
+    );
+
+    Ok(())
+}
+
+async fn run_apply() -> Result<()> {
+    // Ensure we are in /opt/server_manager if config not found locally
+    if !std::path::Path::new("config.yaml").exists()
+        && std::path::Path::new("/opt/server_manager/config.yaml").exists()
+    {
+        std::env::set_current_dir("/opt/server_manager")?;
+    }
+
+    run_apply_logic().await
+}
+
+async fn run_apply_logic() -> Result<()> {
+    let config = config::Config::load()?;
     let secrets = secrets::Secrets::load_or_create()?;
     let hw = hardware::HardwareInfo::detect();
 
-    // Only configure/generate, don't necessarily fully install dependencies again
-    // But we should probably trigger docker compose up to apply changes
     configure_services(&hw, &secrets, &config)?;
     initialize_services(&hw, &secrets, &config)?;
     generate_compose(&hw, &secrets, &config).await?;
@@ -183,16 +207,12 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
         .context("Failed to run docker compose up")?;
 
     if status.success() {
-        info!(
-            "Service '{}' {} successfully!",
-            service_name,
-            if enable { "enabled" } else { "disabled" }
-        );
+        info!("Configuration applied successfully!");
+        Ok(())
     } else {
         error!("Failed to apply changes via Docker Compose.");
+        Err(anyhow::anyhow!("Docker Compose failed"))
     }
-
-    Ok(())
 }
 
 async fn run_install() -> Result<()> {

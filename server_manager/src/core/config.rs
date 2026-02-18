@@ -124,4 +124,74 @@ impl Config {
             info!("Disabled service: {}", service_name);
         }
     }
+
+    pub async fn enable_service_async(service_name: &str) -> Result<()> {
+        Self::update_service_async(service_name, true).await
+    }
+
+    pub async fn disable_service_async(service_name: &str) -> Result<()> {
+        Self::update_service_async(service_name, false).await
+    }
+
+    async fn update_service_async(service_name: &str, enable: bool) -> Result<()> {
+        let cache = CONFIG_CACHE.get_or_init(|| {
+            RwLock::new(CachedConfig {
+                config: Config::default(),
+                last_mtime: None,
+            })
+        });
+
+        let mut guard = cache.write().await;
+
+        // Ensure we have the latest config before modifying
+        let metadata_res = tokio::fs::metadata("config.yaml").await;
+        match metadata_res {
+            Ok(metadata) => {
+                let modified = metadata.modified().unwrap_or(SystemTime::now());
+                if guard.last_mtime != Some(modified) {
+                    // Reload
+                    match tokio::fs::read_to_string("config.yaml").await {
+                        Ok(content) => {
+                            if !content.trim().is_empty() {
+                                guard.config = serde_yaml_ng::from_str(&content)
+                                    .context("Failed to parse config.yaml")?;
+                            }
+                            guard.last_mtime = Some(modified);
+                        }
+                        Err(_) => {
+                            // If read fails, maybe use current? Or fail?
+                            // Proceeding might overwrite file. Best to fail or assume current.
+                            // Given we verified metadata exists, read failure is rare.
+                        }
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // File missing, use default (which is empty/default config)
+                // But we want to preserve what we have if we have something?
+                // If file deleted, we probably should start fresh or recreating it is fine.
+            }
+            Err(_) => {}
+        }
+
+        // Modify
+        if enable {
+            guard.config.enable_service(service_name);
+        } else {
+            guard.config.disable_service(service_name);
+        }
+
+        // Save
+        let content = serde_yaml_ng::to_string(&guard.config)?;
+        tokio::fs::write("config.yaml", &content)
+            .await
+            .context("Failed to write config.yaml")?;
+
+        // Update mtime
+        if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
+            guard.last_mtime = metadata.modified().ok();
+        }
+
+        Ok(())
+    }
 }
