@@ -81,6 +81,8 @@ cd server_script/server_manager
 cargo test
 ```
 
+*Note: To run benchmarks, you must enable the `async_tokio` feature: `cargo bench --features async_tokio`.*
+
 ### CLI Commands
 
 The tool provides several subcommands:
