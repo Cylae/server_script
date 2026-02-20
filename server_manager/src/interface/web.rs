@@ -131,8 +131,9 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
 
     // Initialize System once
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let sys = System::new();
+    // We do NOT refresh everything here to save startup time.
+    // Dashboard will trigger refresh on first access because we init last_system_refresh to EPOCH.
 
     let initial_config = Config::load().unwrap_or_default();
     let initial_config_mtime = std::fs::metadata("config.yaml")
@@ -151,7 +152,7 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
 
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
-        last_system_refresh: Mutex::new(SystemTime::now()),
+        last_system_refresh: Mutex::new(SystemTime::UNIX_EPOCH),
         config_cache: RwLock::new(CachedConfig {
             config: initial_config,
             last_modified: initial_config_mtime,
@@ -344,6 +345,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     {
         sys.refresh_cpu();
         sys.refresh_memory();
+        sys.refresh_disks_list();
         sys.refresh_disks();
         *last_refresh = now;
     }
@@ -627,21 +629,37 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
     };
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let mut manager = cache.manager.clone();
+    let username = payload.username.clone();
+    let password = payload.password.clone();
 
-    if let Err(e) = res {
-        error!("Failed to add user: {}", e);
-        // In a real app we'd flash a message. Here just redirect.
-    } else {
-        info!("User {} added via Web UI by {}", payload.username, session_user.username);
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
+    // Perform heavy lifting (hashing, useradd) in a blocking thread
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+        manager.add_user(&username, &password, role_enum, quota_val)?;
+        Ok(manager)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(updated_manager)) => {
+            cache.manager = updated_manager;
+            info!(
+                "User {} added via Web UI by {}",
+                payload.username, session_user.username
+            );
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
+        }
+        Ok(Err(e)) => {
+            error!("Failed to add user: {}", e);
+        }
+        Err(e) => {
+            error!("Task join error: {}", e);
         }
     }
 
@@ -659,20 +677,36 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
     }
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
+    let mut manager = cache.manager.clone();
+    let username_clone = username.clone();
 
-    if let Err(e) = res {
-        error!("Failed to delete user: {}", e);
-    } else {
-        info!("User {} deleted via Web UI by {}", username, session_user.username);
-         // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
+    // Perform heavy lifting (userdel) in a blocking thread
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+        manager.delete_user(&username_clone)?;
+        Ok(manager)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(updated_manager)) => {
+            cache.manager = updated_manager;
+            info!(
+                "User {} deleted via Web UI by {}",
+                username, session_user.username
+            );
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
+        }
+        Ok(Err(e)) => {
+            error!("Failed to delete user: {}", e);
+        }
+        Err(e) => {
+            error!("Task join error: {}", e);
         }
     }
 
