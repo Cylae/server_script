@@ -123,6 +123,15 @@ Server Manager adjusts configuration via `HardwareManager`:
 
 *Note: Swap presence is analyzed to avoid OOM on borderline configurations (e.g., 6GB RAM without swap -> Low).*
 
+### ⚡ Optimizations & Performance
+
+Server Manager includes several under-the-hood optimizations to ensure low resource usage and high responsiveness:
+
+*   **Sysctl Tuning**: Automatically applies kernel parameters (via `sysctl`) optimized for high-bandwidth media streaming (BBR congestion control, increased buffer sizes) and reduced swappiness.
+*   **Async Architecture**: The Web UI and core logic are built on `tokio` and `axum`, ensuring that heavy operations (like password hashing or user creation) never block the main event loop.
+*   **Smart Caching**: Configuration and User data are cached in memory with intelligent file modification checks (stat) to prevent unnecessary disk reads.
+*   **Efficient Monitoring**: System resource usage is refreshed only when needed and throttled to prevent CPU spikes.
+
 ### 🔒 Secrets Management
 
 Passwords are stored in `secrets.yaml`.
@@ -276,6 +285,15 @@ Server Manager ajuste la configuration via `HardwareManager` :
 | **HIGH** | > 16GB RAM | Transcodage en RAM (`/dev/shm`), caches augmentés. |
 
 *Note : La présence de Swap est analysée pour éviter les OOM sur les configurations limites (ex: 6GB RAM sans swap -> Low).*
+
+### ⚡ Optimisations & Performances
+
+Server Manager inclut plusieurs optimisations internes pour garantir une faible utilisation des ressources et une grande réactivité :
+
+*   **Réglage Sysctl** : Applique automatiquement les paramètres du noyau (via `sysctl`) optimisés pour le streaming multimédia à haut débit (contrôle de congestion BBR, buffers augmentés) et une utilisation réduite du swap.
+*   **Architecture Asynchrone** : L'interface Web et la logique centrale sont basées sur `tokio` et `axum`, garantissant que les opérations lourdes (comme le hachage des mots de passe ou la création d'utilisateurs) ne bloquent jamais la boucle d'événements principale.
+*   **Mise en Cache Intelligente** : Les données de configuration et d'utilisateur sont mises en cache en mémoire avec des vérifications intelligentes de modification de fichier (stat) pour éviter les lectures disque inutiles.
+*   **Surveillance Efficace** : L'utilisation des ressources système n'est actualisée que lorsque nécessaire et limitée pour éviter les pics de CPU.
 
 ### 🔒 Gestion des Secrets
 
