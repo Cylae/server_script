@@ -165,16 +165,16 @@ Here is the matrix of deployed services:
 | | Bazarr | 6767 (Localhost) | `http://localhost:6767` | Subtitles |
 | | Prowlarr | 9696 (Localhost) | `http://localhost:9696` | Torrent Indexers |
 | | Jackett | 9117 (Localhost) | `http://localhost:9117` | Indexer Proxy |
-| **Download** | QBittorrent | 8080 (Localhost) | `http://localhost:8080` | Torrent Client |
+| **Download** | QBittorrent | 8080 (Localhost), 6881 | `http://localhost:8080` | Torrent Client |
 | **Apps** | Nextcloud | 4443 (Localhost) | `https://localhost:4443` | Personal Cloud |
 | | Vaultwarden | 8001 (Localhost) | `http://localhost:8001` | Password Manager |
 | | Filebrowser | 8002 (Localhost) | `http://localhost:8002` | Web File Manager |
 | | Yourls | 8003 (Localhost) | `http://localhost:8003` | URL Shortener |
 | | GLPI | 8088 (Localhost) | `http://localhost:8088` | IT Asset Management |
-| | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
+| | Gitea | 3000 (Localhost), 2222 | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
-| | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | File Synchronization |
+| | Syncthing | 8384 (Localhost), 22000, 21027 | `http://localhost:8384` | File Synchronization |
 
 ---
 
@@ -319,16 +319,16 @@ Voici la matrice des services déployés :
 | | Bazarr | 6767 (Localhost) | `http://localhost:6767` | Sous-titres |
 | | Prowlarr | 9696 (Localhost) | `http://localhost:9696` | Indexeurs Torrent |
 | | Jackett | 9117 (Localhost) | `http://localhost:9117` | Proxy Indexeurs |
-| **Download** | QBittorrent | 8080 (Localhost) | `http://localhost:8080` | Client Torrent |
+| **Download** | QBittorrent | 8080 (Localhost), 6881 | `http://localhost:8080` | Client Torrent |
 | **Apps** | Nextcloud | 4443 (Localhost) | `https://localhost:4443` | Personal Cloud |
 | | Vaultwarden | 8001 (Localhost) | `http://localhost:8001` | Password Manager |
 | | Filebrowser | 8002 (Localhost) | `http://localhost:8002` | Web File Manager |
 | | Yourls | 8003 (Localhost) | `http://localhost:8003` | URL Shortener |
 | | GLPI | 8088 (Localhost) | `http://localhost:8088` | IT Asset Management |
-| | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
+| | Gitea | 3000 (Localhost), 2222 | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
-| | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | Synchronisation de Fichiers |
+| | Syncthing | 8384 (Localhost), 22000, 21027 | `http://localhost:8384` | Synchronisation de Fichiers |
 
 ---
 
