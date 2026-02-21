@@ -275,10 +275,19 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     append_row("Roundcube", "http://<IP>:8090", "-", "Login with Mail creds");
     append_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec -ti mailserver setup ...");
     append_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
+    append_row("Jellyfin", "http://<IP>:8096", "-", "Follow Web Setup");
     append_row("ArrStack", "http://<IP>:8989 (Sonarr)", "-", "No auth by default");
+    append_row("QBittorrent", "http://<IP>:8080", "admin", "adminadmin");
+    append_row("Filebrowser", "http://<IP>:8002", "admin", "admin");
+    append_row("Syncthing", "http://<IP>:8384", "-", "No auth by default");
+    append_row("Uptime Kuma", "http://<IP>:3001", "-", "Create Admin Account");
+    append_row("Netdata", "http://<IP>:19999", "-", "No auth by default");
+    append_row("Tautulli", "http://<IP>:8181", "-", "Follow Web Setup");
+    append_row("Overseerr", "http://<IP>:5055", "-", "Follow Web Setup");
 
     summary.push_str("=================================================================================\n\n");
-    summary.push_str("NOTE: Replace <IP> with your server's IP address.");
+    summary.push_str("NOTE: Replace <IP> with your server's IP address. Some services bound to localhost\n");
+    summary.push_str("      must be accessed via SSH Tunnel or Nginx Proxy Manager.");
 
     println!("{}", summary);
 

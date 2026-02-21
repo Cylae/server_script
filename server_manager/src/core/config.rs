@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 struct CachedConfig {
     config: Config,
     last_mtime: Option<SystemTime>,
+    last_check: SystemTime,
 }
 
 static CONFIG_CACHE: OnceLock<RwLock<CachedConfig>> = OnceLock::new();
@@ -42,20 +43,16 @@ impl Config {
             RwLock::new(CachedConfig {
                 config: Config::default(),
                 last_mtime: None,
+                last_check: std::time::UNIX_EPOCH,
             })
         });
 
-        // Fast path: Optimistic read
+        // Fast path: Optimistic read with throttle check
         {
             let guard = cache.read().await;
-            if let Some(cached_mtime) = guard.last_mtime {
-                // Check if file still matches
-                if let Ok(metadata) = tokio::fs::metadata("config.yaml").await {
-                    if let Ok(modified) = metadata.modified() {
-                        if modified == cached_mtime {
-                            return Ok(guard.config.clone());
-                        }
-                    }
+            if let Ok(elapsed) = SystemTime::now().duration_since(guard.last_check) {
+                if elapsed.as_millis() < 500 {
+                    return Ok(guard.config.clone());
                 }
             }
         }
@@ -63,7 +60,17 @@ impl Config {
         // Slow path: Update cache
         let mut guard = cache.write().await;
 
-        // Check metadata again (double-checked locking pattern)
+        // Double check time under write lock
+        if let Ok(elapsed) = SystemTime::now().duration_since(guard.last_check) {
+            if elapsed.as_millis() < 500 {
+                return Ok(guard.config.clone());
+            }
+        }
+
+        // Update check time
+        guard.last_check = SystemTime::now();
+
+        // Check metadata
         let metadata_res = tokio::fs::metadata("config.yaml").await;
 
         match metadata_res {

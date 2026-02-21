@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
+use std::time::SystemTime;
+use tokio::sync::RwLock;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -23,6 +26,15 @@ pub struct User {
     pub quota_gb: Option<u64>,
 }
 
+#[derive(Debug, Clone)]
+struct CachedUsers {
+    manager: UserManager,
+    last_mtime: Option<SystemTime>,
+    last_check: SystemTime,
+}
+
+static USERS_CACHE: OnceLock<RwLock<CachedUsers>> = OnceLock::new();
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct UserManager {
     users: HashMap<String, User>,
@@ -30,7 +42,78 @@ pub struct UserManager {
 
 impl UserManager {
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load).await?
+        let cache = USERS_CACHE.get_or_init(|| {
+            RwLock::new(CachedUsers {
+                manager: UserManager::default(),
+                last_mtime: None,
+                last_check: std::time::UNIX_EPOCH,
+            })
+        });
+
+        // Fast path
+        {
+            let guard = cache.read().await;
+            if let Ok(elapsed) = SystemTime::now().duration_since(guard.last_check) {
+                if elapsed.as_millis() < 500 {
+                    return Ok(guard.manager.clone());
+                }
+            }
+        }
+
+        // Slow path
+        let mut guard = cache.write().await;
+
+        if let Ok(elapsed) = SystemTime::now().duration_since(guard.last_check) {
+            if elapsed.as_millis() < 500 {
+                return Ok(guard.manager.clone());
+            }
+        }
+
+        guard.last_check = SystemTime::now();
+
+        // Path logic (duplicated from load to check metadata)
+        let path = Path::new("users.yaml");
+        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let check_path = if fallback_path.exists() {
+            Some(fallback_path)
+        } else if path.exists() {
+            Some(path)
+        } else {
+            None
+        };
+
+        if let Some(p) = check_path {
+             // Check metadata
+             let metadata = tokio::fs::metadata(p).await
+                .context("Failed to get users.yaml metadata")?;
+             let modified = metadata.modified().unwrap_or(SystemTime::now());
+
+             if let Some(cached_mtime) = guard.last_mtime {
+                if modified == cached_mtime {
+                    // No change, return cached
+                    return Ok(guard.manager.clone());
+                }
+             }
+
+             // Changed or first load -> Reload
+             let manager = tokio::task::spawn_blocking(Self::load).await??;
+             guard.manager = manager.clone();
+             guard.last_mtime = Some(modified);
+             Ok(manager)
+        } else {
+             // No file -> Load default (will create file)
+             let manager = tokio::task::spawn_blocking(Self::load).await??;
+             guard.manager = manager.clone();
+
+             // Try to get mtime of newly created file
+             if let Ok(meta) = tokio::fs::metadata(path).await {
+                 guard.last_mtime = meta.modified().ok();
+             } else if let Ok(meta) = tokio::fs::metadata(fallback_path).await {
+                 guard.last_mtime = meta.modified().ok();
+             }
+
+             Ok(manager)
+        }
     }
 
     pub fn load() -> Result<Self> {
@@ -211,6 +294,13 @@ impl UserManager {
 
     pub fn list_users(&self) -> Vec<&User> {
         self.users.values().collect()
+    }
+
+    pub async fn invalidate_cache_async() {
+        if let Some(cache) = USERS_CACHE.get() {
+            let mut guard = cache.write().await;
+            guard.last_check = std::time::UNIX_EPOCH;
+        }
     }
 }
 
