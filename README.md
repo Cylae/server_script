@@ -174,7 +174,7 @@ Here is the matrix of deployed services:
 | | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
-| | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | File Synchronization |
+| | Syncthing | 8384 (Localhost), 22000, 21027 (UDP) | `http://localhost:8384` | File Synchronization |
 
 ---
 
@@ -328,7 +328,7 @@ Voici la matrice des services déployés :
 | | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
-| | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | Synchronisation de Fichiers |
+| | Syncthing | 8384 (Localhost), 22000, 21027 (UDP) | `http://localhost:8384` | Synchronisation de Fichiers |
 
 ---
 
