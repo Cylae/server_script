@@ -113,7 +113,7 @@ Server Manager now supports full user management:
 
 ### ⚙️ Hardware Profiles
 
-Server Manager adjusts configuration via `HardwareManager`:
+Server Manager adjusts configuration via `HardwareManager`. The system now includes improved disk space detection to ensure accurate reporting of total storage capacity across various filesystem types.
 
 | Profile | Criteria | Optimizations |
 | :--- | :--- | :--- |
@@ -267,7 +267,7 @@ Server Manager supporte désormais une gestion complète des utilisateurs :
 
 ### ⚙️ Profils Matériels (Hardware Profiles)
 
-Server Manager ajuste la configuration via `HardwareManager` :
+Server Manager ajuste la configuration via `HardwareManager`. Le système inclut désormais une détection améliorée de l'espace disque pour assurer un rapport précis de la capacité de stockage totale sur divers types de systèmes de fichiers.
 
 | Profil | Critères | Optimisations |
 | :--- | :--- | :--- |
