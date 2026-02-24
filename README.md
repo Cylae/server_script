@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.7-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.8-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -56,6 +56,9 @@ Once finished, go to `http://YOUR-SERVER-IP` (or the specific ports listed below
 ## 🤓 For Advanced Users (Experts)
 
 Server Manager is built in Rust for performance and reliability. Here is how to use it to its full potential.
+
+### Optimizations & Performance
+*   **v1.0.8 Update**: Major improvements in Web UI responsiveness and hardware detection accuracy. System metrics and user management operations are now fully non-blocking, ensuring smooth operation even under load.
 
 ### Build from Source
 

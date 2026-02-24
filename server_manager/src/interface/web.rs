@@ -331,43 +331,52 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let config = state.get_config().await;
 
     // System Stats
-    let mut sys = state.system.lock().unwrap();
-    let now = SystemTime::now();
-    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+    let state_clone = state.clone();
+    let (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used) =
+        tokio::task::spawn_blocking(move || {
+            let mut sys = state_clone.system.lock().unwrap();
+            let now = SystemTime::now();
+            let mut last_refresh = state_clone.last_system_refresh.lock().unwrap();
 
-    // Throttle refresh to max once every 500ms
-    if now
-        .duration_since(*last_refresh)
-        .unwrap_or_default()
-        .as_millis()
-        > 500
-    {
-        sys.refresh_cpu();
-        sys.refresh_memory();
-        sys.refresh_disks();
-        *last_refresh = now;
-    }
-    let ram_used = sys.used_memory() / 1024 / 1024; // MB
-    let ram_total = sys.total_memory() / 1024 / 1024; // MB
-    let swap_used = sys.used_swap() / 1024 / 1024; // MB
-    let swap_total = sys.total_swap() / 1024 / 1024; // MB
-    let cpu_usage = sys.global_cpu_info().cpu_usage();
+            // Throttle refresh to max once every 500ms
+            if now
+                .duration_since(*last_refresh)
+                .unwrap_or_default()
+                .as_millis()
+                > 500
+            {
+                sys.refresh_cpu();
+                sys.refresh_memory();
+                sys.refresh_disks();
+                *last_refresh = now;
+            }
+            let ram_used = sys.used_memory() / 1024 / 1024; // MB
+            let ram_total = sys.total_memory() / 1024 / 1024; // MB
+            let swap_used = sys.used_swap() / 1024 / 1024; // MB
+            let swap_total = sys.total_swap() / 1024 / 1024; // MB
+            let cpu_usage = sys.global_cpu_info().cpu_usage();
 
-    // Simple Disk Usage (Root or fallback)
-    let mut disk_total = 0;
-    let mut disk_used = 0;
+            // Simple Disk Usage (Root or fallback)
+            let mut disk_total = 0;
+            let mut disk_used = 0;
 
-    let target_disk = sys
-        .disks()
-        .iter()
-        .find(|d| d.mount_point() == std::path::Path::new("/"))
-        .or_else(|| sys.disks().first());
+            let target_disk = sys
+                .disks()
+                .iter()
+                .find(|d| d.mount_point() == std::path::Path::new("/"))
+                .or_else(|| sys.disks().first());
 
-    if let Some(disk) = target_disk {
-        disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
-        disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
-    }
-    drop(sys); // Release lock explicitely
+            if let Some(disk) = target_disk {
+                disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
+                disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
+            }
+
+            (
+                ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
+            )
+        })
+        .await
+        .unwrap_or((0, 0, 0, 0, 0.0, 0, 0));
 
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
@@ -626,23 +635,42 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
         None => None,
     };
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let state_clone = state.clone();
+    let username = payload.username.clone();
+    let password = payload.password.clone();
+    let role_enum_clone = role_enum.clone();
+
+    let res = tokio::task::spawn_blocking(move || {
+        let mut cache = state_clone.users_cache.blocking_write();
+        let res = cache.manager.add_user(
+            &username,
+            &password,
+            role_enum_clone,
+            quota_val,
+        );
+
+        if res.is_ok() {
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
+        }
+        res
+    })
+    .await
+    .unwrap_or_else(|e| Err(anyhow::anyhow!("Task join error: {}", e)));
 
     if let Err(e) = res {
         error!("Failed to add user: {}", e);
         // In a real app we'd flash a message. Here just redirect.
     } else {
-        info!("User {} added via Web UI by {}", payload.username, session_user.username);
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
-        }
+        info!(
+            "User {} added via Web UI by {}",
+            payload.username, session_user.username
+        );
     }
 
     Redirect::to("/users").into_response()
@@ -658,22 +686,34 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
+    let state_clone = state.clone();
+    let username_clone = username.clone();
+
+    let res = tokio::task::spawn_blocking(move || {
+        let mut cache = state_clone.users_cache.blocking_write();
+        let res = cache.manager.delete_user(&username_clone);
+
+        if res.is_ok() {
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
+        }
+        res
+    })
+    .await
+    .unwrap_or_else(|e| Err(anyhow::anyhow!("Task join error: {}", e)));
 
     if let Err(e) = res {
         error!("Failed to delete user: {}", e);
     } else {
-        info!("User {} deleted via Web UI by {}", username, session_user.username);
-         // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
-        }
+        info!(
+            "User {} deleted via Web UI by {}",
+            username, session_user.username
+        );
     }
 
     Redirect::to("/users").into_response()
