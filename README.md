@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.7-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.8-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -23,6 +23,7 @@ Welcome to the Server Manager documentation. Whether you are a beginner or an ex
 ## ✨ Key Features
 *   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
+*   **Fast Configuration**: Uses internal orchestration for instant service toggling without subprocess overhead.
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
 
@@ -186,6 +187,7 @@ Bienvenue sur la documentation de Server Manager. Que vous soyez débutant ou ex
 ## ✨ Fonctionnalités Clés
 *   **28 Services Intégrés** : Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Détection Matérielle Intelligente** : Adapte la configuration (RAM, Transcodage, Swap) selon votre machine (Low/Standard/High Profile).
+*   **Configuration Rapide** : Utilise une orchestration interne pour une activation instantanée des services.
 *   **Sécurité par Défaut** : Pare-feu UFW configuré, mots de passe générés, réseaux isolés.
 *   **Support GPU** : Détection et configuration automatique Nvidia & Intel QuickSync.
 

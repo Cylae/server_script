@@ -1,5 +1,7 @@
 use crate::core::config::Config;
+use crate::core::orchestrator;
 use crate::core::users::{Role, UserManager};
+use crate::core::{hardware, secrets};
 use crate::services;
 use axum::{
     extract::{Form, Path, State},
@@ -16,7 +18,6 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use sysinfo::{CpuExt, DiskExt, System, SystemExt};
 use time::Duration;
-use tokio::process::Command;
 use tokio::sync::RwLock;
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
 
@@ -28,11 +29,6 @@ struct SessionUser {
 
 const SESSION_KEY: &str = "user";
 
-struct CachedConfig {
-    config: Config,
-    last_modified: Option<SystemTime>,
-}
-
 struct CachedUsers {
     manager: UserManager,
     last_modified: Option<SystemTime>,
@@ -41,7 +37,6 @@ struct CachedUsers {
 struct AppState {
     system: Mutex<System>,
     last_system_refresh: Mutex<SystemTime>,
-    config_cache: RwLock<CachedConfig>,
     users_cache: RwLock<CachedUsers>,
 }
 
@@ -49,45 +44,14 @@ type SharedState = Arc<AppState>;
 
 impl AppState {
     async fn get_config(&self) -> Config {
-        // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata("config.yaml")
-            .await
-            .and_then(|m| m.modified())
-            .ok();
-
-        {
-            let cache = self.config_cache.read().await;
-            if cache.last_modified == current_mtime {
-                return cache.config.clone();
-            }
-        }
-
-        // Slow path: reload
-        let mut cache = self.config_cache.write().await;
-
-        // Re-check mtime under write lock to avoid race
-        let current_mtime_2 = tokio::fs::metadata("config.yaml")
-            .await
-            .and_then(|m| m.modified())
-            .ok();
-
-        if cache.last_modified == current_mtime_2 {
-            return cache.config.clone();
-        }
-
-        if let Ok(cfg) = Config::load_async().await {
-            cache.config = cfg;
-            cache.last_modified = current_mtime_2;
-        }
-
-        cache.config.clone()
+        Config::load_async().await.unwrap_or_default()
     }
 
     async fn get_users(&self) -> UserManager {
         // Determine path logic (matches UserManager::load)
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
+        let global_path = std::path::Path::new("/opt/server_manager/users.yaml");
+        let local_path = std::path::Path::new("users.yaml");
+        let file_path = if global_path.exists() { global_path } else { local_path };
 
         // Fast path: check metadata
         let current_mtime = tokio::fs::metadata(file_path).await
@@ -133,29 +97,17 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Initialize System once
     let mut sys = System::new_all();
     sys.refresh_all();
-
-    let initial_config = Config::load().unwrap_or_default();
-    let initial_config_mtime = std::fs::metadata("config.yaml")
-        .ok()
-        .and_then(|m| m.modified().ok());
+    sys.refresh_disks();
 
     let initial_users = UserManager::load().unwrap_or_default();
-    let initial_users_mtime = std::fs::metadata("users.yaml")
+    let initial_users_mtime = std::fs::metadata("/opt/server_manager/users.yaml")
         .ok()
-        .and_then(|m| m.modified().ok())
-        .or_else(|| {
-            std::fs::metadata("/opt/server_manager/users.yaml")
-                .ok()
-                .and_then(|m| m.modified().ok())
-        });
+        .or_else(|| std::fs::metadata("users.yaml").ok())
+        .and_then(|m| m.modified().ok());
 
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
         last_system_refresh: Mutex::new(SystemTime::now()),
-        config_cache: RwLock::new(CachedConfig {
-            config: initial_config,
-            last_modified: initial_config_mtime,
-        }),
         users_cache: RwLock::new(CachedUsers {
             manager: initial_users,
             last_modified: initial_users_mtime,
@@ -637,9 +589,9 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
     } else {
         info!("User {} added via Web UI by {}", payload.username, session_user.username);
         // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
+        let global_path = std::path::Path::new("/opt/server_manager/users.yaml");
+        let local_path = std::path::Path::new("users.yaml");
+        let file_path = if global_path.exists() { global_path } else { local_path };
         if let Ok(m) = std::fs::metadata(file_path) {
              cache.last_modified = m.modified().ok();
         }
@@ -668,9 +620,9 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
     } else {
         info!("User {} deleted via Web UI by {}", username, session_user.username);
          // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
+        let global_path = std::path::Path::new("/opt/server_manager/users.yaml");
+        let local_path = std::path::Path::new("users.yaml");
+        let file_path = if global_path.exists() { global_path } else { local_path };
         if let Ok(m) = std::fs::metadata(file_path) {
              cache.last_modified = m.modified().ok();
         }
@@ -702,25 +654,50 @@ async fn check_admin_role(session: Session, name: &str, enable: bool) -> impl In
 }
 
 fn run_cli_toggle(service: &str, enable: bool) {
-    let action = if enable { "enable" } else { "disable" };
-    info!("Web UI triggering: server_manager {} {}", action, service);
+    let service_name = service.to_string();
+    let action = if enable { "Enable" } else { "Disable" };
+    info!("Web UI triggering: {} {}", action, service_name);
 
-    if let Ok(exe) = std::env::current_exe() {
-        match Command::new(exe).arg(action).arg(service).spawn() {
-            Ok(mut child) => {
-                // Spawn a background task to wait for the child process to exit.
-                // This prevents zombie processes by collecting the exit status.
-                tokio::spawn(async move {
-                    if let Err(e) = child.wait().await {
-                        error!("Failed to wait on child process: {}", e);
-                    }
-                });
-            }
+    tokio::spawn(async move {
+        // 1. Load Config
+        let mut config = match Config::load_async().await {
+            Ok(c) => c,
             Err(e) => {
-                error!("Failed to spawn command: {}", e);
+                error!("Failed to load config for toggle: {}", e);
+                return;
             }
+        };
+
+        // 2. Toggle
+        if enable {
+            config.enable_service(&service_name);
+        } else {
+            config.disable_service(&service_name);
         }
-    } else {
-        error!("Failed to determine current executable path.");
-    }
+
+        // 3. Save
+        if let Err(e) = config.save() {
+            error!("Failed to save config: {}", e);
+            return;
+        }
+
+        // 4. Apply changes
+        let hw = hardware::HardwareInfo::detect(); // This is synchronous and does IO.
+        // It's better to wrap it in spawn_blocking if it takes time.
+        // But detect() is fast enough (ms).
+
+        let secrets = match secrets::Secrets::load_or_create() {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to load secrets: {}", e);
+                return;
+            }
+        };
+
+        if let Err(e) = orchestrator::apply(&hw, &secrets, &config).await {
+            error!("Failed to apply changes via orchestrator: {}", e);
+        } else {
+            info!("Service {} toggled and applied successfully.", service_name);
+        }
+    });
 }

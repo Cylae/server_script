@@ -6,7 +6,7 @@ use nix::unistd::Uid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -29,27 +29,26 @@ pub struct UserManager {
 }
 
 impl UserManager {
+    fn get_users_path() -> PathBuf {
+        let global_path = Path::new("/opt/server_manager/users.yaml");
+        let local_path = Path::new("users.yaml");
+
+        if global_path.exists() {
+            global_path.to_path_buf()
+        } else {
+            local_path.to_path_buf()
+        }
+    }
+
     pub async fn load_async() -> Result<Self> {
         tokio::task::spawn_blocking(Self::load).await?
     }
 
     pub fn load() -> Result<Self> {
-        // Try CWD or /opt/server_manager
-        let path = Path::new("users.yaml");
-        let fallback_path = Path::new("/opt/server_manager/users.yaml");
+        let path = Self::get_users_path();
 
-        // Priority: /opt/server_manager/users.yaml > ./users.yaml
-        // This aligns with save() behavior which prefers /opt if available.
-        let load_path = if fallback_path.exists() {
-            Some(fallback_path)
-        } else if path.exists() {
-            Some(path)
-        } else {
-            None
-        };
-
-        let mut manager = if let Some(p) = load_path {
-            let content = fs::read_to_string(p).context("Failed to read users.yaml")?;
+        let mut manager = if path.exists() {
+            let content = fs::read_to_string(&path).context("Failed to read users.yaml")?;
             if content.trim().is_empty() {
                 UserManager::default()
             } else {
@@ -62,12 +61,6 @@ impl UserManager {
         // Ensure default admin exists if no users
         if manager.users.is_empty() {
             info!("No users found. Creating default 'admin' user.");
-            // We use a generated secret for the initial password if secrets exist,
-            // otherwise generate one.
-            // Better: use 'admin' / 'admin' but WARN, or generate random.
-            // Let's generate a random one and print it, safer.
-            // Re-using secrets generation logic if possible, or just simple random.
-            // For simplicity in this context, let's look for a stored password or default to 'admin' and log a warning.
 
             let pass = "admin";
             let hash = hash(pass, DEFAULT_COST)?;
@@ -88,15 +81,16 @@ impl UserManager {
     }
 
     pub fn save(&self) -> Result<()> {
-        // Prefer saving to /opt/server_manager if it exists/is writable, else CWD
-        let target = if Path::new("/opt/server_manager").exists() {
+        let path = Self::get_users_path();
+        // If file doesn't exist, try to default to /opt/server_manager if directory exists
+        let target_path = if !path.exists() && Path::new("/opt/server_manager").exists() {
             Path::new("/opt/server_manager/users.yaml")
         } else {
-            Path::new("users.yaml")
+            path.as_path()
         };
 
         let content = serde_yaml_ng::to_string(self)?;
-        fs::write(target, content).context("Failed to write users.yaml")?;
+        fs::write(target_path, content).context("Failed to write users.yaml")?;
         Ok(())
     }
 

@@ -31,6 +31,7 @@ impl HardwareInfo {
         sys.refresh_memory();
         sys.refresh_cpu();
         sys.refresh_disks_list();
+        sys.refresh_disks();
 
         let total_memory = sys.total_memory(); // Bytes
         let ram_gb = total_memory / 1024 / 1024 / 1024;
@@ -91,6 +92,11 @@ impl HardwareInfo {
             if let Ok(Some(user)) = User::from_name(&username) {
                 return (user.uid.to_string(), user.gid.to_string());
             }
+        }
+
+        // If running as root (and not via sudo), default to root
+        if nix::unistd::Uid::effective().is_root() {
+            return ("0".to_string(), "0".to_string());
         }
 
         warn!("SUDO_USER not found or lookup failed. Defaulting to UID/GID 1000.");
