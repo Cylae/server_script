@@ -626,22 +626,36 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
         None => None,
     };
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let log_username = payload.username.clone();
+    let log_admin = session_user.username.clone();
 
-    if let Err(e) = res {
-        error!("Failed to add user: {}", e);
-        // In a real app we'd flash a message. Here just redirect.
-    } else {
-        info!("User {} added via Web UI by {}", payload.username, session_user.username);
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
+    let mut cache = state.users_cache.write().await;
+    let mut manager_clone = cache.manager.clone();
+
+    let res = tokio::task::spawn_blocking(move || {
+        manager_clone.add_user(&payload.username, &payload.password, role_enum, quota_val)?;
+        Ok::<_, anyhow::Error>(manager_clone)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(new_manager)) => {
+            cache.manager = new_manager;
+            info!("User {} added via Web UI by {}", log_username, log_admin);
+
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                 cache.last_modified = m.modified().ok();
+            }
+        },
+        Ok(Err(e)) => {
+             error!("Failed to add user: {}", e);
+        },
+        Err(e) => {
+             error!("Join error: {}", e);
         }
     }
 
@@ -658,21 +672,36 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
+    let log_username = username.clone();
+    let log_admin = session_user.username.clone();
 
-    if let Err(e) = res {
-        error!("Failed to delete user: {}", e);
-    } else {
-        info!("User {} deleted via Web UI by {}", username, session_user.username);
-         // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
+    let mut cache = state.users_cache.write().await;
+    let mut manager_clone = cache.manager.clone();
+
+    let res = tokio::task::spawn_blocking(move || {
+        manager_clone.delete_user(&username)?;
+        Ok::<_, anyhow::Error>(manager_clone)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(new_manager)) => {
+            cache.manager = new_manager;
+            info!("User {} deleted via Web UI by {}", log_username, log_admin);
+
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                 cache.last_modified = m.modified().ok();
+            }
+        },
+        Ok(Err(e)) => {
+             error!("Failed to delete user: {}", e);
+        },
+        Err(e) => {
+             error!("Join error: {}", e);
         }
     }
 
