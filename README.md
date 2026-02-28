@@ -129,6 +129,13 @@ Passwords are stored in `secrets.yaml`.
 *   Automatically generated on first launch.
 *   You can modify this file *before* running `install` or `generate` if you wish to set your own passwords.
 
+
+## ⚡ Optimizations & Performance
+Server Manager employs several optimizations to ensure high performance and low resource usage:
+*   **System Information Cache**: Dashboard updates use throttled `sysinfo` calls (`refresh_memory`, `refresh_cpu`, etc.) with a 500ms debounce to prevent high CPU utilization during frequent web requests.
+*   **Thread-Safe State**: Web UI state is encapsulated in `Arc<AppState>`, avoiding bottlenecks when multiple users access the interface simultaneously.
+*   **Static Caching**: Configurations and User caches use thread-safe static globals (`OnceLock<RwLock<T>>`) to drastically reduce disk I/O.
+
 ### 💾 Data Persistence
 
 Server Manager stores its configuration and data in the following locations:
@@ -282,6 +289,13 @@ Server Manager ajuste la configuration via `HardwareManager` :
 Les mots de passe sont stockés dans `secrets.yaml`.
 *   Générés automatiquement au premier lancement.
 *   Vous pouvez modifier ce fichier *avant* de lancer `install` ou `generate` si vous souhaitez définir vos propres mots de passe.
+
+
+## ⚡ Optimisations & Performance
+Server Manager utilise plusieurs optimisations pour garantir de hautes performances et une faible utilisation des ressources :
+*   **Cache d'Informations Système** : Les mises à jour du tableau de bord utilisent des appels `sysinfo` (`refresh_memory`, `refresh_cpu`, etc.) limités avec un délai de 500ms pour éviter une forte utilisation du processeur lors de requêtes web fréquentes.
+*   **État Thread-Safe** : L'état de l'interface Web est encapsulé dans `Arc<AppState>`, évitant les goulots d'étranglement lorsque plusieurs utilisateurs accèdent à l'interface simultanément.
+*   **Mise en Cache Statique** : Les configurations et les caches utilisateurs utilisent des variables globales statiques thread-safe (`OnceLock<RwLock<T>>`) pour réduire drastiquement les entrées/sorties disque.
 
 ### 💾 Persistance des Données
 
