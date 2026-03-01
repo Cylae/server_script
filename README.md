@@ -86,6 +86,7 @@ cargo test
 The tool provides several subcommands:
 
 *   `server_manager install`: Full idempotent installation (dependencies, config, docker-compose up).
+*   `server_manager apply`: Executes the configuration, initialization, generation, and deployment sequence.
 *   `server_manager generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
 *   `server_manager status`: Displays detected hardware statistics and the profile (Low/Standard/High).
 *   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
@@ -240,6 +241,7 @@ sudo cp target/release/server_manager /usr/local/bin/
 L'outil dispose de plusieurs sous-commandes :
 
 *   `server_manager install` : Installation complète idempotente (dépendances, config, docker-compose up).
+*   `server_manager apply` : Exécute la séquence de configuration, d'initialisation, de génération et de déploiement.
 *   `server_manager generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
 *   `server_manager status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
 *   `server_manager enable <service>` : Active un service (ex: `server_manager enable nextcloud`).

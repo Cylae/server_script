@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use log::{error, info};
 use std::fs;
 use std::io::{self, Write};
-use std::process::Command;
+use tokio::process::Command;
 
 use crate::build_compose_structure;
 use crate::core::{config, docker, firewall, hardware, secrets, system, users};
@@ -19,6 +19,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Apply configuration and deploy
+    Apply,
     /// Full installation (Idempotent)
     Install,
     /// Show system status
@@ -64,19 +66,20 @@ pub async fn run() -> Result<()> {
 
     match cli.command {
         Commands::Install => run_install().await?,
-        Commands::Status => run_status(),
+        Commands::Apply => run_apply().await?,
+        Commands::Status => run_status().await?,
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
         Commands::Disable { service } => run_toggle_service(service, false).await?,
         Commands::Web { port } => crate::interface::web::start_server(port).await?,
-        Commands::User { action } => run_user_management(action)?,
+        Commands::User { action } => run_user_management(action).await?,
     }
 
     Ok(())
 }
 
-fn run_user_management(action: UserCommands) -> Result<()> {
-    let mut user_manager = users::UserManager::load()?;
+async fn run_user_management(action: UserCommands) -> Result<()> {
+    let mut user_manager = users::UserManager::load_async().await?;
 
     match action {
         UserCommands::Add {
@@ -146,7 +149,7 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
         std::env::set_current_dir("/opt/server_manager")?;
     }
 
-    let mut config = config::Config::load()?;
+    let mut config = config::Config::load_async().await?;
 
     // Check if service exists
     let services = services::get_all_services();
@@ -179,7 +182,7 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
     info!("Applying changes via Docker Compose...");
     let status = Command::new("docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
-        .status()
+        .status().await
         .context("Failed to run docker compose up")?;
 
     if status.success() {
@@ -211,7 +214,7 @@ async fn run_install() -> Result<()> {
 
     // 1.2 Load Secrets & Config
     let secrets = secrets::Secrets::load_or_create()?;
-    let config = config::Config::load()?;
+    let config = config::Config::load_async().await?;
 
     // 2. Hardware Detection
     let hw = hardware::HardwareInfo::detect();
@@ -237,7 +240,7 @@ async fn run_install() -> Result<()> {
     info!("Launching Services via Docker Compose...");
     let status = Command::new("docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
-        .status()
+        .status().await
         .context("Failed to run docker compose up")?;
 
     if status.success() {
@@ -292,7 +295,7 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     }
 }
 
-fn run_status() {
+async fn run_status() -> Result<()> {
     let hw = hardware::HardwareInfo::detect();
     println!("=== System Status ===");
     println!("RAM: {} GB", hw.ram_gb);
@@ -306,13 +309,15 @@ fn run_status() {
     println!("\n=== Docker Status ===");
     if let Ok(true) = Command::new("docker")
         .arg("ps")
-        .status()
+        .status().await
         .map(|s| s.success())
     {
         println!("Docker is running.");
     } else {
         println!("Docker is NOT running.");
     }
+
+    Ok(())
 }
 
 async fn run_generate() -> Result<()> {
@@ -321,7 +326,7 @@ async fn run_generate() -> Result<()> {
     // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets =
         secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
-    let config = config::Config::load()?;
+    let config = config::Config::load_async().await?;
     configure_services(&hw, &secrets, &config)?;
     generate_compose(&hw, &secrets, &config).await
 }
@@ -373,6 +378,43 @@ async fn generate_compose(
 
     fs::write("docker-compose.yml", yaml_output).context("Failed to write docker-compose.yml")?;
     info!("docker-compose.yml generated.");
+
+    Ok(())
+}
+
+async fn run_apply() -> Result<()> {
+    info!("Applying configuration...");
+
+    // 1. Root Check
+    system::check_root()?;
+
+    // Switch to install dir if we are not there but it exists
+    if !std::path::Path::new("config.yaml").exists()
+        && std::path::Path::new("/opt/server_manager/config.yaml").exists()
+    {
+        std::env::set_current_dir("/opt/server_manager")?;
+    }
+
+    let hw = hardware::HardwareInfo::detect();
+    let secrets = secrets::Secrets::load_or_create()?;
+    let config = config::Config::load_async().await?;
+
+    configure_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config)?;
+    generate_compose(&hw, &secrets, &config).await?;
+
+    info!("Applying changes via Docker Compose...");
+    let status = Command::new("docker")
+        .args(["compose", "up", "-d", "--remove-orphans"])
+        .status().await
+        .context("Failed to run docker compose up")?;
+
+    if status.success() {
+        info!("Server Manager Stack Applied Successfully! 🚀");
+        print_deployment_summary(&secrets);
+    } else {
+        log::error!("Docker Compose failed.");
+    }
 
     Ok(())
 }
