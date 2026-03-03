@@ -129,6 +129,14 @@ Passwords are stored in `secrets.yaml`.
 *   Automatically generated on first launch.
 *   You can modify this file *before* running `install` or `generate` if you wish to set your own passwords.
 
+### ⚡ Optimizations & Performance
+
+Server Manager implements several strategies to ensure minimal overhead:
+*   **Asynchronous I/O**: The Web UI uses non-blocking asynchronous I/O and `tokio::task::spawn_blocking` to decouple heavy system metric collection from the async execution runtime.
+*   **In-Memory Caching**: Configuration and User Management models are loaded and cached into a static `OnceLock<RwLock<T>>` to significantly reduce file system calls.
+*   **Targeted Hardware Detection**: Memory and system disk space metrics are updated using targeted routines (`sysinfo` components) preventing redundant hardware discovery loops.
+*   **Zero-Allocation HTML**: The web interface dynamically generates the DOM on-the-fly directly to a string buffer using Rust's `std::fmt::Write`.
+
 ### 💾 Data Persistence
 
 Server Manager stores its configuration and data in the following locations:
@@ -282,6 +290,14 @@ Server Manager ajuste la configuration via `HardwareManager` :
 Les mots de passe sont stockés dans `secrets.yaml`.
 *   Générés automatiquement au premier lancement.
 *   Vous pouvez modifier ce fichier *avant* de lancer `install` ou `generate` si vous souhaitez définir vos propres mots de passe.
+
+### ⚡ Optimisations & Performances
+
+Server Manager intègre plusieurs stratégies pour garantir des performances optimales et une surcharge minimale :
+*   **E/S Asynchrones** : L'interface web gère la collecte de métriques systèmes de manière asynchrone (via `tokio::task::spawn_blocking`), pour ne pas bloquer le thread d'exécution principal.
+*   **Mise en Cache en Mémoire** : La configuration et la gestion des utilisateurs sont mises en cache de manière statique via `OnceLock<RwLock<T>>` réduisant considérablement les accès disque.
+*   **Détection Matérielle Ciblée** : L'actualisation des statistiques RAM/Stockage s'effectue via des appels ciblés (`sysinfo`), sans recalculer inutilement la topologie du système.
+*   **Zéro Allocation HTML** : L'interface d'administration génère dynamiquement son contenu HTML directement dans un tampon (`std::fmt::Write`), évitant les allocations mémoires inutiles.
 
 ### 💾 Persistance des Données
 
