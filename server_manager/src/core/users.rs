@@ -233,7 +233,7 @@ mod tests {
         // Verify
         let user = manager.verify("testuser", "password123");
         assert!(user.is_some());
-        assert_eq!(user.unwrap().role, Role::Observer);
+        assert_eq!(user.expect("User should exist").role, Role::Observer);
 
         assert!(manager.verify("testuser", "wrongpass").is_none());
 
@@ -252,7 +252,7 @@ mod tests {
         let mut manager = UserManager::default();
         manager
             .add_user("admin", "admin", Role::Admin, None)
-            .unwrap();
+            .expect("Should add initial admin");
 
         // Should fail to delete last admin
         assert!(manager.delete_user("admin").is_err());
@@ -260,7 +260,7 @@ mod tests {
         // Add another admin
         manager
             .add_user("admin2", "admin", Role::Admin, None)
-            .unwrap();
+            .expect("Should add second admin");
         // Now can delete one
         assert!(manager.delete_user("admin").is_ok());
     }

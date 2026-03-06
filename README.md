@@ -81,6 +81,14 @@ cd server_script/server_manager
 cargo test
 ```
 
+### ⚡ Optimizations & Performance
+
+Server Manager is optimized for performance and resource usage:
+*   **Zero-Cost Abstractions**: Written in Rust, utilizing zero-cost abstractions to manage services without adding runtime overhead.
+*   **Async Operations**: Employs non-blocking async IO via Tokio for smooth handling of configuration and Docker communication.
+*   **Optimized Memory Usage**: In-memory caching minimizes redundant file reads and optimizes dashboard responsiveness.
+*   **Hardware Profiling**: Automatically disables unnecessary GC and limits memory consumption on Low profile hardware.
+
 ### CLI Commands
 
 The tool provides several subcommands:
@@ -234,6 +242,14 @@ cargo build --release
 # Le binaire est dans target/release/server_manager
 sudo cp target/release/server_manager /usr/local/bin/
 ```
+
+### ⚡ Optimisations & Performance
+
+Server Manager est optimisé pour les performances et l'utilisation des ressources :
+*   **Abstractions à coût nul** : Écrit en Rust, l'outil gère les services sans introduire de charge d'exécution supplémentaire.
+*   **Opérations Asynchrones** : Utilisation d'E/S asynchrones non bloquantes via Tokio pour une gestion fluide de la configuration et de Docker.
+*   **Utilisation optimisée de la mémoire** : La mise en cache en mémoire minimise les lectures redondantes et optimise la réactivité du tableau de bord.
+*   **Profilage matériel** : Désactive automatiquement le GC (Garbage Collection) inutile et limite la consommation de mémoire sur le matériel à profil "Low".
 
 ### Commandes CLI
 

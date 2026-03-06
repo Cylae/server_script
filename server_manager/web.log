@@ -1,0 +1,52 @@
+   Compiling serde v1.0.228
+   Compiling zerocopy v0.8.35
+   Compiling either v1.15.0
+   Compiling rayon v1.11.0
+   Compiling which v4.4.2
+   Compiling lock_api v0.4.14
+   Compiling serde_urlencoded v0.7.1
+   Compiling parking_lot v0.12.5
+   Compiling serde_yaml_ng v0.10.0
+   Compiling tokio v1.49.0
+   Compiling tower-cookies v0.10.0
+   Compiling sysinfo v0.29.11
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+   Compiling rand v0.8.5
+   Compiling hyper v1.8.1
+   Compiling tower-sessions-core v0.12.3
+   Compiling tower v0.5.3
+   Compiling tokio-util v0.7.18
+   Compiling tower-sessions-memory-store v0.12.3
+   Compiling hyper-util v0.1.19
+   Compiling tower-http v0.5.2
+   Compiling axum v0.7.9
+   Compiling tower-sessions v0.12.3
+   Compiling server_manager v1.0.7 (/app/server_manager)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.39s
+     Running `target/debug/server_manager web`
+[2026-03-06T14:33:21Z INFO  server_manager::core::users] No users found. Creating default 'admin' user.
+[2026-03-06T14:33:22Z INFO  server_manager::core::users] Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!
+[2026-03-06T14:33:22Z INFO  server_manager::interface::web] Starting Web UI on http://0.0.0.0:8099
+[2026-03-06T14:34:20Z INFO  tracing::span] call;
+[2026-03-06T14:34:20Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:20Z INFO  tracing::span] call;
+[2026-03-06T14:34:20Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:21Z INFO  tracing::span] call;
+[2026-03-06T14:34:23Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:23Z INFO  tracing::span] save;
+[2026-03-06T14:34:23Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:23Z INFO  tracing::span] call;
+[2026-03-06T14:34:23Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:54Z INFO  tracing::span] call;
+[2026-03-06T14:34:54Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:54Z INFO  tracing::span] call;
+[2026-03-06T14:34:54Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:54Z INFO  tracing::span] call;
+[2026-03-06T14:34:55Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:55Z INFO  tracing::span] save;
+[2026-03-06T14:34:55Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:55Z INFO  tracing::span] call;
+[2026-03-06T14:34:55Z INFO  tracing::span] get_record;
+[2026-03-06T14:34:56Z INFO  tracing::span] call;
+[2026-03-06T14:34:56Z INFO  tracing::span] get_record;

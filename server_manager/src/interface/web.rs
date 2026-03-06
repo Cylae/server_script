@@ -311,7 +311,7 @@ fn write_html_head(out: &mut String, title: &str) {
 }
 
 fn write_html_foot(out: &mut String) {
-    out.push_str(r#"
+    let _ = write!(out, r#"
         </div>
     </body>
     </html>
@@ -331,9 +331,9 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let config = state.get_config().await;
 
     // System Stats
-    let mut sys = state.system.lock().unwrap();
+    let mut sys = state.system.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let now = SystemTime::now();
-    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+    let mut last_refresh = state.last_system_refresh.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
     // Throttle refresh to max once every 500ms
     if now
@@ -385,13 +385,14 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
 
     // Navigation
     if is_admin {
-        html.push_str(
+        let _ = write!(
+            html,
             r#"
         <div class="nav">
             <a href="/">Dashboard</a>
             <a href="/users">User Management</a>
         </div>
-        "#,
+        "#
         );
     }
 
@@ -422,7 +423,8 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     );
 
     // Services Table
-    html.push_str(
+    let _ = write!(
+        html,
         r#"
         <h2>Services</h2>
         <table>
@@ -435,7 +437,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 </tr>
             </thead>
             <tbody>
-    "#,
+        "#
     );
 
     for svc in services {
@@ -477,13 +479,14 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 if enabled { "Disable" } else { "Enable" }
             );
         } else {
-            html.push_str("<span>Read-only</span>");
+            let _ = write!(html, "<span>Read-only</span>");
         };
 
-        html.push_str("</td></tr>");
+        let _ = write!(html, "</td></tr>");
     }
 
-    html.push_str(
+    let _ = write!(
+        html,
         r#"
             </tbody>
         </table>
@@ -509,7 +512,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "User Management - Server Manager");
 
-    html.push_str(r#"
+    let _ = write!(html, r#"
         <div class="header">
             <h1>User Management 👥</h1>
             <form method="POST" action="/logout">
@@ -575,7 +578,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                 let _ = write!(html, "{} GB", gb);
             }
             _ => {
-                html.push_str("Unlimited");
+                let _ = write!(html, "Unlimited");
             }
         }
 
@@ -591,7 +594,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
         "#, Escaped(&u.username));
     }
 
-    html.push_str("</tbody></table>");
+    let _ = write!(html, "</tbody></table>");
     write_html_foot(&mut html);
 
     Html(html).into_response()

@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_hex_generation() {
-        let hex = generate_hex(16).unwrap();
+        let hex = generate_hex(16).expect("Should generate hex correctly");
         assert_eq!(hex.len(), 32); // 16 bytes = 32 hex chars
     }
 
