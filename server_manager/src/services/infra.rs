@@ -30,30 +30,39 @@ impl Service for MariaDBService {
         // Nextcloud
         if let Some(pass) = &secrets.nextcloud_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS nextcloud;\n");
-            sql.push_str(&format!(
-                "CREATE USER IF NOT EXISTS 'nextcloud'@'%' IDENTIFIED BY '{}';\n",
-                escape(pass)
-            ));
+            let _ = std::fmt::Write::write_fmt(
+                &mut sql,
+                format_args!(
+                    "CREATE USER IF NOT EXISTS 'nextcloud'@'%' IDENTIFIED BY '{}';\n",
+                    escape(pass)
+                ),
+            );
             sql.push_str("GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'%';\n");
         }
 
         // GLPI
         if let Some(pass) = &secrets.glpi_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS glpi;\n");
-            sql.push_str(&format!(
-                "CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{}';\n",
-                escape(pass)
-            ));
+            let _ = std::fmt::Write::write_fmt(
+                &mut sql,
+                format_args!(
+                    "CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{}';\n",
+                    escape(pass)
+                ),
+            );
             sql.push_str("GRANT ALL PRIVILEGES ON glpi.* TO 'glpi'@'%';\n");
         }
 
         // Gitea
         if let Some(pass) = &secrets.gitea_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS gitea;\n");
-            sql.push_str(&format!(
-                "CREATE USER IF NOT EXISTS 'gitea'@'%' IDENTIFIED BY '{}';\n",
-                escape(pass)
-            ));
+            let _ = std::fmt::Write::write_fmt(
+                &mut sql,
+                format_args!(
+                    "CREATE USER IF NOT EXISTS 'gitea'@'%' IDENTIFIED BY '{}';\n",
+                    escape(pass)
+                ),
+            );
             sql.push_str("GRANT ALL PRIVILEGES ON gitea.* TO 'gitea'@'%';\n");
         }
 

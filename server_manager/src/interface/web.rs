@@ -90,7 +90,8 @@ impl AppState {
         let file_path = if path.exists() { path } else { fallback_path };
 
         // Fast path: check metadata
-        let current_mtime = tokio::fs::metadata(file_path).await
+        let current_mtime = tokio::fs::metadata(file_path)
+            .await
             .and_then(|m| m.modified())
             .ok();
 
@@ -106,7 +107,8 @@ impl AppState {
         let mut cache = self.users_cache.write().await;
 
         // Re-check mtime under write lock
-        let current_mtime_2 = tokio::fs::metadata(file_path).await
+        let current_mtime_2 = tokio::fs::metadata(file_path)
+            .await
             .and_then(|m| m.modified())
             .ok();
 
@@ -226,11 +228,18 @@ struct LoginPayload {
     password: String,
 }
 
-async fn login_handler(State(state): State<SharedState>, session: Session, Form(payload): Form<LoginPayload>) -> impl IntoResponse {
+async fn login_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Form(payload): Form<LoginPayload>,
+) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
     let user_manager = state.get_users().await;
 
-    if let Some(user) = user_manager.verify_async(&payload.username, &payload.password).await {
+    if let Some(user) = user_manager
+        .verify_async(&payload.username, &payload.password)
+        .await
+    {
         let session_user = SessionUser {
             username: user.username,
             role: user.role,
@@ -277,7 +286,9 @@ impl<'a> std::fmt::Display for Escaped<'a> {
 
 // Helper for common HTML head
 fn write_html_head(out: &mut String, title: &str) {
-    let _ = write!(out, r#"
+    let _ = write!(
+        out,
+        r#"
     <!DOCTYPE html>
     <html>
     <head>
@@ -307,15 +318,19 @@ fn write_html_head(out: &mut String, title: &str) {
     </head>
     <body>
         <div class="container">
-    "#, title);
+    "#,
+        title
+    );
 }
 
 fn write_html_foot(out: &mut String) {
-    out.push_str(r#"
+    out.push_str(
+        r#"
         </div>
     </body>
     </html>
-    "#);
+    "#,
+    );
 }
 
 // Protected Dashboard
@@ -331,9 +346,15 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let config = state.get_config().await;
 
     // System Stats
-    let mut sys = state.system.lock().unwrap();
+    let mut sys = state
+        .system
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let now = SystemTime::now();
-    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+    let mut last_refresh = state
+        .last_system_refresh
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     // Throttle refresh to max once every 500ms
     if now
@@ -365,7 +386,8 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
 
     if let Some(disk) = target_disk {
         disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
-        disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024; // GB
+        disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
+        // GB
     }
     drop(sys); // Release lock explicitely
 
@@ -381,7 +403,9 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
-    "#, Escaped(&user.username));
+    "#,
+        Escaped(&user.username)
+    );
 
     // Navigation
     if is_admin {
@@ -488,7 +512,8 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             </tbody>
         </table>
         <p><em>Note: Actions may take a moment to apply.</em></p>
-    "#);
+    "#,
+    );
     write_html_foot(&mut html);
 
     Html(html).into_response()
@@ -581,14 +606,18 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
 
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
-        let _ = write!(html, r#"</td>
+        let _ = write!(
+            html,
+            r#"</td>
                 <td>
                     <form method="POST" action="/users/delete/{}" onsubmit="return confirm('Are you sure you want to delete this user? This will delete their system account and data.');">
                         <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
                 </td>
             </tr>
-        "#, Escaped(&u.username));
+        "#,
+            Escaped(&u.username)
+        );
     }
 
     html.push_str("</tbody></table>");
@@ -605,7 +634,11 @@ struct AddUserPayload {
     quota: Option<u64>,
 }
 
-async fn add_user_handler(State(state): State<SharedState>, session: Session, Form(payload): Form<AddUserPayload>) -> impl IntoResponse {
+async fn add_user_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Form(payload): Form<AddUserPayload>,
+) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -628,27 +661,36 @@ async fn add_user_handler(State(state): State<SharedState>, session: Session, Fo
 
     let mut cache = state.users_cache.write().await;
     let res = tokio::task::block_in_place(|| {
-        cache.manager.add_user(&payload.username, &payload.password, role_enum, quota_val)
+        cache
+            .manager
+            .add_user(&payload.username, &payload.password, role_enum, quota_val)
     });
 
     if let Err(e) = res {
         error!("Failed to add user: {}", e);
         // In a real app we'd flash a message. Here just redirect.
     } else {
-        info!("User {} added via Web UI by {}", payload.username, session_user.username);
+        info!(
+            "User {} added via Web UI by {}",
+            payload.username, session_user.username
+        );
         // Update mtime to prevent unnecessary reload
         let path = std::path::Path::new("users.yaml");
         let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
         let file_path = if path.exists() { path } else { fallback_path };
         if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
+            cache.last_modified = m.modified().ok();
         }
     }
 
     Redirect::to("/users").into_response()
 }
 
-async fn delete_user_handler(State(state): State<SharedState>, session: Session, Path(username): Path<String>) -> impl IntoResponse {
+async fn delete_user_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Path(username): Path<String>,
+) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -659,20 +701,21 @@ async fn delete_user_handler(State(state): State<SharedState>, session: Session,
     }
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache.manager.delete_user(&username)
-    });
+    let res = tokio::task::block_in_place(|| cache.manager.delete_user(&username));
 
     if let Err(e) = res {
         error!("Failed to delete user: {}", e);
     } else {
-        info!("User {} deleted via Web UI by {}", username, session_user.username);
-         // Update mtime to prevent unnecessary reload
+        info!(
+            "User {} deleted via Web UI by {}",
+            username, session_user.username
+        );
+        // Update mtime to prevent unnecessary reload
         let path = std::path::Path::new("users.yaml");
         let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
         let file_path = if path.exists() { path } else { fallback_path };
         if let Ok(m) = std::fs::metadata(file_path) {
-             cache.last_modified = m.modified().ok();
+            cache.last_modified = m.modified().ok();
         }
     }
 

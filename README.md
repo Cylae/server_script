@@ -171,7 +171,7 @@ Here is the matrix of deployed services:
 | | Filebrowser | 8002 (Localhost) | `http://localhost:8002` | Web File Manager |
 | | Yourls | 8003 (Localhost) | `http://localhost:8003` | URL Shortener |
 | | GLPI | 8088 (Localhost) | `http://localhost:8088` | IT Asset Management |
-| | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
+| | Gitea | 3000 (Localhost), 2222 | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
 | | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | File Synchronization |
@@ -325,7 +325,7 @@ Voici la matrice des services déployés :
 | | Filebrowser | 8002 (Localhost) | `http://localhost:8002` | Web File Manager |
 | | Yourls | 8003 (Localhost) | `http://localhost:8003` | URL Shortener |
 | | GLPI | 8088 (Localhost) | `http://localhost:8088` | IT Asset Management |
-| | Gitea | 3000 (Localhost) | `http://localhost:3000` | Self-hosted Git |
+| | Gitea | 3000 (Localhost), 2222 | `http://localhost:3000` | Self-hosted Git |
 | | Roundcube | 8090 (Localhost) | `http://localhost:8090` | Webmail |
 | | Mailserver | 25, 143, 587, 993 | - | Full Mail Server |
 | | Syncthing | 8384 (Localhost), 22000 | `http://localhost:8384` | Synchronisation de Fichiers |

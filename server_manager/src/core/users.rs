@@ -233,7 +233,9 @@ mod tests {
         // Verify
         let user = manager.verify("testuser", "password123");
         assert!(user.is_some());
-        assert_eq!(user.unwrap().role, Role::Observer);
+        if let Some(u) = user {
+            assert_eq!(u.role, Role::Observer);
+        }
 
         assert!(manager.verify("testuser", "wrongpass").is_none());
 
@@ -250,17 +252,16 @@ mod tests {
     #[test]
     fn test_admin_protection() {
         let mut manager = UserManager::default();
-        manager
-            .add_user("admin", "admin", Role::Admin, None)
-            .unwrap();
+        let res1 = manager.add_user("admin", "admin", Role::Admin, None);
+        assert!(res1.is_ok());
 
         // Should fail to delete last admin
         assert!(manager.delete_user("admin").is_err());
 
         // Add another admin
-        manager
-            .add_user("admin2", "admin", Role::Admin, None)
-            .unwrap();
+        let res2 = manager.add_user("admin2", "admin", Role::Admin, None);
+        assert!(res2.is_ok());
+
         // Now can delete one
         assert!(manager.delete_user("admin").is_ok());
     }
