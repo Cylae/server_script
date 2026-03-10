@@ -331,9 +331,9 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let config = state.get_config().await;
 
     // System Stats
-    let mut sys = state.system.lock().unwrap();
+    let mut sys = state.system.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let now = SystemTime::now();
-    let mut last_refresh = state.last_system_refresh.lock().unwrap();
+    let mut last_refresh = state.last_system_refresh.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
     // Throttle refresh to max once every 500ms
     if now

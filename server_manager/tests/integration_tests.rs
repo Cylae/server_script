@@ -32,7 +32,7 @@ fn test_generate_compose_structure() {
     let config = Config::default();
 
     // 2. Build Structure
-    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
 
     // 3. Verify Top Level Keys (Struct fields exist by definition)
 
@@ -48,15 +48,15 @@ fn test_generate_compose_structure() {
     assert!(compose.services.contains_key("bazarr"));
     assert!(compose.services.contains_key("syncthing"));
 
-    let plex = compose.services.get("plex").unwrap();
+    let plex = compose.services.get("plex").expect("Value should exist");
     assert_eq!(plex.image, "lscr.io/linuxserver/plex:latest");
 
-    let syncthing = compose.services.get("syncthing").unwrap();
-    let st_ports = syncthing.ports.as_ref().unwrap();
+    let syncthing = compose.services.get("syncthing").expect("Value should exist");
+    let st_ports = syncthing.ports.as_ref().expect("Value should exist");
     assert!(st_ports.iter().any(|p| p.starts_with("127.0.0.1:8384")));
 
     // 7. Verify Network attachment
-    let plex_nets = plex.networks.as_ref().unwrap();
+    let plex_nets = plex.networks.as_ref().expect("Value should exist");
     assert!(plex_nets.contains(&"server_manager_net".to_string()));
 }
 
@@ -77,15 +77,15 @@ fn test_security_bindings() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
 
     // 1. MariaDB should have NO ports
-    let mariadb = compose.services.get("mariadb").unwrap();
+    let mariadb = compose.services.get("mariadb").expect("Value should exist");
     assert!(mariadb.ports.is_none(), "MariaDB should not expose ports");
 
     // 2. Sonarr should be bound to 127.0.0.1
-    let sonarr = compose.services.get("sonarr").unwrap();
-    let ports = sonarr.ports.as_ref().unwrap();
+    let sonarr = compose.services.get("sonarr").expect("Value should exist");
+    let ports = sonarr.ports.as_ref().expect("Value should exist");
     let port_str = &ports[0];
     assert!(
         port_str.starts_with("127.0.0.1:"),
@@ -94,8 +94,8 @@ fn test_security_bindings() {
     );
 
     // 3. Plex should still be exposed (host mapping implied or explicit 0.0.0.0)
-    let plex = compose.services.get("plex").unwrap();
-    let ports = plex.ports.as_ref().unwrap();
+    let plex = compose.services.get("plex").expect("Value should exist");
+    let ports = plex.ports.as_ref().expect("Value should exist");
     let port_str = &ports[0];
     assert!(
         !port_str.starts_with("127.0.0.1:"),
@@ -121,9 +121,9 @@ fn test_profile_logic_low() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let mail = compose.services.get("mailserver").unwrap();
-    let envs = mail.environment.as_ref().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let mail = compose.services.get("mailserver").expect("Value should exist");
+    let envs = mail.environment.as_ref().expect("Value should exist");
 
     // Check for ENABLE_SPAMASSASSIN=0
     let has_disabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=0");
@@ -147,9 +147,9 @@ fn test_profile_logic_standard() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let mail = compose.services.get("mailserver").unwrap();
-    let envs = mail.environment.as_ref().unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let mail = compose.services.get("mailserver").expect("Value should exist");
+    let envs = mail.environment.as_ref().expect("Value should exist");
 
     // Check for ENABLE_SPAMASSASSIN=1
     let has_enabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=1");
@@ -176,17 +176,17 @@ fn test_resource_generation() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
-    let mariadb = compose.services.get("mariadb").unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let mariadb = compose.services.get("mariadb").expect("Value should exist");
 
     // Check deploy key exists
     assert!(mariadb.deploy.is_some());
 
-    let deploy = mariadb.deploy.as_ref().unwrap();
-    let resources = deploy.resources.as_ref().unwrap();
-    let limits = resources.limits.as_ref().unwrap();
+    let deploy = mariadb.deploy.as_ref().expect("Value should exist");
+    let resources = deploy.resources.as_ref().expect("Value should exist");
+    let limits = resources.limits.as_ref().expect("Value should exist");
 
-    let memory = limits.memory.as_ref().unwrap();
+    let memory = limits.memory.as_ref().expect("Value should exist");
     assert_eq!(memory, "4G", "MariaDB should have 4G limit on High profile");
 }
 
@@ -209,7 +209,7 @@ fn test_disabled_service_filtering() {
     let mut config = Config::default();
     config.disable_service("plex");
 
-    let compose = build_compose_structure(&hw, &secrets, &config).unwrap();
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
 
     assert!(
         !compose.services.contains_key("plex"),

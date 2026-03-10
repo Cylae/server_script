@@ -3,6 +3,7 @@ use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -30,30 +31,33 @@ impl Service for MariaDBService {
         // Nextcloud
         if let Some(pass) = &secrets.nextcloud_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS nextcloud;\n");
-            sql.push_str(&format!(
+            let _ = write!(
+                sql,
                 "CREATE USER IF NOT EXISTS 'nextcloud'@'%' IDENTIFIED BY '{}';\n",
                 escape(pass)
-            ));
+            );
             sql.push_str("GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'%';\n");
         }
 
         // GLPI
         if let Some(pass) = &secrets.glpi_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS glpi;\n");
-            sql.push_str(&format!(
+            let _ = write!(
+                sql,
                 "CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{}';\n",
                 escape(pass)
-            ));
+            );
             sql.push_str("GRANT ALL PRIVILEGES ON glpi.* TO 'glpi'@'%';\n");
         }
 
         // Gitea
         if let Some(pass) = &secrets.gitea_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS gitea;\n");
-            sql.push_str(&format!(
+            let _ = write!(
+                sql,
                 "CREATE USER IF NOT EXISTS 'gitea'@'%' IDENTIFIED BY '{}';\n",
                 escape(pass)
-            ));
+            );
             sql.push_str("GRANT ALL PRIVILEGES ON gitea.* TO 'gitea'@'%';\n");
         }
 
