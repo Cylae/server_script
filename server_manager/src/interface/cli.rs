@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use log::{error, info};
+use std::fmt::Write;
 use std::fs;
 use std::io::{self, Write as IoWrite};
-use std::fmt::Write;
 use std::process::Command;
 
 use crate::build_compose_structure;
@@ -253,32 +253,95 @@ async fn run_install() -> Result<()> {
 
 fn print_deployment_summary(secrets: &secrets::Secrets) {
     let mut summary = String::new();
-    summary.push_str("\n=================================================================================\n");
+    summary.push_str(
+        "\n=================================================================================\n",
+    );
     summary.push_str("                           DEPLOYMENT SUMMARY 🚀\n");
-    summary.push_str("=================================================================================\n");
-    let _ = write!(summary, "{:<15} | {:<25} | {:<15} | Password / Info\n", "Service", "URL", "User");
-    let _ = write!(summary, "{:<15} | {:<25} | {:<15} | ---------------\n", "-------", "---", "----");
+    summary.push_str(
+        "=================================================================================\n",
+    );
+    let _ = writeln!(
+        summary,
+        "{:<15} | {:<25} | {:<15} | Password / Info",
+        "Service", "URL", "User"
+    );
+    let _ = writeln!(
+        summary,
+        "{:<15} | {:<25} | {:<15} | ---------------",
+        "-------", "---", "----"
+    );
 
     let mut append_row = |service: &str, url: &str, user: &str, pass: &str| {
-        let _ = write!(summary, "{:<15} | {:<25} | {:<15} | {}\n", service, url, user, pass);
+        let _ = writeln!(
+            summary,
+            "{:<15} | {:<25} | {:<15} | {}",
+            service, url, user, pass
+        );
     };
 
     // Helper to format Option<String>
     let pass = |opt: &Option<String>| opt.clone().unwrap_or_else(|| "ERROR".to_string());
 
-    append_row("Nginx Proxy", "http://<IP>:81", "admin@example.com", "changeme");
-    append_row("Portainer", "http://<IP>:9000", "admin", "Set on first login");
-    append_row("Nextcloud", "https://<IP>:4443", "admin", &pass(&secrets.nextcloud_admin_password));
-    append_row("Vaultwarden", "http://<IP>:8001/admin", "(Token)", &pass(&secrets.vaultwarden_admin_token));
+    append_row(
+        "Nginx Proxy",
+        "http://<IP>:81",
+        "admin@example.com",
+        "changeme",
+    );
+    append_row(
+        "Portainer",
+        "http://<IP>:9000",
+        "admin",
+        "Set on first login",
+    );
+    append_row(
+        "Nextcloud",
+        "https://<IP>:4443",
+        "admin",
+        &pass(&secrets.nextcloud_admin_password),
+    );
+    append_row(
+        "Vaultwarden",
+        "http://<IP>:8001/admin",
+        "(Token)",
+        &pass(&secrets.vaultwarden_admin_token),
+    );
     append_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
-    append_row("GLPI", "http://<IP>:8088", "glpi", "glpi (Change immediately!)");
-    append_row("Yourls", "http://<IP>:8003/admin", "admin", &pass(&secrets.yourls_admin_password));
-    append_row("Roundcube", "http://<IP>:8090", "-", "Login with Mail creds");
-    append_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec -ti mailserver setup ...");
+    append_row(
+        "GLPI",
+        "http://<IP>:8088",
+        "glpi",
+        "glpi (Change immediately!)",
+    );
+    append_row(
+        "Yourls",
+        "http://<IP>:8003/admin",
+        "admin",
+        &pass(&secrets.yourls_admin_password),
+    );
+    append_row(
+        "Roundcube",
+        "http://<IP>:8090",
+        "-",
+        "Login with Mail creds",
+    );
+    append_row(
+        "MailServer",
+        "PORTS: 25, 143...",
+        "CLI",
+        "docker exec -ti mailserver setup ...",
+    );
     append_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
-    append_row("ArrStack", "http://<IP>:8989 (Sonarr)", "-", "No auth by default");
+    append_row(
+        "ArrStack",
+        "http://<IP>:8989 (Sonarr)",
+        "-",
+        "No auth by default",
+    );
 
-    summary.push_str("=================================================================================\n\n");
+    summary.push_str(
+        "=================================================================================\n\n",
+    );
     summary.push_str("NOTE: Replace <IP> with your server's IP address.");
 
     println!("{}", summary);
