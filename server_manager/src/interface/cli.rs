@@ -2,7 +2,8 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use log::{error, info};
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Write as IoWrite};
+use std::fmt::Write;
 use std::process::Command;
 
 use crate::build_compose_structure;
@@ -255,11 +256,11 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     summary.push_str("\n=================================================================================\n");
     summary.push_str("                           DEPLOYMENT SUMMARY 🚀\n");
     summary.push_str("=================================================================================\n");
-    summary.push_str(&format!("{:<15} | {:<25} | {:<15} | Password / Info\n", "Service", "URL", "User"));
-    summary.push_str(&format!("{:<15} | {:<25} | {:<15} | ---------------\n", "-------", "---", "----"));
+    let _ = write!(summary, "{:<15} | {:<25} | {:<15} | Password / Info\n", "Service", "URL", "User");
+    let _ = write!(summary, "{:<15} | {:<25} | {:<15} | ---------------\n", "-------", "---", "----");
 
     let mut append_row = |service: &str, url: &str, user: &str, pass: &str| {
-        summary.push_str(&format!("{:<15} | {:<25} | {:<15} | {}\n", service, url, user, pass));
+        let _ = write!(summary, "{:<15} | {:<25} | {:<15} | {}\n", service, url, user, pass);
     };
 
     // Helper to format Option<String>
