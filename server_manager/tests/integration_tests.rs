@@ -51,7 +51,10 @@ fn test_generate_compose_structure() {
     let plex = compose.services.get("plex").expect("Value should exist");
     assert_eq!(plex.image, "lscr.io/linuxserver/plex:latest");
 
-    let syncthing = compose.services.get("syncthing").expect("Value should exist");
+    let syncthing = compose
+        .services
+        .get("syncthing")
+        .expect("Value should exist");
     let st_ports = syncthing.ports.as_ref().expect("Value should exist");
     assert!(st_ports.iter().any(|p| p.starts_with("127.0.0.1:8384")));
 
@@ -122,7 +125,10 @@ fn test_profile_logic_low() {
     let config = Config::default();
 
     let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
-    let mail = compose.services.get("mailserver").expect("Value should exist");
+    let mail = compose
+        .services
+        .get("mailserver")
+        .expect("Value should exist");
     let envs = mail.environment.as_ref().expect("Value should exist");
 
     // Check for ENABLE_SPAMASSASSIN=0
@@ -148,7 +154,10 @@ fn test_profile_logic_standard() {
     let config = Config::default();
 
     let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
-    let mail = compose.services.get("mailserver").expect("Value should exist");
+    let mail = compose
+        .services
+        .get("mailserver")
+        .expect("Value should exist");
     let envs = mail.environment.as_ref().expect("Value should exist");
 
     // Check for ENABLE_SPAMASSASSIN=1
