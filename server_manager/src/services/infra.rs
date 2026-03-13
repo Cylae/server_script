@@ -31,9 +31,9 @@ impl Service for MariaDBService {
         // Nextcloud
         if let Some(pass) = &secrets.nextcloud_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS nextcloud;\n");
-            let _ = write!(
+            let _ = writeln!(
                 sql,
-                "CREATE USER IF NOT EXISTS 'nextcloud'@'%' IDENTIFIED BY '{}';\n",
+                "CREATE USER IF NOT EXISTS 'nextcloud'@'%' IDENTIFIED BY '{}';",
                 escape(pass)
             );
             sql.push_str("GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'%';\n");
@@ -42,9 +42,9 @@ impl Service for MariaDBService {
         // GLPI
         if let Some(pass) = &secrets.glpi_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS glpi;\n");
-            let _ = write!(
+            let _ = writeln!(
                 sql,
-                "CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{}';\n",
+                "CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{}';",
                 escape(pass)
             );
             sql.push_str("GRANT ALL PRIVILEGES ON glpi.* TO 'glpi'@'%';\n");
@@ -53,9 +53,9 @@ impl Service for MariaDBService {
         // Gitea
         if let Some(pass) = &secrets.gitea_db_password {
             sql.push_str("CREATE DATABASE IF NOT EXISTS gitea;\n");
-            let _ = write!(
+            let _ = writeln!(
                 sql,
-                "CREATE USER IF NOT EXISTS 'gitea'@'%' IDENTIFIED BY '{}';\n",
+                "CREATE USER IF NOT EXISTS 'gitea'@'%' IDENTIFIED BY '{}';",
                 escape(pass)
             );
             sql.push_str("GRANT ALL PRIVILEGES ON gitea.* TO 'gitea'@'%';\n");
