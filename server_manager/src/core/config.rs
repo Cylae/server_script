@@ -109,6 +109,12 @@ impl Config {
         Ok(())
     }
 
+    pub async fn save_async(&self) -> Result<()> {
+        let content = serde_yaml_ng::to_string(self)?;
+        tokio::fs::write("config.yaml", content).await.context("Failed to write config.yaml")?;
+        Ok(())
+    }
+
     pub fn is_enabled(&self, service_name: &str) -> bool {
         !self.disabled_services.contains(service_name)
     }
