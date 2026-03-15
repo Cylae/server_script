@@ -349,12 +349,12 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let mut sys = state
         .system
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let now = SystemTime::now();
     let mut last_refresh = state
         .last_system_refresh
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
 
     // Throttle refresh to max once every 500ms
     if now
@@ -659,12 +659,14 @@ async fn add_user_handler(
         None => None,
     };
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache
-            .manager
-            .add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let res = {
+        let mut cache = state.users_cache.write().await;
+        tokio::task::block_in_place(|| {
+            cache
+                .manager
+                .add_user(&payload.username, &payload.password, role_enum, quota_val)
+        })
+    };
 
     if let Err(e) = res {
         error!("Failed to add user: {}", e);
@@ -675,6 +677,7 @@ async fn add_user_handler(
             payload.username, session_user.username
         );
         // Update mtime to prevent unnecessary reload
+        let mut cache = state.users_cache.write().await;
         let path = std::path::Path::new("users.yaml");
         let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
         let file_path = if path.exists() { path } else { fallback_path };
@@ -700,8 +703,10 @@ async fn delete_user_handler(
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
 
-    let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| cache.manager.delete_user(&username));
+    let res = {
+        let mut cache = state.users_cache.write().await;
+        tokio::task::block_in_place(|| cache.manager.delete_user(&username))
+    };
 
     if let Err(e) = res {
         error!("Failed to delete user: {}", e);
@@ -711,6 +716,7 @@ async fn delete_user_handler(
             username, session_user.username
         );
         // Update mtime to prevent unnecessary reload
+        let mut cache = state.users_cache.write().await;
         let path = std::path::Path::new("users.yaml");
         let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
         let file_path = if path.exists() { path } else { fallback_path };
