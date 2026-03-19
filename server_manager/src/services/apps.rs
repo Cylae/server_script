@@ -21,7 +21,11 @@ impl Service for VaultwardenService {
         let mut vars = HashMap::new();
         vars.insert(
             "ADMIN_TOKEN".to_string(),
-            secrets.vaultwarden_admin_token.clone().unwrap_or_default(),
+            secrets
+                .vaultwarden_admin_token
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars
     }
@@ -67,13 +71,21 @@ impl Service for YourlsService {
         vars.insert("YOURLS_DB_USER".to_string(), "server_manager".to_string());
         vars.insert(
             "YOURLS_DB_PASS".to_string(),
-            secrets.mysql_user_password.clone().unwrap_or_default(),
+            secrets
+                .mysql_user_password
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars.insert("YOURLS_DB_NAME".to_string(), "yourls".to_string());
         vars.insert("YOURLS_USER".to_string(), "admin".to_string());
         vars.insert(
             "YOURLS_PASS".to_string(),
-            secrets.yourls_admin_password.clone().unwrap_or_default(),
+            secrets
+                .yourls_admin_password
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars
     }
@@ -123,7 +135,11 @@ impl Service for GiteaService {
         vars.insert("GITEA__database__USER".to_string(), "gitea".to_string());
         vars.insert(
             "GITEA__database__PASSWD".to_string(),
-            secrets.gitea_db_password.clone().unwrap_or_default(),
+            secrets
+                .gitea_db_password
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars
     }
@@ -191,8 +207,18 @@ impl Service for NextcloudService {
         }
 
         let escape_php = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-        let db_pass = escape_php(&secrets.nextcloud_db_password.clone().unwrap_or_default());
-        let admin_pass = escape_php(&secrets.nextcloud_admin_password.clone().unwrap_or_default());
+        let db_pass = escape_php(
+            secrets
+                .nextcloud_db_password
+                .as_deref()
+                .unwrap_or_default(),
+        );
+        let admin_pass = escape_php(
+            secrets
+                .nextcloud_admin_password
+                .as_deref()
+                .unwrap_or_default(),
+        );
 
         let php_config = format!(
             r#"<?php
@@ -224,7 +250,11 @@ $AUTOCONFIG = array(
         vars.insert("MYSQL_USER".to_string(), "nextcloud".to_string());
         vars.insert(
             "MYSQL_PASSWORD".to_string(),
-            secrets.nextcloud_db_password.clone().unwrap_or_default(),
+            secrets
+                .nextcloud_db_password
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars.insert("REDIS_HOST".to_string(), "redis".to_string());
         vars
