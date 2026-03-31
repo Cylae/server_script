@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.8-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -101,7 +101,7 @@ The tool provides several subcommands:
 You can manage your services via a secure web dashboard.
 1. Run `server_manager web`.
 2. Open `http://YOUR-SERVER-IP:8099`.
-3. Login with your credentials. (Default: `admin` / `admin` - **Change this immediately!**)
+3. Login with your credentials. (The initial admin user's password is randomly generated during installation or first load and persisted in `secrets.yaml` as `server_manager_admin_password`).
 4. View status and Enable/Disable services (Admin only).
 
 ### 👥 User Management & Quotas
@@ -255,7 +255,7 @@ L'outil dispose de plusieurs sous-commandes :
 Vous pouvez gérer vos services via un tableau de bord web sécurisé.
 1. Lancez `server_manager web`.
 2. Ouvrez `http://IP-DE-VOTRE-SERVEUR:8099`.
-3. Connectez-vous avec vos identifiants. (Défaut : `admin` / `admin` - **Changez-le immédiatement !**)
+3. Connectez-vous avec vos identifiants. (Le mot de passe de l'utilisateur admin initial est généré aléatoirement lors de l'installation ou du premier lancement et conservé dans `secrets.yaml` sous le nom `server_manager_admin_password`).
 4. Visualisez le statut et Activez/Désactivez les services (Admin uniquement).
 
 ### 👥 Gestion des Utilisateurs & Quotas
