@@ -17,6 +17,7 @@ pub struct Secrets {
     pub roundcube_db_password: Option<String>,
     pub yourls_admin_password: Option<String>,
     pub vaultwarden_admin_token: Option<String>,
+    pub server_manager_admin_password: Option<String>,
 }
 
 impl Secrets {
@@ -31,43 +32,47 @@ impl Secrets {
 
         let mut changed = false;
         if secrets.mysql_root_password.is_none() {
-            secrets.mysql_root_password = Some(generate_hex(16)?);
+            secrets.mysql_root_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.mysql_user_password.is_none() {
-            secrets.mysql_user_password = Some(generate_hex(16)?);
+            secrets.mysql_user_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.nextcloud_admin_password.is_none() {
-            secrets.nextcloud_admin_password = Some(generate_hex(16)?);
+            secrets.nextcloud_admin_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.nextcloud_db_password.is_none() {
-            secrets.nextcloud_db_password = Some(generate_hex(16)?);
+            secrets.nextcloud_db_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.mailserver_password.is_none() {
-            secrets.mailserver_password = Some(generate_hex(16)?);
+            secrets.mailserver_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.glpi_db_password.is_none() {
-            secrets.glpi_db_password = Some(generate_hex(16)?);
+            secrets.glpi_db_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.gitea_db_password.is_none() {
-            secrets.gitea_db_password = Some(generate_hex(16)?);
+            secrets.gitea_db_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.roundcube_db_password.is_none() {
-            secrets.roundcube_db_password = Some(generate_hex(16)?);
+            secrets.roundcube_db_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.yourls_admin_password.is_none() {
-            secrets.yourls_admin_password = Some(generate_hex(16)?);
+            secrets.yourls_admin_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
         if secrets.vaultwarden_admin_token.is_none() {
-            secrets.vaultwarden_admin_token = Some(generate_hex(16)?);
+            secrets.vaultwarden_admin_token = Some(Secrets::generate_hex(16)?);
+            changed = true;
+        }
+        if secrets.server_manager_admin_password.is_none() {
+            secrets.server_manager_admin_password = Some(Secrets::generate_hex(16)?);
             changed = true;
         }
 
@@ -79,19 +84,19 @@ impl Secrets {
 
         Ok(secrets)
     }
-}
 
-fn generate_hex(bytes: usize) -> Result<String> {
-    let mut buffer = vec![0u8; bytes];
-    rand::rng().fill(&mut buffer[..]);
+    pub fn generate_hex(bytes: usize) -> Result<String> {
+        let mut buffer = vec![0u8; bytes];
+        rand::rng().fill(&mut buffer[..]);
 
-    const HEX_CHARS: &[u8] = b"0123456789abcdef";
-    let mut s = String::with_capacity(bytes * 2);
-    for b in buffer {
-        s.push(HEX_CHARS[(b >> 4) as usize] as char);
-        s.push(HEX_CHARS[(b & 0x0f) as usize] as char);
+        const HEX_CHARS: &[u8] = b"0123456789abcdef";
+        let mut s = String::with_capacity(bytes * 2);
+        for b in buffer {
+            s.push(HEX_CHARS[(b >> 4) as usize] as char);
+            s.push(HEX_CHARS[(b & 0x0f) as usize] as char);
+        }
+        Ok(s)
     }
-    Ok(s)
 }
 
 #[cfg(test)]
@@ -100,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_hex_generation() {
-        let hex = generate_hex(16).expect("Value should exist");
+        let hex = Secrets::generate_hex(16).expect("Value should exist");
         assert_eq!(hex.len(), 32); // 16 bytes = 32 hex chars
     }
 
