@@ -28,6 +28,7 @@ fn test_generate_compose_structure() {
         nextcloud_admin_password: Some("nextcloudadmin".to_string()),
         roundcube_db_password: Some("roundcubepass".to_string()),
         vaultwarden_admin_token: Some("token".to_string()),
+        server_manager_admin_password: Some("admin_pwd".to_string()),
     };
     let config = Config::default();
 

@@ -1,7 +1,10 @@
 [package]
 name = "server_manager"
-version = "1.0.8"
+version = "1.0.9"
 edition = "2021"
+
+[features]
+async_tokio = ["criterion/async_tokio"]
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }

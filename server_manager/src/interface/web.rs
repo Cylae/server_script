@@ -660,26 +660,36 @@ async fn add_user_handler(
     };
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache
-            .manager
-            .add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
 
-    if let Err(e) = res {
-        error!("Failed to add user: {}", e);
-        // In a real app we'd flash a message. Here just redirect.
-    } else {
-        info!(
-            "User {} added via Web UI by {}",
-            payload.username, session_user.username
-        );
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-            cache.last_modified = m.modified().ok();
+    let mut cloned_manager = cache.manager.clone();
+    let cloned_username = payload.username.clone();
+    let cloned_password = payload.password.clone();
+    let res: anyhow::Result<UserManager> = tokio::task::spawn_blocking(move || {
+        cloned_manager.add_user(&cloned_username, &cloned_password, role_enum, quota_val)?;
+        Ok(cloned_manager)
+    })
+    .await
+    .unwrap_or_else(|e| Err(anyhow::anyhow!("Spawn blocking failed: {}", e)));
+
+    match res {
+        Err(e) => {
+            error!("Failed to add user: {}", e);
+            // In a real app we'd flash a message. Here just redirect.
+        }
+        Ok(mgr) => {
+            info!(
+                "User {} added via Web UI by {}",
+                payload.username, session_user.username
+            );
+            cache.manager = mgr;
+
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
         }
     }
 
@@ -701,21 +711,33 @@ async fn delete_user_handler(
     }
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| cache.manager.delete_user(&username));
+    let mut cloned_manager = cache.manager.clone();
+    let cloned_username = username.clone();
+    let res: anyhow::Result<UserManager> = tokio::task::spawn_blocking(move || {
+        cloned_manager.delete_user(&cloned_username)?;
+        Ok(cloned_manager)
+    })
+    .await
+    .unwrap_or_else(|e| Err(anyhow::anyhow!("Spawn blocking failed: {}", e)));
 
-    if let Err(e) = res {
-        error!("Failed to delete user: {}", e);
-    } else {
-        info!(
-            "User {} deleted via Web UI by {}",
-            username, session_user.username
-        );
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-            cache.last_modified = m.modified().ok();
+    match res {
+        Err(e) => {
+            error!("Failed to delete user: {}", e);
+        }
+        Ok(mgr) => {
+            info!(
+                "User {} deleted via Web UI by {}",
+                username, session_user.username
+            );
+            cache.manager = mgr;
+
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
         }
     }
 

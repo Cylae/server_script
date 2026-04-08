@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use crate::core::secrets::Secrets;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum Role {
@@ -62,15 +63,13 @@ impl UserManager {
         // Ensure default admin exists if no users
         if manager.users.is_empty() {
             info!("No users found. Creating default 'admin' user.");
-            // We use a generated secret for the initial password if secrets exist,
-            // otherwise generate one.
-            // Better: use 'admin' / 'admin' but WARN, or generate random.
-            // Let's generate a random one and print it, safer.
-            // Re-using secrets generation logic if possible, or just simple random.
-            // For simplicity in this context, let's look for a stored password or default to 'admin' and log a warning.
 
-            let pass = "admin";
-            let hash = hash(pass, DEFAULT_COST)?;
+            let pass = match Secrets::load_or_create() {
+                Ok(secrets) => secrets.server_manager_admin_password.unwrap_or_else(|| "admin".to_string()),
+                Err(_) => "admin".to_string(),
+            };
+
+            let hash = hash(&pass, DEFAULT_COST)?;
             manager.users.insert(
                 "admin".to_string(),
                 User {
@@ -81,7 +80,11 @@ impl UserManager {
                 },
             );
             manager.save()?;
-            info!("Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!");
+            if pass == "admin" {
+                info!("Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!");
+            } else {
+                info!("Default user 'admin' created with randomly generated password from secrets.yaml.");
+            }
         }
 
         Ok(manager)
