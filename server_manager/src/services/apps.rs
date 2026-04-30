@@ -191,8 +191,8 @@ impl Service for NextcloudService {
         }
 
         let escape_php = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-        let db_pass = escape_php(&secrets.nextcloud_db_password.clone().unwrap_or_default());
-        let admin_pass = escape_php(&secrets.nextcloud_admin_password.clone().unwrap_or_default());
+        let db_pass = escape_php(secrets.nextcloud_db_password.as_deref().unwrap_or_default());
+        let admin_pass = escape_php(secrets.nextcloud_admin_password.as_deref().unwrap_or_default());
 
         let php_config = format!(
             r#"<?php
