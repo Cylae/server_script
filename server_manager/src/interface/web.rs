@@ -365,6 +365,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     {
         sys.refresh_cpu();
         sys.refresh_memory();
+        sys.refresh_disks_list();
         sys.refresh_disks();
         *last_refresh = now;
     }
