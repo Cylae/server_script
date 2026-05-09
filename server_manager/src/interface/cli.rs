@@ -280,7 +280,7 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     };
 
     // Helper to format Option<String>
-    let pass = |opt: &Option<String>| opt.clone().unwrap_or_else(|| "ERROR".to_string());
+    let pass = |opt: &Option<String>| opt.as_deref().unwrap_or("ERROR").to_string();
 
     append_row(
         "Nginx Proxy",
