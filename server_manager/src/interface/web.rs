@@ -286,7 +286,7 @@ impl<'a> std::fmt::Display for Escaped<'a> {
 
 // Helper for common HTML head
 fn write_html_head(out: &mut String, title: &str) {
-    let _ = write!(
+    let _ = writeln!(
         out,
         r#"
     <!DOCTYPE html>
@@ -394,7 +394,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
 
-    let _ = write!(
+    let _ = writeln!(
         html,
         r#"
         <div class="header">
@@ -420,7 +420,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     }
 
     // Stats Grid
-    let _ = write!(
+    let _ = writeln!(
         html,
         r#"
         <div class="stats-grid">
@@ -472,7 +472,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
 
-        let _ = write!(
+        let _ = writeln!(
             html,
             r#"
             <tr>
@@ -488,7 +488,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         );
 
         if is_admin {
-            let _ = write!(
+            let _ = writeln!(
                 html,
                 r#"
                     <form method="POST" action="/api/services/{}/{}">
@@ -584,7 +584,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     "#);
 
     for u in user_manager.list_users() {
-        let _ = write!(
+        let _ = writeln!(
             html,
             r#"
             <tr>
@@ -597,16 +597,16 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
 
         match u.quota_gb {
             Some(gb) if gb > 0 => {
-                let _ = write!(html, "{} GB", gb);
+                let _ = writeln!(html, "{} GB", gb);
             }
             _ => {
-                html.push_str("Unlimited");
+                html.push_str("Unlimited\n");
             }
         }
 
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
-        let _ = write!(
+        let _ = writeln!(
             html,
             r#"</td>
                 <td>
