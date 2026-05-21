@@ -30,6 +30,8 @@ pub enum Commands {
     Enable { service: String },
     /// Disable a service
     Disable { service: String },
+    /// Apply config and deploy (no full install)
+    Apply,
     /// Start the Web Administration Interface
     Web {
         #[arg(long, default_value_t = 8099)]
@@ -69,6 +71,7 @@ pub async fn run() -> Result<()> {
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
         Commands::Disable { service } => run_toggle_service(service, false).await?,
+        Commands::Apply => run_apply().await?,
         Commands::Web { port } => crate::interface::web::start_server(port).await?,
         Commands::User { action } => run_user_management(action)?,
     }
@@ -191,6 +194,32 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
         );
     } else {
         error!("Failed to apply changes via Docker Compose.");
+    }
+
+    Ok(())
+}
+
+async fn run_apply() -> Result<()> {
+    info!("Applying Server Manager Configuration...");
+
+    let secrets = secrets::Secrets::load_or_create()?;
+    let config = config::Config::load()?;
+    let hw = hardware::HardwareInfo::detect();
+
+    configure_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config)?;
+    generate_compose(&hw, &secrets, &config).await?;
+
+    info!("Applying changes via Docker Compose...");
+    let status = Command::new("docker")
+        .args(["compose", "up", "-d", "--remove-orphans"])
+        .status()
+        .context("Failed to run docker compose up")?;
+
+    if status.success() {
+        info!("Server Manager Configuration Applied Successfully! 🚀");
+    } else {
+        error!("Docker Compose failed.");
     }
 
     Ok(())
