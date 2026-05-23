@@ -31,6 +31,7 @@ impl HardwareInfo {
         sys.refresh_memory();
         sys.refresh_cpu();
         sys.refresh_disks_list();
+        sys.refresh_disks();
 
         let total_memory = sys.total_memory(); // Bytes
         let ram_gb = total_memory / 1024 / 1024 / 1024;
