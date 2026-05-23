@@ -97,13 +97,21 @@ max_connections={}
         vars.insert("PGID".to_string(), hw.group_id.clone());
         vars.insert(
             "MYSQL_ROOT_PASSWORD".to_string(),
-            secrets.mysql_root_password.clone().unwrap_or_default(),
+            secrets
+                .mysql_root_password
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars.insert("MYSQL_DATABASE".to_string(), "server_manager".to_string());
         vars.insert("MYSQL_USER".to_string(), "server_manager".to_string());
         vars.insert(
             "MYSQL_PASSWORD".to_string(),
-            secrets.mysql_user_password.clone().unwrap_or_default(),
+            secrets
+                .mysql_user_password
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
         );
         vars
     }
