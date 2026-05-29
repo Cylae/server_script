@@ -660,26 +660,36 @@ async fn add_user_handler(
     };
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| {
-        cache
-            .manager
-            .add_user(&payload.username, &payload.password, role_enum, quota_val)
-    });
+    let mut manager_clone = cache.manager.clone();
 
-    if let Err(e) = res {
-        error!("Failed to add user: {}", e);
-        // In a real app we'd flash a message. Here just redirect.
-    } else {
-        info!(
-            "User {} added via Web UI by {}",
-            payload.username, session_user.username
-        );
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-            cache.last_modified = m.modified().ok();
+    let added_username = payload.username.clone();
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<crate::core::users::UserManager> {
+        manager_clone.add_user(&payload.username, &payload.password, role_enum, quota_val)?;
+        Ok(manager_clone)
+    })
+    .await;
+
+    match res {
+        Err(e) => {
+            error!("Failed to add user (task error): {}", e);
+        }
+        Ok(Err(e)) => {
+            error!("Failed to add user: {}", e);
+            // In a real app we'd flash a message. Here just redirect.
+        }
+        Ok(Ok(updated_manager)) => {
+            cache.manager = updated_manager;
+            info!(
+                "User {} added via Web UI by {}",
+                added_username, session_user.username
+            );
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
         }
     }
 
@@ -701,21 +711,35 @@ async fn delete_user_handler(
     }
 
     let mut cache = state.users_cache.write().await;
-    let res = tokio::task::block_in_place(|| cache.manager.delete_user(&username));
+    let mut manager_clone = cache.manager.clone();
 
-    if let Err(e) = res {
-        error!("Failed to delete user: {}", e);
-    } else {
-        info!(
-            "User {} deleted via Web UI by {}",
-            username, session_user.username
-        );
-        // Update mtime to prevent unnecessary reload
-        let path = std::path::Path::new("users.yaml");
-        let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
-        let file_path = if path.exists() { path } else { fallback_path };
-        if let Ok(m) = std::fs::metadata(file_path) {
-            cache.last_modified = m.modified().ok();
+    let deleted_username = username.clone();
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<crate::core::users::UserManager> {
+        manager_clone.delete_user(&username)?;
+        Ok(manager_clone)
+    })
+    .await;
+
+    match res {
+        Err(e) => {
+            error!("Failed to delete user (task error): {}", e);
+        }
+        Ok(Err(e)) => {
+            error!("Failed to delete user: {}", e);
+        }
+        Ok(Ok(updated_manager)) => {
+            cache.manager = updated_manager;
+            info!(
+                "User {} deleted via Web UI by {}",
+                deleted_username, session_user.username
+            );
+            // Update mtime to prevent unnecessary reload
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
         }
     }
 
