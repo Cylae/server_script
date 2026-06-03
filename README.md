@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.8-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -86,6 +86,7 @@ cargo test
 The tool provides several subcommands:
 
 *   `server_manager install`: Full idempotent installation (dependencies, config, docker-compose up).
+*   `server_manager apply`: Applies configuration and deploys services (via docker-compose up) without re-running system installations.
 *   `server_manager generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
 *   `server_manager status`: Displays detected hardware statistics and the profile (Low/Standard/High).
 *   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
@@ -101,7 +102,7 @@ The tool provides several subcommands:
 You can manage your services via a secure web dashboard.
 1. Run `server_manager web`.
 2. Open `http://YOUR-SERVER-IP:8099`.
-3. Login with your credentials. (Default: `admin` / `admin` - **Change this immediately!**)
+3. Login with your credentials. (Default username: `admin`. The randomly generated password is saved in `/root/credentials.txt` if installed as root, or in `/opt/server_manager/secrets.yaml`).
 4. View status and Enable/Disable services (Admin only).
 
 ### 👥 User Management & Quotas
@@ -240,6 +241,7 @@ sudo cp target/release/server_manager /usr/local/bin/
 L'outil dispose de plusieurs sous-commandes :
 
 *   `server_manager install` : Installation complète idempotente (dépendances, config, docker-compose up).
+*   `server_manager apply` : Applique la configuration et déploie les services (via docker-compose up) sans relancer l'installation système.
 *   `server_manager generate` : Génère uniquement le fichier `docker-compose.yml` et `secrets.yaml` sans lancer les services. Utile pour inspection.
 *   `server_manager status` : Affiche les statistiques matérielles détectées et le profil (Low/Standard/High).
 *   `server_manager enable <service>` : Active un service (ex: `server_manager enable nextcloud`).
@@ -255,7 +257,7 @@ L'outil dispose de plusieurs sous-commandes :
 Vous pouvez gérer vos services via un tableau de bord web sécurisé.
 1. Lancez `server_manager web`.
 2. Ouvrez `http://IP-DE-VOTRE-SERVEUR:8099`.
-3. Connectez-vous avec vos identifiants. (Défaut : `admin` / `admin` - **Changez-le immédiatement !**)
+3. Connectez-vous avec vos identifiants. (Nom d'utilisateur par défaut : `admin`. Le mot de passe généré aléatoirement est sauvegardé dans `/root/credentials.txt` si installé en tant que root, ou dans `/opt/server_manager/secrets.yaml`).
 4. Visualisez le statut et Activez/Désactivez les services (Admin uniquement).
 
 ### 👥 Gestion des Utilisateurs & Quotas
