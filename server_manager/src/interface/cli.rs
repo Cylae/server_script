@@ -22,6 +22,8 @@ pub struct Cli {
 pub enum Commands {
     /// Full installation (Idempotent)
     Install,
+    /// Apply configuration and deploy services without re-running system installations
+    Apply,
     /// Show system status
     Status,
     /// Generate docker-compose.yml only
@@ -65,19 +67,20 @@ pub async fn run() -> Result<()> {
 
     match cli.command {
         Commands::Install => run_install().await?,
-        Commands::Status => run_status(),
+        Commands::Apply => run_apply().await?,
+        Commands::Status => run_status().await?,
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
         Commands::Disable { service } => run_toggle_service(service, false).await?,
         Commands::Web { port } => crate::interface::web::start_server(port).await?,
-        Commands::User { action } => run_user_management(action)?,
+        Commands::User { action } => run_user_management(action).await?,
     }
 
     Ok(())
 }
 
-fn run_user_management(action: UserCommands) -> Result<()> {
-    let mut user_manager = users::UserManager::load()?;
+async fn run_user_management(action: UserCommands) -> Result<()> {
+    let mut user_manager = users::UserManager::load_async().await?;
 
     match action {
         UserCommands::Add {
@@ -356,7 +359,8 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     }
 }
 
-fn run_status() {
+async fn run_status() -> Result<()> {
+    let _config = config::Config::load_async().await?;
     let hw = hardware::HardwareInfo::detect();
     println!("=== System Status ===");
     println!("RAM: {} GB", hw.ram_gb);
@@ -368,15 +372,44 @@ fn run_status() {
     println!("Intel QuickSync: {}", hw.has_intel_quicksync);
 
     println!("\n=== Docker Status ===");
-    if let Ok(true) = Command::new("docker")
+    if let Ok(true) = tokio::process::Command::new("docker")
         .arg("ps")
         .status()
+        .await
         .map(|s| s.success())
     {
         println!("Docker is running.");
     } else {
         println!("Docker is NOT running.");
     }
+    Ok(())
+}
+
+async fn run_apply() -> Result<()> {
+    info!("Applying Server Manager Configuration...");
+
+    let secrets = secrets::Secrets::load_or_create()?;
+    let config = config::Config::load_async().await?;
+    let hw = hardware::HardwareInfo::detect();
+
+    configure_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config)?;
+    generate_compose(&hw, &secrets, &config).await?;
+
+    info!("Applying changes via Docker Compose...");
+    let status = tokio::process::Command::new("docker")
+        .args(["compose", "up", "-d", "--remove-orphans"])
+        .status()
+        .await
+        .context("Failed to run docker compose up")?;
+
+    if status.success() {
+        info!("Server Manager Configuration Applied Successfully! 🚀");
+    } else {
+        error!("Failed to apply changes via Docker Compose.");
+    }
+
+    Ok(())
 }
 
 async fn run_generate() -> Result<()> {
@@ -435,7 +468,7 @@ async fn generate_compose(
     let top_level = build_compose_structure(hw, secrets, config)?;
     let yaml_output = serde_yaml_ng::to_string(&top_level)?;
 
-    fs::write("docker-compose.yml", yaml_output).context("Failed to write docker-compose.yml")?;
+    tokio::fs::write("docker-compose.yml", yaml_output).await.context("Failed to write docker-compose.yml")?;
     info!("docker-compose.yml generated.");
 
     Ok(())
