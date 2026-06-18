@@ -150,3 +150,10 @@ Here is the matrix of deployed services:
 ---
 
 Built with ❤️ by the Server Manager Team.
+
+## 🏗 Development Principles
+
+This project follows strict guidelines to ensure code quality and safety:
+*   **Rust First**: All logic is written in Rust, avoiding Bash or Python scripts for core orchestration.
+*   **Safety**: Extensive use of `Result` and `Option`. We strictly avoid `.unwrap()` and prefer `.expect("...")` or proper error handling.
+*   **Idempotency**: All installation and configuration commands can be run multiple times safely.
