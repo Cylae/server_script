@@ -13,6 +13,7 @@ Welcome to the Server Manager documentation. Whether you are a beginner or an ex
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
+*   **Code Quality**: Checked and optimized to remove ambiguous panics and enforce safer async bounds.
 
 ## 🚀 Quick Installation
 
