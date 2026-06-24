@@ -49,6 +49,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy
 ```
 
 ## CLI Commands
