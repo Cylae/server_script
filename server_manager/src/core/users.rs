@@ -180,7 +180,7 @@ impl UserManager {
 
     pub fn verify(&self, username: &str, password: &str) -> Option<User> {
         if let Some(user) = self.users.get(username) {
-            if verify(password, &user.password_hash).unwrap_or(false) {
+            if verify(password, &user.password_hash).unwrap_or_default() {
                 return Some(user.clone());
             }
         }
@@ -194,9 +194,9 @@ impl UserManager {
             let user_clone = user.clone();
 
             let is_valid =
-                tokio::task::spawn_blocking(move || verify(&password, &hash).unwrap_or(false))
+                tokio::task::spawn_blocking(move || verify(&password, &hash).unwrap_or_default())
                     .await
-                    .unwrap_or(false);
+                    .unwrap_or_default();
 
             if is_valid {
                 return Some(user_clone);
