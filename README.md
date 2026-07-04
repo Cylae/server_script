@@ -2,14 +2,14 @@
 
 ![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
-**Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
+**Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28+ Docker services for optimal performance.
 
 ---
 
 Welcome to the Server Manager documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
 
 ## ✨ Key Features
-*   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **28+ Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
