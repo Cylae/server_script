@@ -42,6 +42,21 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗 Architecture
+
+Server Manager is designed as a standalone, modular Rust binary with no reliance on legacy Bash or Python scripts. Key architectural pillars include:
+*   **Modular Design**: Separates core logic (`src/core`), service definitions (`src/services`), and interfaces (`src/interface`).
+*   **Hardware Awareness**: Dynamically evaluates system RAM, CPU, and Swap to tailor configurations (Low/Standard/High profiles).
+*   **Idempotency**: All operations, such as installation and deployment, are idempotent and safe to run multiple times without unintended side effects.
+
+## 🛡 Security
+
+Security is deeply integrated into Server Manager:
+*   **Secret Management**: Passwords and tokens are cryptographically generated on first launch and securely stored in `secrets.yaml`.
+*   **User Management**: Role-based access control (Admin/Observer) with bcrypt-hashed passwords. Integrates with Linux system accounts.
+*   **Firewall**: UFW is automatically configured to protect internal services.
+*   **Safe Execution**: Built exclusively in Rust, utilizing memory-safe practices and strict error handling (`Result`/`Option`).
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +64,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
