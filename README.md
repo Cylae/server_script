@@ -49,7 +49,14 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
+
+## 🏗 Architecture
+Server Manager is built entirely in Rust, avoiding Python or Bash scripts for core logic. The application is divided into core system interactions (hardware detection, docker management) and a scalable service registry for deploying media stack containers.
+
+## 🛡 Security
+Security is treated as a first-class citizen. Passwords are auto-generated cryptographically and saved to `secrets.yaml`. Internal services are bound to localhost to prevent public exposure, and the firewall (UFW) is strictly managed.
 
 ## CLI Commands
 
