@@ -14,6 +14,14 @@ Welcome to the Server Manager documentation. Whether you are a beginner or an ex
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
 
+## 🏗️ Architecture
+
+Server Manager is designed with a core Rust binary that handles system orchestration, hardware detection, and service configuration. It uses a declarative approach to generate `docker-compose.yml` configurations and manages state across system reboots. The services are isolated into Docker networks and volumes, while a reverse proxy handles all external routing and SSL termination.
+
+## 🔐 Security
+
+Security is a primary focus. Server Manager implements strict firewall rules (UFW) by default, only exposing the absolute minimum required ports. Administrative passwords are cryptographically generated on first launch rather than using hardcoded defaults. The system is designed to securely manage secrets and configuration through isolated environments.
+
 ## 🚀 Quick Installation
 
 Server Manager is built in Rust for performance and reliability. To get started, you will need to build it from source.
@@ -25,9 +33,6 @@ Server Manager is built in Rust for performance and reliability. To get started,
 ### Build from Source
 
 ```sh
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
 # Clone and build
 git clone https://github.com/Cylae/server_script
 cd server_script/server_manager
@@ -49,6 +54,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
