@@ -468,7 +468,9 @@ async fn generate_compose(
     let top_level = build_compose_structure(hw, secrets, config)?;
     let yaml_output = serde_yaml_ng::to_string(&top_level)?;
 
-    tokio::fs::write("docker-compose.yml", yaml_output).await.context("Failed to write docker-compose.yml")?;
+    tokio::fs::write("docker-compose.yml", yaml_output)
+        .await
+        .context("Failed to write docker-compose.yml")?;
     info!("docker-compose.yml generated.");
 
     Ok(())
