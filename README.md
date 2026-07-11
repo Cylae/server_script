@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.10-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -49,6 +49,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -81,6 +82,18 @@ Server Manager supports full user management:
 *   **System Integration**: Adding a user creates a Linux system user (for SFTP/Shell access) and a Web Dashboard user.
 *   **Storage Quotas**: You can set a storage limit (in GB) for each user. The system uses filesystem quotas to enforce this.
     *   Example: `server_manager user add john --quota 50`
+
+
+## 🏗️ Architecture
+Server Manager is built with a modular Rust architecture, featuring:
+*   **Core Modules**: Configuration, Hardware detection, User management, and Secrets.
+*   **Services Module**: Logic for translating abstract configurations into concrete Docker Compose service definitions.
+*   **Interface**: A powerful CLI and an asynchronous Web Dashboard built with Axum.
+
+## 🛡️ Security
+*   **No hardcoded passwords**: All credentials (databases, services, admin panel) are randomly generated upon initialization and securely stored in `secrets.yaml`.
+*   **Principle of least privilege**: Services are isolated in Docker networks. Database services are typically isolated from external exposure.
+*   **User Management**: The application correctly creates Linux accounts with enforced filesystem quotas.
 
 ## ⚙️ Hardware Profiles
 
