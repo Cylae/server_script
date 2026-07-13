@@ -49,6 +49,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -99,6 +100,20 @@ Server Manager adjusts configuration via `HardwareManager`:
 Passwords are stored in `secrets.yaml`.
 *   Automatically generated on first launch.
 *   You can modify this file *before* running `install` or `generate` if you wish to set your own passwords.
+
+## 🏛 Architecture
+
+Server Manager is designed as a Rust binary that orchestrates system configuration and Docker Compose generation.
+*   **Core**: Handles system integration, hardware detection, user management, and secrets generation.
+*   **Services**: Contains modular definitions for 28 integrated services, allowing for easy expansion.
+*   **Interface**: Provides a Web UI and CLI for managing the infrastructure.
+
+## 🛡 Security
+
+Server Manager implements secure defaults to protect your infrastructure:
+*   **Firewall**: Automatically configures UFW to lock down external access.
+*   **Secrets**: All passwords and tokens are cryptographically generated and securely stored in `secrets.yaml`.
+*   **Isolation**: Docker services are run on an isolated bridge network.
 
 ## 💾 Data Persistence
 
