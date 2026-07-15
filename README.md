@@ -29,8 +29,8 @@ Server Manager is built in Rust for performance and reliability. To get started,
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Clone and build
-git clone https://github.com/Cylae/server_script
-cd server_script/server_manager
+git clone https://github.com/Cylae/server_manager
+cd server_manager
 cargo build --release
 
 # The binary is located in target/release/server_manager
@@ -47,8 +47,8 @@ Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
 
 ```sh
-cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -109,6 +109,19 @@ Server Manager stores its configuration and data in the following locations:
 *   **Docker Data**: Docker volumes are managed by Docker (usually `/var/lib/docker/volumes`).
 
 **Backup Recommendation**: Backup the `/opt/server_manager` directory to save your configuration and user accounts.
+
+## 🏗️ Architecture
+
+Server Manager is built on a modular architecture:
+*   **Core**: Handles system hardware detection, docker management, and configuration loading.
+*   **Services**: Represents individual deployable units (e.g., Plex, Nextcloud) with their own configuration logic.
+*   **Interface**: Provides the CLI and Web Administration Interface for user interaction.
+
+## 🛡️ Security
+
+*   **UFW Integration**: Automatically configures the Uncomplicated Firewall (UFW) to lock down external access, only exposing essential ports.
+*   **Isolated Networks**: Docker networks are strictly segmented (frontend, backend, db) to minimize attack surface.
+*   **Randomized Credentials**: Default passwords are cryptographically generated and securely stored.
 
 ## 🛠 Services and Ports List
 
