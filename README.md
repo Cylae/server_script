@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.10-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -13,6 +13,15 @@ Welcome to the Server Manager documentation. Whether you are a beginner or an ex
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
+
+## Architecture
+Server Manager is designed to orchestrate media services efficiently. It uses a Rust-based system to detect hardware characteristics and automatically adjusts configurations such as RAM allocations, transcoding settings, and caching layers based on the available resources. The configuration logic allows it to generate optimal Docker Compose files dynamically.
+
+## Security
+Security is a core consideration:
+* Default credentials are cryptographically generated.
+* A strict UFW firewall limits exposure to only necessary ports.
+* Internal services and databases operate on isolated Docker networks and are bound exclusively to localhost where appropriate to prevent external access.
 
 ## 🚀 Quick Installation
 
@@ -49,6 +58,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
