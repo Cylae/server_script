@@ -49,6 +49,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -150,3 +151,9 @@ Here is the matrix of deployed services:
 ---
 
 Built with ❤️ by the Server Manager Team.
+
+## Architecture
+Server Manager is built in Rust using Tokio for asynchronous tasks and Axum for the web framework. It manages state via an `Arc<AppState>`, caches configs, and applies optimizations based on hardware profiles.
+
+## Security
+User accounts support different roles (Admin and Observer) and storage quotas. Passwords are securely hashed via bcrypt. All internal traffic goes through isolated networks, with minimal exposed ports.

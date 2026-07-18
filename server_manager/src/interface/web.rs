@@ -19,34 +19,27 @@ use time::Duration;
 use tokio::process::Command;
 use tokio::sync::RwLock;
 use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
-
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
     username: String,
     role: Role,
 }
-
 const SESSION_KEY: &str = "user";
-
 struct CachedConfig {
     config: Config,
     last_modified: Option<SystemTime>,
 }
-
 struct CachedUsers {
     manager: UserManager,
     last_modified: Option<SystemTime>,
 }
-
 struct AppState {
     system: Mutex<System>,
     last_system_refresh: Mutex<SystemTime>,
     config_cache: RwLock<CachedConfig>,
     users_cache: RwLock<CachedUsers>,
 }
-
 type SharedState = Arc<AppState>;
-
 impl AppState {
     async fn get_config(&self) -> Config {
         // Fast path: check metadata
@@ -54,47 +47,38 @@ impl AppState {
             .await
             .and_then(|m| m.modified())
             .ok();
-
         {
             let cache = self.config_cache.read().await;
             if cache.last_modified == current_mtime {
                 return cache.config.clone();
             }
         }
-
         // Slow path: reload
         let mut cache = self.config_cache.write().await;
-
         // Re-check mtime under write lock to avoid race
         let current_mtime_2 = tokio::fs::metadata("config.yaml")
             .await
             .and_then(|m| m.modified())
             .ok();
-
         if cache.last_modified == current_mtime_2 {
             return cache.config.clone();
         }
-
         if let Ok(cfg) = Config::load_async().await {
             cache.config = cfg;
             cache.last_modified = current_mtime_2;
         }
-
         cache.config.clone()
     }
-
     async fn get_users(&self) -> UserManager {
         // Determine path logic (matches UserManager::load)
         let path = std::path::Path::new("users.yaml");
         let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
         let file_path = if path.exists() { path } else { fallback_path };
-
         // Fast path: check metadata
         let current_mtime = tokio::fs::metadata(file_path)
             .await
             .and_then(|m| m.modified())
             .ok();
-
         {
             let cache = self.users_cache.read().await;
             // If mtime matches (or both None), return cached
@@ -102,45 +86,36 @@ impl AppState {
                 return cache.manager.clone();
             }
         }
-
         // Slow path: reload
         let mut cache = self.users_cache.write().await;
-
         // Re-check mtime under write lock
         let current_mtime_2 = tokio::fs::metadata(file_path)
             .await
             .and_then(|m| m.modified())
             .ok();
-
         if cache.last_modified == current_mtime_2 {
             return cache.manager.clone();
         }
-
         if let Ok(mgr) = UserManager::load_async().await {
             cache.manager = mgr;
             cache.last_modified = current_mtime_2;
         }
-
         cache.manager.clone()
     }
 }
-
 pub async fn start_server(port: u16) -> anyhow::Result<()> {
     // Session setup
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
         .with_secure(false) // Localhost/LAN, http usually
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
-
     // Initialize System once
     let mut sys = System::new_all();
     sys.refresh_all();
-
     let initial_config = Config::load().unwrap_or_default();
     let initial_config_mtime = std::fs::metadata("config.yaml")
         .ok()
         .and_then(|m| m.modified().ok());
-
     let initial_users = UserManager::load().unwrap_or_default();
     let initial_users_mtime = std::fs::metadata("users.yaml")
         .ok()
@@ -150,7 +125,6 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
                 .ok()
                 .and_then(|m| m.modified().ok())
         });
-
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
         last_system_refresh: Mutex::new(SystemTime::now()),
@@ -163,7 +137,6 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
             last_modified: initial_users_mtime,
         }),
     });
-
     let app = Router::new()
         .route("/", get(dashboard))
         .route("/users", get(users_page))
@@ -175,16 +148,12 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/login", get(login_page).post(login_handler))
         .layer(session_layer)
         .with_state(app_state);
-
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("Starting Web UI on http://{}", addr);
-
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
-
     Ok(())
 }
-
 async fn login_page(session: Session) -> impl IntoResponse {
     if let Some(_user) = session
         .get::<SessionUser>(SESSION_KEY)
@@ -193,7 +162,6 @@ async fn login_page(session: Session) -> impl IntoResponse {
     {
         return Redirect::to("/").into_response();
     }
-
     let html = r#"
     <!DOCTYPE html>
     <html>
@@ -221,13 +189,11 @@ async fn login_page(session: Session) -> impl IntoResponse {
     "#;
     Html(html).into_response()
 }
-
 #[derive(Deserialize)]
 struct LoginPayload {
     username: String,
     password: String,
 }
-
 async fn login_handler(
     State(state): State<SharedState>,
     session: Session,
@@ -235,7 +201,6 @@ async fn login_handler(
 ) -> impl IntoResponse {
     // Reload users on login attempt to get fresh data
     let user_manager = state.get_users().await;
-
     if let Some(user) = user_manager
         .verify_async(&payload.username, &payload.password)
         .await
@@ -259,15 +224,12 @@ async fn login_handler(
         Redirect::to("/login").into_response()
     }
 }
-
 async fn logout(session: Session) -> impl IntoResponse {
     session.delete().await.ok();
     Redirect::to("/login")
 }
-
 // Helper for HTML escaping
 struct Escaped<'a>(&'a str);
-
 impl<'a> std::fmt::Display for Escaped<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for c in self.0.chars() {
@@ -283,7 +245,6 @@ impl<'a> std::fmt::Display for Escaped<'a> {
         Ok(())
     }
 }
-
 // Helper for common HTML head
 fn write_html_head(out: &mut String, title: &str) {
     let _ = write!(
@@ -322,7 +283,6 @@ fn write_html_head(out: &mut String, title: &str) {
         title
     );
 }
-
 fn write_html_foot(out: &mut String) {
     out.push_str(
         r#"
@@ -332,19 +292,15 @@ fn write_html_foot(out: &mut String) {
     "#,
     );
 }
-
 // Protected Dashboard
 async fn dashboard(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
-
     let is_admin = matches!(user.role, Role::Admin);
-
     let services = services::get_all_services();
     let config = state.get_config().await;
-
     // System Stats
     let (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used) = {
         let state_clone = state.clone();
@@ -358,7 +314,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 .last_system_refresh
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
-
             // Throttle refresh to max once every 500ms
             if now
                 .duration_since(*last_refresh)
@@ -368,6 +323,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             {
                 sys.refresh_cpu();
                 sys.refresh_memory();
+                sys.refresh_disks_list();
                 sys.refresh_disks();
                 *last_refresh = now;
             }
@@ -376,29 +332,28 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             let swap_used = sys.used_swap() / 1024 / 1024; // MB
             let swap_total = sys.total_swap() / 1024 / 1024; // MB
             let cpu_usage = sys.global_cpu_info().cpu_usage();
-
             // Simple Disk Usage (Root or fallback)
             let mut disk_total = 0;
             let mut disk_used = 0;
-
             let target_disk = sys
                 .disks()
                 .iter()
                 .find(|d| d.mount_point() == std::path::Path::new("/"))
                 .or_else(|| sys.disks().first());
-
             if let Some(disk) = target_disk {
                 disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
                 disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
                 // GB
             }
-            (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used)
-        }).await.unwrap()
+            (
+                ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
+            )
+        })
+        .await
+        .expect("Blocking task should not panic")
     };
-
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
-
     let _ = write!(
         html,
         r#"
@@ -411,7 +366,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     "#,
         Escaped(&user.username)
     );
-
     // Navigation
     if is_admin {
         html.push_str(
@@ -423,7 +377,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         "#,
         );
     }
-
     // Stats Grid
     let _ = write!(
         html,
@@ -449,7 +402,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     "#,
         cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total
     );
-
     // Services Table
     html.push_str(
         r#"
@@ -466,7 +418,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             <tbody>
     "#,
     );
-
     for svc in services {
         let name = svc.name();
         let enabled = config.is_enabled(name);
@@ -476,7 +427,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             "status-disabled"
         };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
-
         let _ = write!(
             html,
             r#"
@@ -491,7 +441,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             status_class,
             status_text
         );
-
         if is_admin {
             let _ = write!(
                 html,
@@ -508,10 +457,8 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         } else {
             html.push_str("<span>Read-only</span>");
         };
-
         html.push_str("</td></tr>");
     }
-
     html.push_str(
         r#"
             </tbody>
@@ -520,25 +467,20 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     "#,
     );
     write_html_foot(&mut html);
-
     Html(html).into_response()
 }
-
 // User Management Page
 async fn users_page(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
-
     if !matches!(user.role, Role::Admin) {
         return Redirect::to("/").into_response();
     }
-
     let user_manager = state.get_users().await;
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "User Management - Server Manager");
-
     html.push_str(r#"
         <div class="header">
             <h1>User Management 👥</h1>
@@ -550,7 +492,6 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
             <a href="/">Dashboard</a>
             <a href="/users">User Management</a>
         </div>
-
         <h3>Add New User</h3>
         <form method="POST" action="/users/add" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end;">
             <div>
@@ -574,7 +515,6 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
             </div>
             <button type="submit" class="btn btn-primary" style="height: 35px;">Add User</button>
         </form>
-
         <h3>Existing Users</h3>
         <table>
             <thead>
@@ -587,7 +527,6 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
             </thead>
             <tbody>
     "#);
-
     for u in user_manager.list_users() {
         let _ = write!(
             html,
@@ -599,7 +538,6 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
             Escaped(&u.username),
             u.role
         );
-
         match u.quota_gb {
             Some(gb) if gb > 0 => {
                 let _ = write!(html, "{} GB", gb);
@@ -608,7 +546,6 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                 html.push_str("Unlimited");
             }
         }
-
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
         let _ = write!(
@@ -624,13 +561,10 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
             Escaped(&u.username)
         );
     }
-
     html.push_str("</tbody></table>");
     write_html_foot(&mut html);
-
     Html(html).into_response()
 }
-
 #[derive(Deserialize)]
 struct AddUserPayload {
     username: String,
@@ -638,7 +572,6 @@ struct AddUserPayload {
     role: String,
     quota: Option<u64>,
 }
-
 async fn add_user_handler(
     State(state): State<SharedState>,
     session: Session,
@@ -648,33 +581,28 @@ async fn add_user_handler(
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
-
     if !matches!(session_user.role, Role::Admin) {
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
-
     let role_enum = match payload.role.as_str() {
         "Admin" => Role::Admin,
         _ => Role::Observer,
     };
-
     let quota_val = match payload.quota {
         Some(0) => None,
         Some(v) => Some(v),
         None => None,
     };
-
     let mut cache = state.users_cache.write().await;
     let mut manager_clone = cache.manager.clone();
-
     let user_name = payload.username.clone();
     let pass = payload.password.clone();
-
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.add_user(&user_name, &pass, role_enum, quota_val)?;
         Ok(manager_clone)
-    }).await.unwrap();
-
+    })
+    .await
+    .expect("Blocking task should not panic");
     match res {
         Ok(new_manager) => {
             cache.manager = new_manager;
@@ -695,10 +623,8 @@ async fn add_user_handler(
             // In a real app we'd flash a message. Here just redirect.
         }
     }
-
     Redirect::to("/users").into_response()
 }
-
 async fn delete_user_handler(
     State(state): State<SharedState>,
     session: Session,
@@ -708,20 +634,18 @@ async fn delete_user_handler(
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
-
     if !matches!(session_user.role, Role::Admin) {
         return (StatusCode::FORBIDDEN, "Access Denied").into_response();
     }
-
     let mut cache = state.users_cache.write().await;
     let mut manager_clone = cache.manager.clone();
-
     let u_name = username.clone();
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.delete_user(&u_name)?;
         Ok(manager_clone)
-    }).await.unwrap();
-
+    })
+    .await
+    .expect("Blocking task should not panic");
     match res {
         Ok(new_manager) => {
             cache.manager = new_manager;
@@ -741,36 +665,28 @@ async fn delete_user_handler(
             error!("Failed to delete user: {}", e);
         }
     }
-
     Redirect::to("/users").into_response()
 }
-
 async fn enable_service(session: Session, Path(name): Path<String>) -> impl IntoResponse {
     check_admin_role(session, &name, true).await
 }
-
 async fn disable_service(session: Session, Path(name): Path<String>) -> impl IntoResponse {
     check_admin_role(session, &name, false).await
 }
-
 async fn check_admin_role(session: Session, name: &str, enable: bool) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
-
     if !matches!(user.role, Role::Admin) {
         return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
     }
-
     run_cli_toggle(name, enable);
     Redirect::to("/").into_response()
 }
-
 fn run_cli_toggle(service: &str, enable: bool) {
     let action = if enable { "enable" } else { "disable" };
     info!("Web UI triggering: server_manager {} {}", action, service);
-
     if let Ok(exe) = std::env::current_exe() {
         match Command::new(exe).arg(action).arg(service).spawn() {
             Ok(mut child) => {
