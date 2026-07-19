@@ -368,6 +368,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             {
                 sys.refresh_cpu();
                 sys.refresh_memory();
+                sys.refresh_disks_list();
                 sys.refresh_disks();
                 *last_refresh = now;
             }
@@ -392,8 +393,12 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
                 // GB
             }
-            (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used)
-        }).await.unwrap()
+            (
+                ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
+            )
+        })
+        .await
+        .expect("Blocking task should not panic")
     };
 
     let mut html = String::with_capacity(8192);
@@ -673,7 +678,9 @@ async fn add_user_handler(
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.add_user(&user_name, &pass, role_enum, quota_val)?;
         Ok(manager_clone)
-    }).await.unwrap();
+    })
+    .await
+    .expect("Blocking task should not panic");
 
     match res {
         Ok(new_manager) => {
@@ -720,7 +727,9 @@ async fn delete_user_handler(
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.delete_user(&u_name)?;
         Ok(manager_clone)
-    }).await.unwrap();
+    })
+    .await
+    .expect("Blocking task should not panic");
 
     match res {
         Ok(new_manager) => {
