@@ -8,6 +8,19 @@
 
 Welcome to the Server Manager documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
 
+## 🏗 Architecture
+The project is structured into three main modules:
+*   `src/core/`: Low-level system interactions (Hardware Detection, Docker Orchestration, Firewall Configuration, Secrets/Users Management).
+*   `src/services/`: Definitions of the 28 integrated services and their specific configurations (Plex, Arrs, DBs).
+*   `src/interface/`: The user interfaces, including the Command Line Interface (CLI) and the Web Administration Dashboard.
+
+## 🛡 Security
+Security is a core focus of Server Manager:
+*   **Rust Safety**: Leveraging Rust's memory safety and extensive use of `Result`/`Option` to prevent crashes and vulnerabilities.
+*   **Isolated Networks**: Docker services are placed in isolated networks to minimize the attack surface.
+*   **Firewall**: UFW is automatically configured to block unauthorized access, only opening required external ports.
+*   **Secrets**: Passwords and tokens are cryptographically generated on the first run and stored securely.
+
 ## ✨ Key Features
 *   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
@@ -49,6 +62,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
