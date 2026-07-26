@@ -49,7 +49,22 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
+
+## Architecture
+
+Server Manager is organized internally using modules to enforce separation of concerns:
+- **`src/core`**: Low-level operations like hardware detection, system configuration, secret management, and handling user configurations.
+- **`src/services`**: A modular system mapping definitions of external software integrations to the `Service` trait, controlling docker properties and lifecycle operations.
+- **`src/interface`**: Exposes human interfaces, containing the web server interface and standard command line CLI.
+
+## Security
+
+Security is foundational to the design of Server Manager. The following defaults apply:
+- The host firewall automatically filters all connections and exposes minimal services.
+- Container networks are isolated to prevent unauthorized transverse movement.
+- Passwords for deployed applications are completely randomized during installation using securely generated sequences.
 
 ## CLI Commands
 
