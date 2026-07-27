@@ -49,6 +49,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -99,6 +100,22 @@ Server Manager adjusts configuration via `HardwareManager`:
 Passwords are stored in `secrets.yaml`.
 *   Automatically generated on first launch.
 *   You can modify this file *before* running `install` or `generate` if you wish to set your own passwords.
+
+## 🏗️ Architecture
+
+Server Manager employs a layered architectural pattern to ensure separation of concerns and maintainability:
+*   **Core Module**: Handles low-level system operations including hardware detection (`HardwareInfo`), secrets generation, user management, and configuration loading. It prioritizes atomic operations and minimizes I/O operations through efficient caching mechanisms.
+*   **Services Module**: Manages the definitions and specific configurations of all deployed Docker services (e.g., Plex, Nextcloud, MariaDB).
+*   **Interface Module**: Provides both the Command-Line Interface (`cli.rs`) and the Web Administration Dashboard (`web.rs`). It interacts with the Core and Services layers using asynchronous loading mechanisms to ensure non-blocking execution.
+*   **State Management**: Utilizes Tokio for asynchronous runtime operations, employing mechanisms like `Arc<RwLock<T>>` for state sharing and `spawn_blocking` to handle synchronous background tasks efficiently.
+
+## 🛡️ Security
+
+Server Manager implements robust security practices by design:
+*   **UFW Firewall**: Automatically configured to secure all external communication while allowing internal traffic required for orchestrated services.
+*   **Zero Trust Credentials**: Default passwords are automatically and cryptographically generated (`secrets.yaml`) avoiding hardcoded secrets within the codebase.
+*   **Data Isolation**: All Docker containers operate on isolated virtual networks.
+*   **Service Exposure**: Critical management interfaces and background services are systematically bound to `localhost` (`127.0.0.1`), ensuring they are only accessible through secure reverse proxies or SSH tunneling.
 
 ## 💾 Data Persistence
 
