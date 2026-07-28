@@ -42,6 +42,21 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗 Architecture
+
+Server Manager is built on a modular architecture to ensure reliability and ease of use:
+*   **Core Module**: Handles low-level system interactions, including hardware detection, network configuration, and user management.
+*   **Services Module**: Defines the logic for individual services (e.g., Plex, Nextcloud, MariaDB), including port mappings, environment variables, and hardware-specific configurations.
+*   **CLI & Web Interface**: Provides multiple ways to interact with the orchestration logic, either through command-line commands or a user-friendly web dashboard.
+
+## 🔒 Security
+
+Security is a primary focus for Server Manager:
+*   **Firewall Configured by Default**: UFW rules are automatically applied to deny unexpected incoming traffic while explicitly allowing necessary ports.
+*   **Automatic Secrets Generation**: Cryptographically secure passwords are auto-generated on the first launch, preventing default credential usage.
+*   **Service Isolation**: Docker container boundaries and isolated networks limit the blast radius of any individual service.
+*   **Secure Access Options**: Critical management services default to localhost-only bindings, designed to be accessed via reverse proxy or SSH tunnels.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +64,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
