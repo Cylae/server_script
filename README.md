@@ -28,9 +28,8 @@ Server Manager is built in Rust for performance and reliability. To get started,
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Clone and build
-git clone https://github.com/Cylae/server_script
-cd server_script/server_manager
+# Build
+cd server_manager
 cargo build --release
 
 # The binary is located in target/release/server_manager
@@ -47,8 +46,9 @@ Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
 
 ```sh
-cd server_script/server_manager
+cd server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -150,3 +150,11 @@ Here is the matrix of deployed services:
 ---
 
 Built with ❤️ by the Server Manager Team.
+
+## Architecture
+
+The tool is written in Rust.
+
+## Security
+
+Passwords are generated, UFW firewall configured, isolated networks.
