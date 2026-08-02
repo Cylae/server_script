@@ -42,6 +42,17 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗 Architecture
+Server Manager is organized around three key concepts:
+1. **Hardware Manager**: Analyzes host resources (RAM, CPU, Swap) and assigns a capability profile.
+2. **Service Registry**: Defines each Dockerized service (image, ports, volumes, environment) and conditionally adjusts parameters based on the hardware profile.
+3. **Orchestrator**: Renders the complete `docker-compose.yml` and manages deployment.
+
+## 🛡 Security
+*   **Secrets Generation**: Cryptographically secure, random passwords and tokens are generated upon initialization.
+*   **Isolated Networks**: Services communicate over internal Docker networks and do not expose ports publicly by default, forcing traffic through a Reverse Proxy.
+*   **Role-Based Access Control**: Web interface access is strictly segregated into Admin and Observer roles.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +60,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
