@@ -42,6 +42,20 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗️ Architecture
+
+Server Manager does not simply run `docker run`. It acts as a **Compiler**:
+1.  **Input:** Hardware state (RAM, CPU, GPU) + User Configuration.
+2.  **Process:** The `server_manager` binary analyzes the hardware profile and selects the optimal service configurations.
+3.  **Output:** A deterministic `docker-compose.yml` file.
+4.  **Execution:** Docker takes over for the actual container management, ensuring idempotency.
+
+## 🛡️ Security
+
+*   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
+*   **Minimal Exposure**: Internal services bind to localhost and are safely exposed via Reverse Proxy or VPN.
+*   **Secrets**: All passwords are cryptographically generated and stored securely in `secrets.yaml`.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +63,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
