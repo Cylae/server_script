@@ -42,6 +42,16 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗️ Architecture
+*   `src/core/`: Low-level system interactions (Hardware, Docker, Firewall).
+*   `src/services/`: Definitions of services (Plex, Arrs, DBs).
+*   `src/interface/`: CLI and Web API handlers.
+
+## 🛡️ Security
+*   **Isolated Networks**: Docker networks are configured to prevent cross-talk.
+*   **Generated Passwords**: Admin passwords and secrets are generated dynamically on first load.
+*   **Role-Based Access**: The Web UI uses standard and admin roles for user endpoints.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +59,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
