@@ -42,6 +42,20 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗 Architecture
+
+Server Manager acts as an Infrastructure as Code (IaC) compiler:
+1. **Input**: Hardware state (RAM, CPU, GPU) + User Configuration.
+2. **Process**: Analyzes hardware profile and selects optimal service configurations.
+3. **Output**: Deterministic `docker-compose.yml`.
+4. **Execution**: Idempotent container management via Docker.
+
+## 🛡 Security
+
+- Secure by default: Configures UFW firewall and isolates Docker networks.
+- Cryptographically secure generation of passwords and secrets.
+- Passwords are never hardcoded and are stored securely in `secrets.yaml`.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +63,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
