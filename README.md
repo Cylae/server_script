@@ -42,6 +42,18 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## Architecture
+
+Server Manager is built with a modular architecture:
+- **Core**: Hardware detection (via sysinfo), system configuration (static caching), and thread-safe user management.
+- **Services**: Docker service definitions (Infra, Media, Apps, etc.).
+- **Interface**: CLI and Web Dashboard (Tokio/Axum with safe concurrency).
+
+## Security
+
+- **Secure by Default**: Services are bound to `localhost` when possible.
+- **Secrets**: Cryptographically secure random passwords are generated and stored in `secrets.yaml`. The initial admin user's password is randomly generated.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +61,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
