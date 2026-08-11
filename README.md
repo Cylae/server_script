@@ -49,6 +49,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
@@ -150,3 +151,9 @@ Here is the matrix of deployed services:
 ---
 
 Built with ❤️ by the Server Manager Team.
+
+## Architecture
+Server Manager is built with Rust and acts as a state orchestrator, deploying infrastructure as code using Docker Compose.
+
+## Security
+The system automatically configures UFW firewall rules, isolated Docker networks, and secure default settings.
