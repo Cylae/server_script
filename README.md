@@ -42,6 +42,12 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏛️ Architecture
+Server Manager uses a modular Rust architecture consisting of core management modules for hardware and secrets, and a web interface powered by Axum. Configuration and states are thread-safe and cached for minimal I/O.
+
+## 🔒 Security
+The system employs robust security practices including randomly generated administrative passwords, cryptographically secure hex tokens for service authentication, bcrypt password hashing, and UFW firewall management.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +55,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
