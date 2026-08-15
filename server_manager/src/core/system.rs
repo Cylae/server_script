@@ -200,7 +200,7 @@ fn get_home_device() -> Result<String> {
     if lines.len() < 2 {
         bail!("Unexpected df output");
     }
-    let device = lines[1].split_whitespace().next().unwrap_or("").to_string();
+    let device = lines[1].split_whitespace().next().unwrap_or_default().to_string();
     if device.is_empty() {
         bail!("Could not parse device from df");
     }
