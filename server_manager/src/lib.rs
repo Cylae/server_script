@@ -164,7 +164,7 @@ pub fn build_compose_structure(
     );
 
     Ok(ComposeFile {
-        version: None,
+        version: Some("3.8".to_string()),
         services: compose_services,
         networks,
     })
