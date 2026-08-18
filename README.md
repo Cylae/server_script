@@ -14,6 +14,20 @@ Welcome to the Server Manager documentation. Whether you are a beginner or an ex
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
 
+## 🏗 Architecture
+
+Server Manager is designed with a modular architecture in Rust:
+*   **Core (`src/core/`)**: Low-level system interactions including hardware detection, network, and firewall orchestration.
+*   **Services (`src/services/`)**: Definitions of the 28 integrated services and Docker Compose generation logic.
+*   **Interface**: Provides both a robust CLI (`src/interface/cli.rs`) and a Web Administration UI (`src/interface/web.rs`).
+
+## 🔒 Security
+
+Security is a primary focus of the Server Manager architecture:
+*   **Secrets Generation**: Cryptographically secure, randomly generated passwords upon initial installation.
+*   **Network Isolation**: UFW firewall is automatically configured, closing unnecessary ports and isolating internal services.
+*   **No Hardcoded Credentials**: Administrative credentials and database passwords are dynamically managed.
+
 ## 🚀 Quick Installation
 
 Server Manager is built in Rust for performance and reliability. To get started, you will need to build it from source.
@@ -49,6 +63,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
