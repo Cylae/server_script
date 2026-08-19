@@ -106,7 +106,10 @@ impl Config {
                         guard.loaded_path = Some(path);
                         Ok(config)
                     }
-                    Err(e) => Err(anyhow::Error::new(e).context(format!("Failed to read {}", path.display()))),
+                    Err(e) => {
+                        Err(anyhow::Error::new(e)
+                            .context(format!("Failed to read {}", path.display())))
+                    }
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -115,7 +118,8 @@ impl Config {
                 guard.loaded_path = Some(path);
                 Ok(guard.config.clone())
             }
-            Err(e) => Err(anyhow::Error::new(e).context(format!("Failed to read metadata for {}", path.display()))),
+            Err(e) => Err(anyhow::Error::new(e)
+                .context(format!("Failed to read metadata for {}", path.display()))),
         }
     }
 
@@ -192,7 +196,8 @@ impl Config {
             } else {
                 false
             }
-        }).await
+        })
+        .await
     }
 
     pub async fn disable_service_async(service_name: &str) -> Result<()> {
@@ -203,6 +208,7 @@ impl Config {
             } else {
                 false
             }
-        }).await
+        })
+        .await
     }
 }
