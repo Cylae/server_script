@@ -42,6 +42,18 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏛 Architecture
+
+Server Manager follows a modular architecture, orchestrating multiple Docker containers.
+It handles hardware provisioning dynamically based on available system resources.
+Configuration and application states are isolated within specific directories.
+
+## 🔒 Security
+
+Security is a first-class citizen in Server Manager.
+It uses automatically generated strong random secrets upon initial setup.
+The default firewall configurations are optimized for strict minimal access.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +61,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
