@@ -42,6 +42,20 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗 Architecture
+
+Server Manager is built around a clear separation of concerns:
+*   **Core (`src/core/`)**: Handles low-level system interactions including hardware detection (`hardware.rs`), secrets management (`secrets.rs`), system setup (`system.rs`), and configuration (`config.rs`).
+*   **Services (`src/services/`)**: Defines the configuration and deployment logic for individual Docker services, implementing the `Service` trait.
+*   **Interface (`src/interface/`)**: Provides the user-facing interfaces, including the CLI (`cli.rs`) and the Web Administration Dashboard (`web.rs`).
+
+## 🛡 Security
+
+Security is a core principle:
+*   **Zero Hardcoded Passwords**: All initial credentials are randomly generated upon first installation and securely stored in `secrets.yaml`.
+*   **Firewall Enforcement**: UFW is automatically configured to block external access by default, only allowing essential ports (e.g., HTTP/S, Plex) while keeping backend services isolated.
+*   **Isolated Networks**: Docker networks are utilized to ensure services only communicate with necessary internal components (like MariaDB or Redis).
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +63,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
