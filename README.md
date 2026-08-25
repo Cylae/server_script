@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -13,6 +13,16 @@ Welcome to the Server Manager documentation. Whether you are a beginner or an ex
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
 *   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
 *   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
+
+## 🏗 Architecture
+Server Manager is built in Rust using a modular architecture. It leverages `tokio` for asynchronous runtime execution and `axum` for the Web Administration Interface. System operations use safe abstractions over `nix` and `sysinfo`. Services are orchestrated via Docker Compose, defined in a central registry.
+
+## 🛡 Security
+Server Manager enforces strong security by default:
+- UFW firewall rules automatically configured.
+- Secure, randomized password generation.
+- Isolation of Docker networks.
+- No root-level exposed services where avoidable.
 
 ## 🚀 Quick Installation
 
@@ -49,6 +59,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
