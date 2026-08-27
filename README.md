@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -42,6 +42,22 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏛 Architecture
+
+Server Manager is a Rust-based orchestrator that operates entirely without legacy bash scripts. It directly interfaces with system components and Docker to manage your server stack. Key architectural components include:
+*   **HardwareManager**: Analyzes system resources to assign a low, standard, or high hardware profile.
+*   **Config & Secrets**: Managed securely via YAML files with optimized disk I/O caching.
+*   **ServiceRegistry**: Dynamically configures 28+ containerized services, managing their dependencies and environment variables.
+*   **Web Administration Interface**: An embedded Axum-based web server for real-time monitoring and user management.
+
+## 🛡️ Security
+
+Security is a fundamental design principle for Server Manager.
+*   **Safe Defaults**: Automatically configures the UFW firewall and isolates services in dedicated Docker networks.
+*   **Secrets Management**: Automatically generates cryptographically secure passwords stored securely.
+*   **Minimal Privileges**: Follows least privilege principles, integrating with Linux system users for SFTP/Shell access while restricting container permissions.
+*   **Rust Safety**: Leveraging Rust's memory safety and strict error handling (`Result`/`Option`) without `unwrap()` to prevent panics and undefined behavior.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +65,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
