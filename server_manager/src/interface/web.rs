@@ -286,7 +286,7 @@ impl<'a> std::fmt::Display for Escaped<'a> {
 
 // Helper for common HTML head
 fn write_html_head(out: &mut String, title: &str) {
-    let _ = write!(
+    let _ = writeln!(
         out,
         r#"
     <!DOCTYPE html>
@@ -392,14 +392,18 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
                 // GB
             }
-            (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used)
-        }).await.unwrap()
+            (
+                ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
+            )
+        })
+        .await
+        .expect("Blocking task should not panic")
     };
 
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
 
-    let _ = write!(
+    let _ = writeln!(
         html,
         r#"
         <div class="header">
@@ -425,7 +429,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     }
 
     // Stats Grid
-    let _ = write!(
+    let _ = writeln!(
         html,
         r#"
         <div class="stats-grid">
@@ -477,7 +481,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         };
         let status_text = if enabled { "Enabled" } else { "Disabled" };
 
-        let _ = write!(
+        let _ = writeln!(
             html,
             r#"
             <tr>
@@ -493,7 +497,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         );
 
         if is_admin {
-            let _ = write!(
+            let _ = writeln!(
                 html,
                 r#"
                     <form method="POST" action="/api/services/{}/{}">
@@ -589,7 +593,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     "#);
 
     for u in user_manager.list_users() {
-        let _ = write!(
+        let _ = writeln!(
             html,
             r#"
             <tr>
@@ -611,7 +615,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
 
         // Don't allow deleting self or last admin logic is handled in delete handler/manager
         // But let's show delete button generally
-        let _ = write!(
+        let _ = writeln!(
             html,
             r#"</td>
                 <td>
@@ -673,7 +677,9 @@ async fn add_user_handler(
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.add_user(&user_name, &pass, role_enum, quota_val)?;
         Ok(manager_clone)
-    }).await.unwrap();
+    })
+    .await
+    .expect("Blocking task should not panic");
 
     match res {
         Ok(new_manager) => {
@@ -720,7 +726,9 @@ async fn delete_user_handler(
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.delete_user(&u_name)?;
         Ok(manager_clone)
-    }).await.unwrap();
+    })
+    .await
+    .expect("Blocking task should not panic");
 
     match res {
         Ok(new_manager) => {
