@@ -1,6 +1,6 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
@@ -42,6 +42,20 @@ server_manager install
 
 Once finished, go to `http://YOUR-SERVER-IP:8099` (or the specific ports listed below) to view the Web Dashboard.
 
+## 🏗 Architecture
+
+The project is structured into three main layers:
+*   **Core**: Low-level system interactions, hardware detection, security bindings (UFW/Fail2ban), and secret management.
+*   **Services**: Abstraction layer for Docker Compose generation, defining standard port mappings, and resource requirements.
+*   **Interface**: The CLI entrypoint and the internal Actix/Axum web server for the admin dashboard.
+
+## 🛡 Security
+
+Server Manager is designed with security in mind:
+*   **Firewall Management**: Automatically configures UFW to block external access to internal services.
+*   **Isolated Networks**: Docker networks are segmented to prevent lateral movement.
+*   **Secrets**: Random generation of secure passwords and tokens.
+
 ## 🧪 Testing
 
 The project includes a comprehensive test suite covering hardware detection, secrets generation, and Docker Compose validation.
@@ -49,6 +63,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
