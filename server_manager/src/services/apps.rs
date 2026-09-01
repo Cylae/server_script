@@ -60,7 +60,7 @@ impl Service for YourlsService {
         "yourls"
     }
     fn image(&self) -> &'static str {
-        "yourls/yourls:latest"
+        "yourls:latest"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8003:80".to_string()]

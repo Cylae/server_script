@@ -171,8 +171,14 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/users/delete/:username", post(delete_user_handler))
         .route("/updates", get(updates_page))
         .route("/user/apps/:name/install", post(user_install_app_handler))
-        .route("/user/apps/:name/uninstall", post(user_uninstall_app_handler))
-        .route("/user/profile", get(user_profile_page).post(user_passwd_handler))
+        .route(
+            "/user/apps/:name/uninstall",
+            post(user_uninstall_app_handler),
+        )
+        .route(
+            "/user/profile",
+            get(user_profile_page).post(user_passwd_handler),
+        )
         .route("/api/services/:name/enable", post(enable_service))
         .route("/api/services/:name/disable", post(disable_service))
         .route("/api/system/update", post(trigger_system_update))
@@ -249,6 +255,7 @@ async fn login_handler(
             username: user.username,
             role: user.role,
         };
+        session.clear().await;
         if let Err(e) = session.insert(SESSION_KEY, session_user).await {
             error!("Failed to insert session: {}", e);
             return (
@@ -424,7 +431,9 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     // Navigation
     html.push_str(r#"<div class="nav"><a href="/">Dashboard</a>"#);
     if is_admin {
-        html.push_str(r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#);
+        html.push_str(
+            r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
+        );
     }
     html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
 
@@ -1047,7 +1056,9 @@ async fn user_profile_page(
     );
 
     if is_admin {
-        html.push_str(r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#);
+        html.push_str(
+            r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
+        );
     }
 
     let _ = writeln!(

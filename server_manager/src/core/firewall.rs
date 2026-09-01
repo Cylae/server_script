@@ -24,6 +24,14 @@ pub fn configure() -> Result<()> {
     run_ufw(&["allow", "ssh"])?;
     run_ufw(&["allow", "22/tcp"])?;
 
+    // Allow Web UI & Public Stack Ports
+    run_ufw(&["allow", "8099/tcp"])?;
+    run_ufw(&["allow", "80/tcp"])?;
+    run_ufw(&["allow", "443/tcp"])?;
+    run_ufw(&["allow", "32400/tcp"])?;
+    run_ufw(&["allow", "8096/tcp"])?;
+    run_ufw(&["allow", "51820/udp"])?;
+
     // Enable
     info!("Enabling UFW...");
     run_ufw(&["--force", "enable"])?;
