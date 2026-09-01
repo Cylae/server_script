@@ -15,10 +15,12 @@ The system consists of a CLI application built in Rust that orchestrates Docker 
 Server Manager focuses on secure-by-default configurations. Passwords are automatically generated. All web services without inherent auth are protected or bound to localhost requiring a reverse proxy. System users are created without password logins over SSH, leveraging generated credentials.
 
 ## ✨ Key Features
-*   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
+*   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, Vaultwarden, Gitea, etc.
 *   **Smart Hardware Detection**: Adapts configuration (RAM, Transcoding, Swap) to your machine (Low/Standard/High Profile).
-*   **Secure by Default**: UFW firewall configured, passwords generated, isolated networks.
-*   **GPU Support**: Automatic detection and configuration for Nvidia & Intel QuickSync.
+*   **Modern Web Administration UI**: Sleek, dark-themed, responsive dashboard with real-time hardware telemetry and 1-click app management.
+*   **Polished CLI Interface**: Unicode box-drawn tables, status reports, and deployment summaries.
+*   **Secure by Default**: UFW firewall configured, randomly generated administrative & service passwords, isolated Docker networks.
+*   **GPU Support**: Automatic hardware detection and configuration for Nvidia & Intel QuickSync.
 
 ## 🚀 Quick Installation
 
@@ -78,14 +80,15 @@ The tool provides several subcommands:
 
 *   `server_manager install`: Full idempotent installation (dependencies, config, docker-compose up).
 *   `server_manager apply`: Apply configuration and deploy services (via docker-compose up) without re-running system installations.
-*   `server_manager generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services. Useful for inspection.
-*   `server_manager status`: Displays detected hardware statistics and the profile (Low/Standard/High).
+*   `server_manager update`: Pull latest Docker images and seamlessly recreate active service containers.
+*   `server_manager generate`: Generates `docker-compose.yml` and `secrets.yaml` only, without launching services.
+*   `server_manager status`: Displays hardware telemetry (CPU, RAM, Swap, Disk, GPU) and Docker daemon status in a formatted terminal box.
 *   `server_manager enable <service>`: Enable a service (e.g., `server_manager enable nextcloud`).
 *   `server_manager disable <service>`: Disable a service.
 *   `server_manager web`: Starts the Web Administration Interface (Default: http://0.0.0.0:8099).
 *   `server_manager user add <username> --quota <GB>`: Create a new user (Role: Admin/Observer) and set storage quota.
-*   `server_manager user delete <username>`: Delete a user and their data.
-*   `server_manager user list`: List all users.
+*   `server_manager user delete <username>`: Delete a user and their system data.
+*   `server_manager user list`: List all users in a formatted terminal table.
 *   `server_manager user passwd <username>`: Reset a user's password.
 
 ## 🌐 Web Administration Interface

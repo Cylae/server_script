@@ -28,6 +28,7 @@ fn test_generate_compose_structure() {
         nextcloud_admin_password: Some("nextcloudadmin".to_string()),
         roundcube_db_password: Some("roundcubepass".to_string()),
         vaultwarden_admin_token: Some("token".to_string()),
+        server_manager_admin_password: Some("adminpass".to_string()),
     };
     let config = Config::default();
 
@@ -50,6 +51,9 @@ fn test_generate_compose_structure() {
 
     let plex = compose.services.get("plex").expect("Value should exist");
     assert_eq!(plex.image, "lscr.io/linuxserver/plex:latest");
+
+    let yourls = compose.services.get("yourls").expect("Value should exist");
+    assert_eq!(yourls.image, "yourls:latest");
 
     let syncthing = compose
         .services
