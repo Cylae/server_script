@@ -229,3 +229,13 @@ fn test_disabled_service_filtering() {
         "Jellyfin should still be enabled"
     );
 }
+
+#[test]
+fn test_cli_update_command_parsing() {
+    use clap::Parser;
+    use server_manager::interface::cli::{Cli, Commands};
+
+    let cli =
+        Cli::try_parse_from(["server_manager", "update"]).expect("Should parse update command");
+    assert!(matches!(cli.command, Commands::Update));
+}

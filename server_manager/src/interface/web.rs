@@ -169,8 +169,10 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/users", get(users_page))
         .route("/users/add", post(add_user_handler))
         .route("/users/delete/:username", post(delete_user_handler))
+        .route("/updates", get(updates_page))
         .route("/api/services/:name/enable", post(enable_service))
         .route("/api/services/:name/disable", post(disable_service))
+        .route("/api/system/update", post(trigger_system_update))
         .route("/logout", post(logout))
         .route("/login", get(login_page).post(login_handler))
         .layer(session_layer)
@@ -392,8 +394,12 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
                 // GB
             }
-            (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used)
-        }).await.expect("Blocking task should not panic")
+            (
+                ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
+            )
+        })
+        .await
+        .expect("Blocking task should not panic")
     };
 
     let mut html = String::with_capacity(8192);
@@ -419,6 +425,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         <div class="nav">
             <a href="/">Dashboard</a>
             <a href="/users">User Management</a>
+            <a href="/updates">Updates &amp; Software</a>
         </div>
         "#,
         );
@@ -503,7 +510,11 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 name,
                 if enabled { "disable" } else { "enable" },
                 if enabled { "btn-disable" } else { "btn-enable" },
-                if enabled { "Disable" } else { "Enable" }
+                if enabled {
+                    "1-Click Uninstall"
+                } else {
+                    "1-Click Install"
+                }
             );
         } else {
             html.push_str("<span>Read-only</span>");
@@ -549,6 +560,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
         <div class="nav">
             <a href="/">Dashboard</a>
             <a href="/users">User Management</a>
+            <a href="/updates">Updates &amp; Software</a>
         </div>
 
         <h3>Add New User</h3>
@@ -673,7 +685,9 @@ async fn add_user_handler(
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.add_user(&user_name, &pass, role_enum, quota_val)?;
         Ok(manager_clone)
-    }).await.expect("Blocking task should not panic");
+    })
+    .await
+    .expect("Blocking task should not panic");
 
     match res {
         Ok(new_manager) => {
@@ -720,7 +734,9 @@ async fn delete_user_handler(
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.delete_user(&u_name)?;
         Ok(manager_clone)
-    }).await.expect("Blocking task should not panic");
+    })
+    .await
+    .expect("Blocking task should not panic");
 
     match res {
         Ok(new_manager) => {
@@ -789,4 +805,77 @@ fn run_cli_toggle(service: &str, enable: bool) {
     } else {
         error!("Failed to determine current executable path.");
     }
+}
+
+// Updates & Software Management Page
+async fn updates_page(session: Session) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !matches!(user.role, Role::Admin) {
+        return Redirect::to("/").into_response();
+    }
+
+    let mut html = String::with_capacity(4096);
+    write_html_head(&mut html, "Updates & Software - Server Manager");
+
+    html.push_str(
+        r#"
+        <div class="header">
+            <h1>Updates &amp; Software Management 🔄</h1>
+            <form method="POST" action="/logout">
+                <button type="submit" class="btn btn-logout">Logout</button>
+            </form>
+        </div>
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/users">User Management</a>
+            <a href="/updates">Updates &amp; Software</a>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e9ecef; margin-bottom: 20px;">
+            <h3>One-Click System &amp; Stack Update</h3>
+            <p>Pull the latest Docker container images for all enabled services and re-deploy the stack seamlessly.</p>
+            <form method="POST" action="/api/system/update" onsubmit="return confirm('Are you sure you want to pull latest images and update all active services?');">
+                <button type="submit" class="btn btn-primary" style="font-size: 1em; padding: 10px 20px;">🚀 Update Stack Now</button>
+            </form>
+        </div>
+    "#,
+    );
+
+    write_html_foot(&mut html);
+    Html(html).into_response()
+}
+
+async fn trigger_system_update(session: Session) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !matches!(user.role, Role::Admin) {
+        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
+    }
+
+    info!("Web UI triggering stack update: server_manager update");
+    if let Ok(exe) = std::env::current_exe() {
+        match Command::new(exe).arg("update").spawn() {
+            Ok(mut child) => {
+                tokio::spawn(async move {
+                    if let Err(e) = child.wait().await {
+                        error!("Failed to wait on update process: {}", e);
+                    }
+                });
+            }
+            Err(e) => {
+                error!("Failed to spawn update command: {}", e);
+            }
+        }
+    } else {
+        error!("Failed to determine current executable path.");
+    }
+
+    Redirect::to("/updates").into_response()
 }

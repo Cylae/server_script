@@ -24,6 +24,8 @@ pub enum Commands {
     Install,
     /// Apply configuration and deploy services without re-running system installations
     Apply,
+    /// Pull latest service Docker images and recreate containers
+    Update,
     /// Show system status
     Status,
     /// Generate docker-compose.yml only
@@ -68,6 +70,7 @@ pub async fn run() -> Result<()> {
     match cli.command {
         Commands::Install => run_install().await?,
         Commands::Apply => run_apply().await?,
+        Commands::Update => run_update().await?,
         Commands::Status => run_status().await?,
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
@@ -385,6 +388,42 @@ async fn run_status() -> Result<()> {
     Ok(())
 }
 
+async fn run_update() -> Result<()> {
+    info!("Updating Server Manager Stack...");
+
+    if !std::path::Path::new("docker-compose.yml").exists()
+        && std::path::Path::new("/opt/server_manager/docker-compose.yml").exists()
+    {
+        std::env::set_current_dir("/opt/server_manager")?;
+    }
+
+    info!("Pulling latest Docker images...");
+    let pull_status = tokio::process::Command::new("docker")
+        .args(["compose", "pull"])
+        .status()
+        .await
+        .context("Failed to run docker compose pull")?;
+
+    if !pull_status.success() {
+        log::warn!("Some images failed to pull or docker compose pull returned non-zero status.");
+    }
+
+    info!("Re-deploying updated services...");
+    let up_status = tokio::process::Command::new("docker")
+        .args(["compose", "up", "-d", "--remove-orphans"])
+        .status()
+        .await
+        .context("Failed to run docker compose up")?;
+
+    if up_status.success() {
+        info!("Server Manager Stack updated successfully! 🚀");
+    } else {
+        error!("Failed to re-deploy stack via Docker Compose.");
+    }
+
+    Ok(())
+}
+
 async fn run_apply() -> Result<()> {
     info!("Applying Server Manager Configuration...");
 
@@ -468,7 +507,9 @@ async fn generate_compose(
     let top_level = build_compose_structure(hw, secrets, config)?;
     let yaml_output = serde_yaml_ng::to_string(&top_level)?;
 
-    tokio::fs::write("docker-compose.yml", yaml_output).await.context("Failed to write docker-compose.yml")?;
+    tokio::fs::write("docker-compose.yml", yaml_output)
+        .await
+        .context("Failed to write docker-compose.yml")?;
     info!("docker-compose.yml generated.");
 
     Ok(())
