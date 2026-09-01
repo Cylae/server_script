@@ -115,11 +115,13 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
             info!("User '{}' deleted successfully.", username);
         }
         UserCommands::List => {
-            println!("{:<20} | {:<15}", "Username", "Role");
-            println!("{:<20} | {:<15}", "--------", "----");
+            println!("┌──────────────────────┬─────────────────┐");
+            println!("│ {:<20} │ {:<15} │", "Username", "Role");
+            println!("├──────────────────────┼─────────────────┤");
             for user in user_manager.list_users() {
-                println!("{:<20} | {:?}", user.username, user.role);
+                println!("│ {:<20} │ {:<15?} │", user.username, user.role);
             }
+            println!("└──────────────────────┴─────────────────┘");
         }
         UserCommands::Passwd { username } => {
             // Check existence first
@@ -260,28 +262,29 @@ async fn run_install() -> Result<()> {
 fn print_deployment_summary(secrets: &secrets::Secrets) {
     let mut summary = String::new();
     summary.push_str(
-        "\n=================================================================================\n",
+        "\n╔══════════════════════════════════════════════════════════════════════════════════════════════════╗\n",
     );
-    summary.push_str("                           DEPLOYMENT SUMMARY 🚀\n");
     summary.push_str(
-        "=================================================================================\n",
+        "║                                    DEPLOYMENT SUMMARY 🚀                                         ║\n",
+    );
+    summary.push_str(
+        "╠═════════════════┬═════════════════════════┬═══════════════════┬══════════════════════════════════╣\n",
     );
     let _ = writeln!(
         summary,
-        "{:<15} | {:<25} | {:<15} | Password / Info",
-        "Service", "URL", "User"
+        "║ {:<15} │ {:<23} │ {:<17} │ {:<32} ║",
+        "Service", "URL", "User", "Password / Info"
     );
-    let _ = writeln!(
-        summary,
-        "{:<15} | {:<25} | {:<15} | ---------------",
-        "-------", "---", "----"
+    summary.push_str(
+        "╠─────────────────┼─────────────────────────┼───────────────────┼──────────────────────────────────╣\n",
     );
 
     let mut append_row = |service: &str, url: &str, user: &str, pass: &str| {
+        let truncated_pass = if pass.len() > 32 { &pass[..32] } else { pass };
         let _ = writeln!(
             summary,
-            "{:<15} | {:<25} | {:<15} | {}",
-            service, url, user, pass
+            "║ {:<15} │ {:<23} │ {:<17} │ {:<32} ║",
+            service, url, user, truncated_pass
         );
     };
 
@@ -313,40 +316,20 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
         &pass(&secrets.vaultwarden_admin_token),
     );
     append_row("Gitea", "http://<IP>:3000", "Register", "DB pre-configured");
-    append_row(
-        "GLPI",
-        "http://<IP>:8088",
-        "glpi",
-        "glpi (Change immediately!)",
-    );
+    append_row("GLPI", "http://<IP>:8088", "glpi", "glpi (Change!)");
     append_row(
         "Yourls",
         "http://<IP>:8003/admin",
         "admin",
         &pass(&secrets.yourls_admin_password),
     );
-    append_row(
-        "Roundcube",
-        "http://<IP>:8090",
-        "-",
-        "Login with Mail creds",
-    );
-    append_row(
-        "MailServer",
-        "PORTS: 25, 143...",
-        "CLI",
-        "docker exec -ti mailserver setup ...",
-    );
+    append_row("Roundcube", "http://<IP>:8090", "-", "Login Mail creds");
+    append_row("MailServer", "PORTS: 25, 143...", "CLI", "docker exec ...");
     append_row("Plex", "http://<IP>:32400/web", "-", "Follow Web Setup");
-    append_row(
-        "ArrStack",
-        "http://<IP>:8989 (Sonarr)",
-        "-",
-        "No auth by default",
-    );
+    append_row("ArrStack", "http://<IP>:8989", "-", "No auth default");
 
     summary.push_str(
-        "=================================================================================\n\n",
+        "╚═════════════════╧═════════════════════════╧═══════════════════╧══════════════════════════════════╝\n\n",
     );
     summary.push_str("NOTE: Replace <IP> with your server's IP address.");
 
@@ -365,26 +348,38 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
 async fn run_status() -> Result<()> {
     let _config = config::Config::load_async().await?;
     let hw = hardware::HardwareInfo::detect();
-    println!("=== System Status ===");
-    println!("RAM: {} GB", hw.ram_gb);
-    println!("Swap: {} GB", hw.swap_gb);
-    println!("Disk: {} GB", hw.disk_gb);
-    println!("Cores: {}", hw.cpu_cores);
-    println!("Profile: {:?}", hw.profile);
-    println!("Nvidia GPU: {}", hw.has_nvidia);
-    println!("Intel QuickSync: {}", hw.has_intel_quicksync);
+    println!("\n┌── System Status ────────────────────────┐");
+    println!("│ RAM:             {:<22} │", format!("{} GB", hw.ram_gb));
+    println!("│ Swap:            {:<22} │", format!("{} GB", hw.swap_gb));
+    println!("│ Disk (/):        {:<22} │", format!("{} GB", hw.disk_gb));
+    println!("│ CPU Cores:       {:<22} │", hw.cpu_cores);
+    println!("│ Profile:         {:<22?} │", hw.profile);
+    println!(
+        "│ Nvidia GPU:      {:<22} │",
+        if hw.has_nvidia { "Yes 🟢" } else { "No" }
+    );
+    println!(
+        "│ Intel QuickSync: {:<22} │",
+        if hw.has_intel_quicksync {
+            "Yes 🟢"
+        } else {
+            "No"
+        }
+    );
+    println!("└─────────────────────────────────────────┘");
 
-    println!("\n=== Docker Status ===");
+    println!("\n┌── Docker Status ────────────────────────┐");
     if let Ok(true) = tokio::process::Command::new("docker")
         .arg("ps")
         .status()
         .await
         .map(|s| s.success())
     {
-        println!("Docker is running.");
+        println!("│ Status:          Running 🟢             │");
     } else {
-        println!("Docker is NOT running.");
+        println!("│ Status:          Not Running 🔴         │");
     }
+    println!("└─────────────────────────────────────────┘\n");
     Ok(())
 }
 
