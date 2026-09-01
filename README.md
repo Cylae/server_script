@@ -1,12 +1,18 @@
 # Server Manager - Next-Gen Media Server Orchestrator 🚀
 
-![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.9-blue) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Server Manager Banner](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a powerful and intelligent tool written in Rust to deploy, manage, and optimize a complete personal media and cloud server stack. It detects your hardware and automatically configures 28 Docker services for optimal performance.
 
 ---
 
 Welcome to the Server Manager documentation. Whether you are a beginner or an expert, this tool is designed to make your life easier.
+
+## 🏛️ Architecture
+The system consists of a CLI application built in Rust that orchestrates Docker Compose files based on hardware capabilities. It stores configurations and state locally on the filesystem.
+
+## 🔐 Security
+Server Manager focuses on secure-by-default configurations. Passwords are automatically generated. All web services without inherent auth are protected or bound to localhost requiring a reverse proxy. System users are created without password logins over SSH, leveraging generated credentials.
 
 ## ✨ Key Features
 *   **28 Integrated Services**: Plex, ArrStack, Nextcloud, Mailserver, etc.
@@ -49,6 +55,7 @@ The project includes a comprehensive test suite covering hardware detection, sec
 ```sh
 cd server_script/server_manager
 cargo test
+cargo clippy --all-targets --all-features
 ```
 
 ## CLI Commands
