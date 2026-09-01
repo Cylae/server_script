@@ -170,6 +170,9 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/users/add", post(add_user_handler))
         .route("/users/delete/:username", post(delete_user_handler))
         .route("/updates", get(updates_page))
+        .route("/user/apps/:name/install", post(user_install_app_handler))
+        .route("/user/apps/:name/uninstall", post(user_uninstall_app_handler))
+        .route("/user/profile", get(user_profile_page).post(user_passwd_handler))
         .route("/api/services/:name/enable", post(enable_service))
         .route("/api/services/:name/disable", post(disable_service))
         .route("/api/system/update", post(trigger_system_update))
@@ -419,17 +422,11 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     );
 
     // Navigation
+    html.push_str(r#"<div class="nav"><a href="/">Dashboard</a>"#);
     if is_admin {
-        html.push_str(
-            r#"
-        <div class="nav">
-            <a href="/">Dashboard</a>
-            <a href="/users">User Management</a>
-            <a href="/updates">Updates &amp; Software</a>
-        </div>
-        "#,
-        );
+        html.push_str(r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#);
     }
+    html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
 
     // Stats Grid
     let _ = writeln!(
@@ -511,17 +508,91 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 if enabled { "disable" } else { "enable" },
                 if enabled { "btn-disable" } else { "btn-enable" },
                 if enabled {
-                    "1-Click Uninstall"
+                    "Stack Disable"
                 } else {
-                    "1-Click Install"
+                    "Stack Enable"
                 }
             );
         } else {
-            html.push_str("<span>Read-only</span>");
+            html.push_str("<span>System Service</span>");
         };
 
         html.push_str("</td></tr>");
     }
+
+    // User App Management Section (Quickbox.io style)
+    let user_manager = state.get_users().await;
+    let current_user_opt = user_manager.get_user(&user.username);
+    let installed_apps = current_user_opt
+        .map(|u| u.installed_apps.clone())
+        .unwrap_or_default();
+
+    html.push_str(
+        r#"
+        <h2 style="margin-top: 40px;">My Applications (User Portal)</h2>
+        <p>Manage your own application stack individually (Quickbox.io style).</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Application</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+    "#,
+    );
+
+    for svc in services {
+        let name = svc.name();
+        let is_app_installed = installed_apps.contains(name);
+        let status_class = if is_app_installed {
+            "status-enabled"
+        } else {
+            "status-disabled"
+        };
+        let status_text = if is_app_installed {
+            "Installed"
+        } else {
+            "Not Installed"
+        };
+
+        let _ = writeln!(
+            html,
+            r#"
+            <tr>
+                <td><strong>{}</strong></td>
+                <td class="{}">{}</td>
+                <td>
+                    <form method="POST" action="/user/apps/{}/{}" style="display:inline-block;">
+                        <button type="submit" class="btn {}">{}</button>
+                    </form>
+                </td>
+            </tr>
+            "#,
+            name,
+            status_class,
+            status_text,
+            name,
+            if is_app_installed {
+                "uninstall"
+            } else {
+                "install"
+            },
+            if is_app_installed {
+                "btn-danger"
+            } else {
+                "btn-primary"
+            },
+            if is_app_installed {
+                "1-Click Uninstall"
+            } else {
+                "1-Click Install"
+            }
+        );
+    }
+
+    html.push_str("</tbody></table>");
 
     html.push_str(
         r#"
@@ -878,4 +949,175 @@ async fn trigger_system_update(session: Session) -> impl IntoResponse {
     }
 
     Redirect::to("/updates").into_response()
+}
+
+async fn user_install_app_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    let mut cache = state.users_cache.write().await;
+    let mut manager_clone = cache.manager.clone();
+    let u_name = user.username.clone();
+    let app_name = name.clone();
+
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+        manager_clone.install_user_app(&u_name, &app_name)?;
+        Ok(manager_clone)
+    })
+    .await
+    .expect("Blocking task should not panic");
+
+    if let Ok(new_manager) = res {
+        cache.manager = new_manager;
+        info!("User {} installed app {}", user.username, name);
+    }
+
+    Redirect::to("/").into_response()
+}
+
+async fn user_uninstall_app_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    let mut cache = state.users_cache.write().await;
+    let mut manager_clone = cache.manager.clone();
+    let u_name = user.username.clone();
+    let app_name = name.clone();
+
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+        manager_clone.uninstall_user_app(&u_name, &app_name)?;
+        Ok(manager_clone)
+    })
+    .await
+    .expect("Blocking task should not panic");
+
+    if let Ok(new_manager) = res {
+        cache.manager = new_manager;
+        info!("User {} uninstalled app {}", user.username, name);
+    }
+
+    Redirect::to("/").into_response()
+}
+
+async fn user_profile_page(
+    State(state): State<SharedState>,
+    session: Session,
+) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    let is_admin = matches!(user.role, Role::Admin);
+    let user_manager = state.get_users().await;
+    let current_user_opt = user_manager.get_user(&user.username);
+    let quota_str = current_user_opt
+        .and_then(|u| u.quota_gb)
+        .map(|q| format!("{} GB", q))
+        .unwrap_or_else(|| "Unlimited".to_string());
+
+    let mut html = String::with_capacity(4096);
+    write_html_head(&mut html, "My Profile - Server Manager");
+
+    let _ = writeln!(
+        html,
+        r#"
+        <div class="header">
+            <h1>My Profile 👤</h1>
+            <form method="POST" action="/logout">
+                <button type="submit" class="btn btn-logout">Logout ({})</button>
+            </form>
+        </div>
+        <div class="nav">
+            <a href="/">Dashboard</a>
+        "#,
+        Escaped(&user.username)
+    );
+
+    if is_admin {
+        html.push_str(r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#);
+    }
+
+    let _ = writeln!(
+        html,
+        r#"
+            <a href="/user/profile">My Profile</a>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e9ecef; margin-bottom: 20px;">
+            <h3>User Information</h3>
+            <p><strong>Username:</strong> {}</p>
+            <p><strong>Role:</strong> {:?}</p>
+            <p><strong>Storage Quota:</strong> {}</p>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e9ecef;">
+            <h3>Change Password</h3>
+            <form method="POST" action="/user/profile">
+                <div style="margin-bottom: 10px;">
+                    <label>New Password:</label><br>
+                    <input type="password" name="password" required style="width: 100%; max-width: 300px; padding: 8px;">
+                </div>
+                <button type="submit" class="btn btn-primary">Update Password</button>
+            </form>
+        </div>
+    "#,
+        Escaped(&user.username),
+        user.role,
+        quota_str
+    );
+
+    write_html_foot(&mut html);
+    Html(html).into_response()
+}
+
+#[derive(Deserialize)]
+struct UserPasswdPayload {
+    password: String,
+}
+
+async fn user_passwd_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Form(payload): Form<UserPasswdPayload>,
+) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if payload.password.trim().is_empty() {
+        return Redirect::to("/user/profile").into_response();
+    }
+
+    let mut cache = state.users_cache.write().await;
+    let mut manager_clone = cache.manager.clone();
+    let u_name = user.username.clone();
+    let new_pass = payload.password.clone();
+
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+        manager_clone.update_password(&u_name, &new_pass)?;
+        Ok(manager_clone)
+    })
+    .await
+    .expect("Blocking task should not panic");
+
+    if let Ok(new_manager) = res {
+        cache.manager = new_manager;
+        info!("User {} updated their password", user.username);
+    }
+
+    Redirect::to("/user/profile").into_response()
 }

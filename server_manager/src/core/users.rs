@@ -4,7 +4,7 @@ use bcrypt::{hash, verify, DEFAULT_COST};
 use log::{info, warn};
 use nix::unistd::Uid;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -21,6 +21,8 @@ pub struct User {
     pub role: Role,
     #[serde(default)]
     pub quota_gb: Option<u64>,
+    #[serde(default)]
+    pub installed_apps: HashSet<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -78,6 +80,7 @@ impl UserManager {
                     password_hash: hash,
                     role: Role::Admin,
                     quota_gb: None,
+                    installed_apps: HashSet::new(),
                 },
             );
             manager.save()?;
@@ -132,9 +135,28 @@ impl UserManager {
                 password_hash: hash,
                 role,
                 quota_gb,
+                installed_apps: HashSet::new(),
             },
         );
         self.save()
+    }
+
+    pub fn install_user_app(&mut self, username: &str, app_name: &str) -> Result<()> {
+        if let Some(user) = self.users.get_mut(username) {
+            user.installed_apps.insert(app_name.to_string());
+            self.save()
+        } else {
+            Err(anyhow!("User not found"))
+        }
+    }
+
+    pub fn uninstall_user_app(&mut self, username: &str, app_name: &str) -> Result<()> {
+        if let Some(user) = self.users.get_mut(username) {
+            user.installed_apps.remove(app_name);
+            self.save()
+        } else {
+            Err(anyhow!("User not found"))
+        }
     }
 
     pub fn delete_user(&mut self, username: &str) -> Result<()> {
@@ -245,6 +267,22 @@ mod tests {
         // Delete
         assert!(manager.delete_user("testuser").is_ok());
         assert!(manager.verify("testuser", "newpass").is_none());
+    }
+
+    #[test]
+    fn test_user_app_management() {
+        let mut manager = UserManager::default();
+        assert!(manager
+            .add_user("appuser", "pass123", Role::Observer, None)
+            .is_ok());
+
+        assert!(manager.install_user_app("appuser", "plex").is_ok());
+        let u = manager.get_user("appuser").expect("User exists");
+        assert!(u.installed_apps.contains("plex"));
+
+        assert!(manager.uninstall_user_app("appuser", "plex").is_ok());
+        let u2 = manager.get_user("appuser").expect("User exists");
+        assert!(!u2.installed_apps.contains("plex"));
     }
 
     #[test]
