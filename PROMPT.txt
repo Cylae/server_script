@@ -1,0 +1,670 @@
+================================================================================
+MISSION SPECIFICATION: AUTONOMOUS KERNEL-GRADE PRODUCTION ORCHESTRATOR REBUILD
+TARGET REPOSITORY    : Cylae/server_script
+OPERATIONAL LEVEL    : Principal Systems Architect, Kernel-Security Engineer,
+                       Low-Level Systems Programmer & UI/UX Systems Designer
+STANDARDS COMPLIANCE : ISO/IEC 25010:2023 | CIS Debian Linux Benchmark v2.0 (2026) |
+                       KSPP (Kernel Self-Protection Project) | CISA Memory-Safety |
+                       NIST SP 800-207 (Zero Trust) | RFC 8555 (ACME) | FIDO2 / W3C WebAuthn |
+                       W3C WCAG 2.2 Level AAA | W3C CSS Color 4 (OKLCH) | SLSA Level 4
+================================================================================
+
+[0. AGENT META-EXECUTION PROTOCOL & UNCONDITIONAL HORIZON]
+--------------------------------------------------------------------------------
+You are an autonomous Principal Systems Engineer and Kernel-Level Auditor operating
+directly inside the local Git repository. You are strictly forbidden from asking
+the operator any questions, soliciting clarifications, confirming assumptions,
+or halting execution due to missing inputs. Infer all operational requirements,
+interfaces, architectural intents, and constraints directly from repository evidence,
+Git commit history, configuration artifacts, and the normative technical standards
+specified herein.
+
+1. UNCONDITIONAL EXECUTION HORIZON (ZERO TIME RESTRICTIONS):
+   - You have complete clearance to iterate autonomously without artificial time
+     constraints. Whether achieving mathematical and operational perfection requires
+     hours, days, weeks, or continuous iterative execution loops, you MUST push
+     the engineering process forward until every single verification gate passes.
+   - Do not cut corners, do not apply quick band-aids, and do not ship unfinished
+     logic to meet an imaginary deadline. If an architectural component requires
+     complete deconstruction and ground-up reconstruction to achieve peak performance,
+     you are commanded to execute that reconstruction.
+
+2. ANTI-CHEAT & FORMAL VERIFICATION CRITERIA (ZERO-TOLERANCE TERMINATION):
+   - NO SYNTHETIC/MOCK CHEATING: Synthetic test inflation—including tautological
+     assertions (`assert!(true)`, `assert_eq!(1, 1)`), loops generating duplicate
+     trivial test cases, or tests asserting hardcoded mock returns without
+     exercising real system state mutations—is classified as catastrophic failure.
+     Every assertion must validate an authentic functional, cryptographic, network,
+     filesystem, or failure recovery state.
+   - NO SKELETON STUBS OR UNIMPLEMENTED PATHS: The keywords `todo!()`,
+     `unimplemented!()`, `pass`, empty function blocks, or placeholder comments
+     in any production or test path are strictly forbidden. Every code path must
+     be fully implemented, hardened, and exercised.
+   - MANDATORY BRANCH COVERAGE: Core systems engine branch coverage must strictly
+     exceed 95%, verified via `cargo-tarpaulin --branch --fail-under 95` or `llvm-cov`.
+   - THE ABSOLUTE GATEKEEPER SCRIPT (`./verify.sh`): You must construct and
+     maintain a root verification harness `./verify.sh`. This executable script is
+     the sole arbiter of completion. The mission is incomplete until `./verify.sh`
+     exits with status 0 across all static analysis, unit, integration, fuzzing,
+     idempotence, mutation, and accessibility audit suites.
+
+3. GIT WORKING TREE PRESERVATION & RECOVERY GUARDS:
+   - FORBIDDEN DESTRUCTIVE COMMANDS: Never execute `git reset --hard`, `git clean -fd`,
+     `git checkout -- .`, `git restore .`, or any command that discards uncommitted work.
+   - Never rebase away previous history, force-push, or mutate remote references.
+   - Record progress through atomic, bisectable commits adhering strictly to the
+     Conventional Commits specification:
+       `feat(engine): ...`, `fix(apt): ...`, `security(kernel): ...`,
+       `ui(dashboard): ...`, `test(fuzz): ...`, `docs(manual): ...`.
+
+4. DETERMINISTIC STAGE-GATED EXECUTION SEQUENCE:
+   Monolithic multi-file batch rewrites without localized verification are strictly
+   banned. You must advance sequentially through the following gates, ensuring
+   each milestone passes its dedicated test harness before moving to the next:
+     Gate 0: Repository Discovery, Deep Grep Interrogation & Environment Probing
+     Gate 1: Core Engine Architecture & Memory-Safe Toolchain Scaffold (Rust/musl)
+     Gate 2: Low-Level I/O, Syscall Confinement & Sandboxing (Landlock ABI v4+ / Seccomp)
+     Gate 3: Kernel Hardening, Mount Isolation & Dynamic In-Kernel Sentinel (nftables)
+     Gate 4: Idempotent State Machine, APT Determinism & Atomic WAL Engine
+     Gate 5: High-Availability Production Features (GitOps IaC, ACME, Backups, Doctor)
+     Gate 6: Real-Time WebUI, OKLCH Design System, Virtual Terminal & WebAuthn / RBAC
+     Gate 7: 1000+ Assertion Automated Verification Matrix & Mutation Testing (>90%)
+     Gate 8: Production Documentation Overhaul & Final Gatekeeper Sign-off
+
+
+[1. REPOSITORY TOPOLOGY & STRUCTURAL SPECIFICATION]
+--------------------------------------------------------------------------------
+Restructure the entire repository into this clean, decoupled architecture:
+
+.
+├── Cargo.toml                    # Root workspace manifest (locked dependencies)
+├── Cargo.lock
+├── Makefile                      # Standardized targets (build, test, verify, install)
+├── verify.sh                     # The root verification gatekeeper script
+├── src/                          # Core Systems Engine (Rust 2024 / musl static)
+│   ├── bin/
+│   │   ├── server-manager.rs     # Master CLI tool (doctor, apply, service, backup)
+│   │   └── server-daemon.rs      # System supervisor, IPC server & WebUI broker
+│   ├── core/
+│   │   ├── atomic_io.rs          # O_TMPFILE, openat2, renameat2, atomic writes
+│   │   ├── cgroups.rs            # Cgroups v2 memory/cpu/io controller & OOM scoring
+│   │   ├── fanotify.rs           # Real-time filesystem integrity monitoring (FIM)
+│   │   ├── lock.rs               # Kernel flock mutex & deadlock avoidance
+│   │   ├── sandbox.rs            # Landlock ABI v4+ ruleset & seccomp-bpf compiler
+│   │   └── wal.rs                # Write-Ahead Log transaction engine & rollback
+│   ├── crypto/
+│   │   ├── acme.rs               # RFC 8555 client (HTTP-01 & DNS-01 challenges)
+│   │   ├── cipher.rs             # ChaCha20-Poly1305, Argon2id, zeroize memory
+│   │   └── fss.rs                # Forward-Secure Sealing for systemd journals
+│   ├── network/
+│   │   ├── firewall.rs           # Nftables in-kernel table synchronizer
+│   │   ├── sentinel.rs           # Kernel-level rate limiting & brute-force dropper
+│   │   └── probe.rs              # Non-blocking DNS/NTP/Gateway health monitor
+│   ├── services/
+│   │   ├── descriptor.rs         # Parser for services.d lifecycle recipes
+│   │   └── supervisor.rs         # Transient systemd unit manager (systemd-run)
+│   └── ui/
+│       ├── auth.rs               # WebAuthn / FIDO2 passkey registration & verify
+│       ├── http.rs               # Zero-copy HTTP/1.1 & HTTP/2 async server
+│       ├── ipc.rs                # UNIX domain socket server (/run/server_script.sock)
+│       └── sse.rs                # Server-Sent Events real-time log multiplexer
+├── ui/                           # Embedded WebUI Assets (Zero npm, zero node_modules)
+│   ├── public/
+│   │   ├── index.html            # Semantic HTML5 (WCAG 2.2 AAA compliant)
+│   │   ├── css/
+│   │   │   ├── base.css          # CSS @layer reset, variables, OKLCH palette
+│   │   │   ├── layout.css        # CSS Subgrid, Container Queries, Density modes
+│   │   │   └── components.css    # Cards, command palette, terminal stream
+│   │   └── js/
+│   │       ├── app.js            # Vanilla ES2026 router & state store
+│   │       ├── terminal.js       # Virtualized 60fps ANSI canvas terminal
+│   │       └── webauthn.js       # Hardware passkey WebAuthn API client
+├── services.d/                   # Modular declarative service definitions
+│   ├── _template.sh              # Standardized contract template for extensions
+│   ├── docker.sh                 # Docker-CE engine recipe
+│   ├── nginx.sh                  # Hardened Nginx reverse-proxy recipe
+│   ├── php.sh                    # PHP-FPM execution pool recipe
+│   ├── postgresql.sh             # Hardened PostgreSQL database recipe
+│   └── wireguard.sh              # Kernel WireGuard VPN gateway recipe
+├── tests/                        # 1000+ Assertion Automated Verification Matrix
+│   ├── common/
+│   │   └── mock_env.rs           # Containerized sandbox mocking layer
+│   ├── unit/                     # Memory safety, crypto & regex unit tests
+│   ├── integration/              # State machine rollbacks & APT lock contention
+│   ├── fuzz/                     # Parameter injection & adversarial payloads
+│   └── concurrency/              # Multiprocess race-condition stress tests
+├── config/                       # Default declarative server blueprints
+│   └── server-spec.example.yaml  # Complete Infrastructure-as-Code spec
+└── docs/                         # Two-Tier Production Documentation
+    ├── ARCHITECTURE.md           # Threat model, IPC RFC & state machine engine
+    └── MANUAL.md                 # Operator guide & emergency recovery playbooks
+
+
+[2. LANGUAGE MANDATE, TOOLCHAIN HARDENING & RUNTIME DISCIPLINE]
+--------------------------------------------------------------------------------
+1. CORE LANGUAGE SPECIFICATION:
+   - The Orchestrator Core, CLI, State Machine, Daemon, and WebUI broker MUST be
+     written strictly in modern Rust (Edition 2024/2021).
+   - Compilation Target: Single, statically-linked binary (`x86_64-unknown-linux-musl`).
+   - Hardened Memory Allocation: Link against `mimalloc` with secure features or
+     `hardened_malloc` to prevent heap exploitation, double-free, and metadata corruption.
+   - Deterministic Metrics:
+     - Zero dynamic dependencies on host glibc (`ldd target_binary` must yield "not a dynamic executable").
+     - Idle resident memory footprint (RSS) strictly < 15MB.
+     - Cold binary CLI execution time for status/inspection tasks strictly < 5ms.
+   - FORBIDDEN RUNTIMES: Node.js, NPM, Python virtual environments, JVM, or external
+     database daemons. Local persistence must use embedded SQLite in WAL mode or Sled.
+
+2. TOOLCHAIN HARDENING & SLSA LEVEL 4 REPRODUCIBILITY:
+   - In `Cargo.toml`, enforce maximum compiler optimization and exploit mitigations:
+     ```toml
+     [profile.release]
+     opt-level = 3
+     lto = "fat"
+     codegen-units = 1
+     panic = "abort"
+     strip = true
+     overflow-checks = true
+     incremental = false
+     ```
+   - Linker Hardening flags via `.cargo/config.toml`:
+     ```toml
+     [target.x86_64-unknown-linux-musl]
+     rustflags = [
+       "-C", "target-feature=+crt-static",
+       "-C", "link-arg=-Wl,-z,relro,-z,now",
+       "-C", "link-arg=-Wl,-z,noexecstack",
+       "-C", "link-arg=-Wl,-z,separate-code",
+       "-C", "control-flow-guard",
+     ]
+     ```
+   - Reproducible Compilation: Pin build timestamp via `SOURCE_DATE_EPOCH=1700000000`.
+   - Supply Chain Bill of Materials: Automatically generate CycloneDX 1.5 JSON and
+     SPDX 2.3 SBOM manifests on build.
+
+3. POSIX SHELL DISCIPLINE (For `services.d/` hooks and wrapper scripts):
+   Every shell script across the repository MUST open with:
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+   export LC_ALL=C
+   IFS=$'\n\t'
+   umask 0077
+
+```
+
+4. STANDARDIZED SYSEXITS.H RETURN CODES:
+Every binary and script MUST return deterministic semantic statuses:
+* `0`  : `EX_OK`          - Execution successful
+* `64` : `EX_USAGE`       - Command-line syntax or parameter invalid
+* `65` : `EX_DATAERR`     - Input data format validation failed
+* `66` : `EX_NOINPUT`     - Missing target dependency or prerequisite
+* `70` : `EX_SOFTWARE`    - Internal software bug or invariant violation
+* `71` : `EX_OSERR`       - Kernel syscall failure or resource exhaustion
+* `73` : `EX_CANTCREAT`   - Cannot create output or atomic staging failure
+* `75` : `EX_TEMPFAIL`    - Temporary lock contention or transient timeout
+* `78` : `EX_CONFIG`      - Target configuration syntax validation failed
+
+
+
+## [3. LOW-LEVEL I/O, SYSCALL CONFINEMENT & LANDLOCK LSM]
+
+1. RENAME ATOMICITY & FILESYSTEM RACE IMMUNITY (TOCTOU MITIGATION):
+Never write or redirect directly to `/etc/` or production targets (e.g. `cat > /etc/...`).
+Enforce the Atomic Staging Pattern using Linux low-level filesystem primitives:
+* File Staging: Allocate a temporary unlinked inode via `openat(..., O_TMPFILE | O_RDWR | O_CLOEXEC, 0640)`
+or `mktemp "${target}.tmp.XXXXXX"` on the exact same mount point.
+* Restrict Metadata: Explicitly apply `fchmod(fd, 0640)` and `fchown(fd, uid, gid)`.
+* Pre-commit Linting: Invoke the target application's native verification engine
+against the staging path (e.g., `nginx -t -c`, `sshd -t -f`, `named-checkconf`,
+`systemd-analyze verify`).
+* Atomic Replacement: Atomically link and replace the destination via
+`renameat2(AT_FDCWD, tmp_path, AT_FDCWD, target_path, RENAME_NOREPLACE)` or `mv -T`.
+* Path Traversal Shielding: Resolve target directories using `openat2` with
+`RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS` flags to completely eliminate directory
+traversal and symlink race attacks.
+
+
+2. LINUX SECURITY MODULES (LANDLOCK LSM ABI v4+):
+The daemon and sub-processes must self-confine their filesystem visibility via Landlock:
+```rust
+use landlock::{AccessFs, Ruleset, PathBeneath, ABI};
+
+pub fn apply_sandbox() -> Result<(), Box<dyn std::error::Error>> {
+    let ruleset = Ruleset::default()
+        .handle_access(AccessFs::from_all(ABI::V4))?
+        .create()?
+        .add_rule(PathBeneath::new("/run/server_script"), AccessFs::from_read_write(ABI::V4))?
+        .add_rule(PathBeneath::new("/var/lib/server_script"), AccessFs::from_read_write(ABI::V4))?
+        .add_rule(PathBeneath::new("/etc"), AccessFs::from_read(ABI::V4))?
+        .add_rule(PathBeneath::new("/usr"), AccessFs::from_read(ABI::V4))?
+        .restrict_self()?;
+    Ok(())
+}
+
+```
+
+
+3. SECCOMP-BPF STRICT SYSCALL FILTERING:
+All background workers, CLI subroutines, and the WebUI broker must load a strict
+seccomp-bpf filter via `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, ...)`:
+* Blacklist dangerous system calls: `ptrace`, `process_vm_readv`, `process_vm_writev`,
+`kexec_load`, `kexec_file_load`, `reboot`, `init_module`, `finit_module`, `delete_module`,
+`userfaultfd`, `perf_event_open`.
+* Restrict execution: Disallow memory execution permission changes (`mprotect` with `PROT_EXEC`,
+`pkey_mprotect`). Enforce `MemoryDenyWriteExecute=yes` across all daemon systemd units.
+
+
+
+## [4. KERNEL HARDENING, MOUNT ISOLATION & DYNAMIC NETWORK SENTINEL]
+
+1. KERNEL SELF-PROTECTION PROJECT (KSPP) PROFILE (`/etc/sysctl.d/99-server-script-hardening.conf`):
+```ini
+# Memory Concealment & Ptrace Neutralization
+kernel.kptr_restrict = 2
+kernel.dmesg_restrict = 1
+kernel.yama.ptrace_scope = 2
+kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden = 2
+fs.suid_dumpable = 0
+
+# Filesystem Link & Traversal Protections
+fs.protected_symlinks = 1
+fs.protected_hardlinks = 1
+fs.protected_fifos = 2
+fs.protected_regular = 2
+
+# TCP/IP Stack Defense (Zero Trust & Anti-Spoofing)
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_rfc1337 = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+```
+
+
+2. MOUNT ISOLATION & IMMUTABILITY:
+* Staging partitions: Enforce `nodev,nosuid,noexec` on `/tmp`, `/var/tmp`, and `/dev/shm`.
+* Process hiding: Mount `/proc` with `hidepid=invisible,gid=systemd-journal`.
+* Post-provisioning petrification: Apply filesystem immutability (`chattr +i`)
+to core orchestrator binaries, state ledgers, and critical keys with an
+atomic unlocking pipeline during legitimate upgrade transactions.
+
+
+3. SECRETS LIFECYCLE & MEMORY SCRUBBING:
+* Wrap private keys, tokens, and plaintext passwords in `zeroize::ZeroizeOnDrop`.
+* Lock sensitive buffer pages in RAM via `mlock2(ptr, len, MLOCK_ONFAULT)` to prevent
+credential leakage into swap partitions or core dumps.
+* Never ingest credentials via CLI flags (visible in `/proc/$PID/cmdline`).
+Enforce ingestion strictly via file descriptor pipes (`--password-fd 0`).
+
+
+4. IN-KERNEL DYNAMIC NETWORK SENTINEL (`nftables`):
+Replace Python intrusion daemons (Fail2ban) with native in-kernel netfilter rules:
+```nft
+table inet server_sentinel {
+    set brute_force_blacklist {
+        type ipv4_addr
+        flags timeout
+        timeout 1h
+    }
+    chain ingress_filter {
+        type filter hook prerouting priority filter; policy accept;
+        ip saddr @brute_force_blacklist drop
+        tcp dport { 22, 443 } ct state new meter flood_meter { ip saddr ct count over 10 } add @brute_force_blacklist { ip saddr } drop
+    }
+    chain egress_filter {
+        type filter hook output priority filter; policy drop;
+        ct state established,related accept
+        udp dport 53 accept
+        tcp dport 53 accept
+        udp dport 123 accept
+        tcp dport { 80, 443 } accept
+        log prefix "[SENTINEL-EGRESS-DROP] " drop
+    }
+}
+
+```
+
+
+5. 2026 CRYPTOGRAPHIC BASELINE:
+* Transport Security: TLS 1.3 exclusively. Reject TLS <= 1.2 and all legacy ciphers.
+* Symmetric Ciphers: ChaCha20-Poly1305 and AES-256-GCM exclusively.
+* Asymmetric Keys & Key Exchange: Post-Quantum hybrid suites (ML-KEM / X25519Kyber768),
+pure Ed25519, and X25519. Reject RSA < 4096-bit, DSA, and NIST P-256.
+* KDF: Argon2id (`m=65536, t=3, p=4`) or native Debian `yescrypt`.
+
+
+
+## [5. DETERMINISTIC STATE MACHINE, APT ORCHESTRATION & RECOVERY]
+
+1. WRITE-AHEAD LOG (WAL) & RECOVERY STATE MACHINE:
+* Persist transactional state machine records to `/var/lib/server_script/journal.wal`.
+* Transaction Contract:
+```json
+{
+  "tx_id": "c7a8b9e0-1234-5678-9abc-def012345678",
+  "timestamp": "2026-09-02T05:25:02Z",
+  "state": "COMMITTING",
+  "action": "deploy_service",
+  "target": "nginx",
+  "rollback_stack": [
+    {"step": 1, "exec": "systemctl stop nginx"},
+    {"step": 2, "exec": "apt-get purge -y nginx"},
+    {"step": 3, "exec": "rm -rf /etc/nginx"}
+  ]
+}
+
+```
+
+
+* Crash Recovery Guarantee: Upon startup, the engine inspects the WAL. If an
+uncommitted or failed transaction is detected, the rollback stack executes in
+reverse chronological order, restoring the system to an unpolluted baseline.
+
+
+2. NON-BLOCKING APT DETERMINISM & MODERN REPOSITORIES:
+* Lock Contention Management: Check lock availability on `/var/lib/dpkg/lock-frontend`
+and `/var/lib/apt/lists/lock`. Implement an exponential backoff retry loop with a
+hard 120-second timeout; exit cleanly with `EX_TEMPFAIL` on expiration.
+* Headless Execution Parameters:
+```bash
+DEBIAN_FRONTEND=noninteractive apt-get \
+  -o Dpkg::Options::="--force-confdef" \
+  -o Dpkg::Options::="--force-confold" \
+  -o Acquire::Retries=3 \
+  -y --no-install-recommends <action>
+
+```
+
+
+* Modern Deb822 Repository Format:
+Eliminate `apt-key add`. Armored GPG keys must be stored in `/etc/apt/keyrings/<name>.gpg`
+with permissions `0644`. Repositories must be declared under `/etc/apt/sources.list.d/<name>.sources`
+specifying `Signed-By: /etc/apt/keyrings/<name>.gpg`.
+
+
+3. CGROUPS V2 CONFINEMENT & OOM ADJUSTMENT:
+* Dispatch long-running tasks via dedicated systemd scopes:
+`systemd-run --scope --slice=server-script.slice --property="MemoryHigh=80%" --property="MemoryMax=90%" --property="CPUWeight=100" <cmd>`
+* Protect the supervisor daemon from Out-Of-Memory (OOM) eviction by pinning
+`OOMScoreAdjust=-900` in its systemd unit definition.
+
+
+
+## [6. HIGH-AVAILABILITY PRODUCTION FEATURES (USER & ADMIN)]
+
+1. ZERO-CONFIG ACME / AUTOMATED TLS 1.3 ENGINE (RFC 8555):
+* Dependency-free ACME client embedded directly in the Rust daemon.
+* Supports automated issuance and renewal from Let's Encrypt and ZeroSSL.
+* Automated HTTP-01 challenge routing and DNS-01 API hooks.
+* Zero-downtime hot certificate reloading executed 30 days prior to expiration.
+
+
+2. DECLARATIVE GITOPS / INFRASTRUCTURE-AS-CODE (IaC) ENGINE:
+* Full server definition via `server-spec.yaml`:
+```yaml
+version: "2026.1"
+hostname: "srv-prod-01.cyl.ae"
+firewall:
+  sentinel: true
+  allowed_ingress: [22, 80, 443]
+services:
+  - name: docker
+    state: present
+  - name: nginx
+    state: present
+    config:
+      domains: ["app.cyl.ae"]
+      tls: acme
+monitoring:
+  cve_sentinel: true
+  fss_sealing: true
+
+```
+
+
+* Command: `server-manager apply -f server-spec.yaml` computes the drift
+between the current live system and desired blueprint, mutating only modified units.
+
+
+3. ENCRYPTED, DEDUPLICATED DISASTER RECOVERY ENGINE:
+* Client-side snapshot encryption using ChaCha20-Poly1305.
+* Targets: Local, SFTP, and S3-compatible endpoints.
+* Verification: `server-manager backup verify` downloads the archive,
+asserts cryptographic signature integrity, and tests unauthenticated
+decryption in a temporary sandbox without overwriting active production state.
+
+
+4. PROACTIVE REAL-TIME CVE SENTINEL (`server-manager doctor`):
+* Standalone diagnostic engine checking:
+* Real-time comparison of installed `.deb` packages against official Debian
+Security Tracker OVAL/JSON feeds.
+* Kernel release, active LSM profiles (Landlock/AppArmor), and sysctl compliance.
+* Port conflicts against listening network sockets.
+* Storage volume thresholds (asserting >= 5GB free on `/var` and `/`).
+* System clock drift verification against authenticated NTP servers.
+
+
+* Outputs structured reports with CVSS 3.1/4.0 scores and automated patch steps.
+
+
+5. REAL-TIME FILE INTEGRITY (FANOTIFY) & LOG SEALING (FSS):
+* Kernel Filesystem Monitoring (`fanotify`): Use `fanotify_init` and `fanotify_mark`
+to intercept unauthorized write attempts on `/etc/` in real time, dropping alerts
+into the WAL journal.
+* Forward-Secure Sealing (FSS): Integrate with `systemd-journald` log sealing
+(`journalctl --setup-keys`), generating evolving mathematical verification keys
+where retrospective log modification is cryptographically impossible.
+* Cryptographic FIM: Build and seal SHA-512 signatures of all managed system
+configurations in `/var/lib/server_script/integrity.sig`. Daily sweeps flag tampering.
+
+
+
+## [7. 2026 ERGONOMICS, DESIGN SYSTEM & REAL-TIME WEBUI]
+
+1. ZERO-FRAMEWORK DESIGN ARCHITECTURE:
+* STYLING FOUNDATION: Pure modern CSS using Native CSS Nesting, `@layer`
+architecture (reset, base, layout, components, utilities), CSS Subgrid,
+and CSS Container Queries (`@container`).
+* PERCEPTUAL COLOR SCIENCE: Engineered strictly in the OKLCH color space.
+Automatic zero-FOUC theme switching between `light`, `dark`, and OLED pitch
+black (`oklch(0% 0 0)`) via CSS `light-dark()` and `@media (prefers-color-scheme)`.
+* TYPOGRAPHY: Native system font stack (`system-ui`, `-apple-system`, `Segoe UI`, `Inter`)
+paired with monospace tabular numerals (`font-variant-numeric: tabular-nums`) to
+prevent layout jitter during real-time telemetry streaming.
+* TOTAL ASSET FOOTPRINT: Single bundled HTML/CSS/JS payload < 40KB (gzipped).
+Zero external CDN requests, zero tracking pixels, zero web fonts.
+
+
+2. POWER-USER INDUSTRIAL ERGONOMICS:
+* Universal Command Palette (`Ctrl+K` / `Cmd+K`): Keyboard-first fuzzy search
+overlay providing instant navigation across services, lifecycle actions,
+real-time logs, settings, and doctor diagnostics.
+* Density Modes: Instant toggle between `Compact` (high-density sysadmin table view)
+and `Comfortable` (spacious card monitoring view for touch/tablets).
+* Virtualized 60fps ANSI Terminal Viewer: HTML5 Canvas / virtualized DOM stream
+rendering continuous live logs via Server-Sent Events (SSE). Features include
+paused scroll on hover, regex searching, ANSI color rendering, and sanitized log export.
+* Core Web Vitals Targets: Cumulative Layout Shift (CLS) exactly 0.000;
+Interaction to Next Paint (INP) < 16ms; First Contentful Paint (FCP) < 200ms.
+
+
+3. DUAL USER/ADMIN ARCHITECTURE & BROWSER SECURITY:
+* FIDO2 / WebAuthn Hardware Authentication: Native passkey authentication
+(YubiKey, TouchID, FaceID) via WebAuthn API. Zero passwords stored in the database.
+* Role-Based Access Control (RBAC):
+* `Admin`: Full orchestrator rights, terminal execution, backup restore, service purge.
+* `Operator`: Service lifecycle management (Start/Stop/Restart), log viewing, doctor checks.
+* `Auditor`: Read-only telemetry, immutable log inspection, and configuration viewing.
+
+
+* Strict HTTP Response Headers:
+* `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; require-trusted-types-for 'script';`
+* `Cross-Origin-Opener-Policy: same-origin`
+* `Cross-Origin-Embedder-Policy: require-corp`
+* `X-Content-Type-Options: nosniff`
+* `Referrer-Policy: strict-origin-when-cross-origin`
+
+
+* IPC Architecture: Prohibit binding WebUI control interfaces to loopback TCP ports
+(`127.0.0.1`). IPC between the WebUI broker and root engine must occur strictly
+over a UNIX Domain Socket (`/run/server_script.sock`) with permissions `0660 root:www-data`.
+
+
+
+## [8. 1000+ ASSERTION AUTOMATED TEST MATRIX & MUTATION TESTING]
+
+Your `./verify.sh` test suite must implement and validate over 1000 discrete assertions
+divided across the following test suites:
+
+1. STATIC LINTING & SECURITY AUDIT (100% PASS REQUIRED):
+* Rust: `cargo clippy --all-targets -- -D warnings`.
+* Shell: `shellcheck -s bash -e SC1090,SC1091` with zero warnings, zero hints.
+* Formatting: `shfmt -i 2 -ci -bn` and `cargo fmt -- --check`.
+* Secrets Audit: Scan the entire repository tree to assert that zero private keys,
+hardcoded test tokens, or passwords exist.
+
+
+2. IDEMPOTENCE & STATE DRIFT ASSERTIONS (250+ TESTS):
+* Sequentially invoke all service lifecycle scripts twice consecutively.
+* Assert exit code `0` on both runs.
+* Compute SHA-512 hashes of all configuration targets in `/etc/` before and after
+the second run; assert zero drift, zero configuration duplication, and zero
+spurious restarts.
+
+
+3. ADVERSARIAL FUZZING & INJECTION DEFENSE (350+ TESTS):
+* Command Injection: Inject arbitrary shell metacharacters (`; rm -rf /`, `$(reboot)`,
+`| nc ...`, `& touch /tmp/pwn`) into every CLI argument, service name, and API endpoint.
+Assert 100% rejection with standardized exit code `65` / HTTP `400`.
+* Path Traversal: Fuzz service definitions and configuration targets with
+`../../../../etc/shadow`, `/etc/passwd\0.txt`, and encoded null bytes.
+Assert strict rejection and access denial.
+* Unicode Homoglyph & Format Strings: Test resilience against malformed UTF-8,
+RTL overrides, and format specifiers (`%s`, `%x`, `%n`). Assert clean rejection.
+
+
+4. CONCURRENCY & RACE-CONDITION STRESS TESTS (200+ TESTS):
+* Mutex Serialization: Spawn 25 simultaneous processes attempting concurrent
+installation, removal, and reconfiguration of intersecting services.
+* Assert that the kernel file-locking mechanism cleanly serializes or safely
+rejects conflicting operations without `dpkg` database corruption or system deadlocks.
+
+
+5. FAULT INJECTION & CHAOS RECOVERY (200+ TESTS):
+* Interruption Resilience: Inject `SIGKILL` and `SIGINT` at randomized intervals
+during package downloads, file staging, and service registration.
+* Assert that subsequent invocations safely release stale lockfiles, trigger WAL
+rollbacks, and restore the host to a deterministic, uncorrupted baseline.
+
+
+6. MUTATION TESTING HARNESS:
+* Subject the codebase to mutation testing (inducing artificial bit-flips, logic
+inversions, and condition drops).
+* The test suite must achieve a mutation score strictly exceeding 90%, proving
+that tests fail predictably when real defects are introduced.
+
+
+
+## [9. PRODUCTION DOCUMENTATION & GIT STANDARDS]
+
+1. README.MD PRODUCTION SPECIFICATION:
+Rebuild `README.md` completely from scratch, adhering to a two-tier audience:
+* TIER 1 (OPERATOR FAST-TRACK):
+* Cryptographically verified one-line install command:
+`curl -fsSL https://.../install.sh | sha256sum -c <(echo "EXPECTED_SHA256 -") && sudo bash install.sh`
+* Clean ASCII/Mermaid architectural diagram displaying the relationship
+between the Rust core, IPC socket, systemd scopes, and WebUI.
+* Quickstart usage commands (`server-manager apply`, `server-manager doctor`).
+
+
+* TIER 2 (SYSTEMS ARCHITECT & AUDITOR DEEP-DIVE):
+* Complete threat model breakdown and CIS Debian Benchmark Level 2 mapping.
+* IPC UNIX Domain Socket protocol specification and JSON message schemas.
+* Write-Ahead Log lifecycle, transaction recovery, and FSS log verification.
+* Step-by-step local testing instructions for executing `./verify.sh`.
+
+
+
+
+2. ATOMIC GIT COMMITS:
+Deliver changes as atomic, logical commits adhering to Conventional Commits:
+`feat(core): ...`, `fix(apt): ...`, `security(kernel): ...`, `ui(canvas): ...`, `test(fuzz): ...`.
+Monolithic bulk commits are strictly forbidden.
+
+## [10. REQUIRED FINAL AUDIT REPORT SCHEMA]
+
+When all work is complete and `./verify.sh` exits cleanly with code 0, output
+ONLY the following Markdown report. Do not add conversational greetings,
+acknowledgments, or filler prose.
+
+# Audit outcome
+
+# Repository scope inspected
+
+* <Concrete modules, legacy scripts, configurations, and git history inspected>
+* <Discovered commands, execution environments, and platform constraints>
+
+# Findings and decisions
+
+## Fixed
+
+* **<Severity: Critical/High/Medium/Low>** — `<Finding title>`
+* Evidence: `<Specific file, line, command output, or code path>`
+* Risk: `<Concrete correctness, data-integrity, or security impact>`
+* Resolution: `<Specific architectural or code change applied>`
+* Regression coverage: `<Test name or assertion proving resolution>`
+
+
+
+## Reviewed but not changed
+
+* `<Finding or architectural area>` — `<Evidence-based justification for retaining existing behavior>`
+
+# Architectural reconstruction
+
+* Scope: `<Modules, scripts, or directories deleted, replaced, or created>`
+* Reason: `<Evidence establishing why legacy structure was defective>`
+* Preserved behavior: `<Established behaviors maintained>`
+* Intentionally changed behavior: `<Defective/unsafe behaviors explicitly modified>`
+* Validation: `<Commands and tests confirming operational integrity>`
+
+# Technology evaluation
+
+* Selected language/runtime: Rust (statically linked via musl) + POSIX service descriptors
+* Memory safety status: Verified (zero dynamic glibc dependencies, idle RSS < 15MB)
+* Toolchain hardening: Verified (Full RELRO, Stack Clash, PIE, stripped)
+
+# Files changed
+
+* `<Path>`: `<Precise summary of modification>`
+
+# Validation results
+
+* `<Exact command>`: exit code `<n>` — `<Observed outcome>`
+(Include outputs from clippy, shellcheck, shfmt, bats, cargo test, and verify.sh)
+
+# Remaining limitations
+
+* `<Material unresolved items, environmental constraints, or external dependencies>`
+
+# Confidence assessment
+
+* Correctness: <High/Medium/Low> —
+* Data integrity: <High/Medium/Low> —
+* Security: <High/Medium/Low> —
+* Reliability: <High/Medium/Low> —
+* Test coverage of modified behavior: <High/Medium/Low> —
+* Performance validation: <High/Medium/Low> —
+================================================================================
