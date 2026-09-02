@@ -168,6 +168,7 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/", get(dashboard))
         .route("/users", get(users_page))
         .route("/users/add", post(add_user_handler))
+        .route("/users/update/:username", post(update_user_handler))
         .route("/users/delete/:username", post(delete_user_handler))
         .route("/updates", get(updates_page))
         .route("/user/apps/:name/install", post(user_install_app_handler))
@@ -248,37 +249,40 @@ async fn login_page(session: Session) -> impl IntoResponse {
         <title>Login - Server Manager</title>
         <style>
             :root {
-                --bg-main: #0f172a;
-                --bg-card: #1e293b;
-                --border-color: #334155;
-                --text-main: #f8fafc;
+                --bg-main: #090d16;
+                --bg-card: #131c2e;
+                --bg-input: #0e1626;
+                --border-color: #26354f;
+                --border-hover: #3b82f6;
+                --text-main: #f1f5f9;
                 --text-muted: #94a3b8;
-                --accent-blue: #38bdf8;
-                --accent-hover: #0284c7;
+                --accent-indigo: #6366f1;
             }
-            * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+            * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
             body { background: var(--bg-main); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-            .login-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); }
-            .login-title { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 24px; color: var(--text-main); }
-            .form-group { margin-bottom: 16px; }
-            label { display: block; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 6px; }
-            input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: #0f172a; color: var(--text-main); font-size: 1rem; transition: border-color 0.2s; }
-            input:focus { outline: none; border-color: var(--accent-blue); }
-            button { width: 100%; padding: 12px; background: var(--accent-blue); color: #0f172a; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: background 0.2s; margin-top: 8px; }
-            button:hover { background: var(--accent-hover); }
+            .login-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 40px 32px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5); }
+            .login-title { font-size: 1.75rem; font-weight: 800; text-align: center; margin-bottom: 6px; color: var(--text-main); letter-spacing: -0.025em; }
+            .login-subtitle { font-size: 0.875rem; color: var(--text-muted); text-align: center; margin-bottom: 28px; }
+            .form-group { margin-bottom: 18px; }
+            label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+            input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 0.95rem; transition: all 0.2s; }
+            input:focus { outline: none; border-color: var(--border-hover); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+            button { width: 100%; padding: 12px; background: var(--accent-indigo); color: #ffffff; font-weight: 700; border: none; border-radius: 10px; cursor: pointer; font-size: 1rem; transition: all 0.2s ease-in-out; margin-top: 10px; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
+            button:hover { background: #4f46e5; transform: translateY(-1px); }
         </style>
     </head>
     <body>
         <div class="login-box">
             <h2 class="login-title">Server Manager 🚀</h2>
+            <div class="login-subtitle">Sign in to manage your server infrastructure</div>
             <form method="POST" action="/login">
                 <div class="form-group">
                     <label>Username</label>
-                    <input type="text" name="username" placeholder="Username" required autofocus>
+                    <input type="text" name="username" placeholder="Enter username" required autofocus>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="password" name="password" placeholder="Enter password" required>
                 </div>
                 <button type="submit">Sign In</button>
             </form>
@@ -365,54 +369,74 @@ fn write_html_head(out: &mut String, title: &str) {
         <title>{}</title>
         <style>
             :root {{
-                --bg-main: #0f172a;
-                --bg-card: #1e293b;
-                --bg-card-hover: #334155;
-                --border-color: #334155;
-                --text-main: #f8fafc;
+                --bg-main: #090d16;
+                --bg-card: #131c2e;
+                --bg-card-alt: #1a263d;
+                --bg-input: #0e1626;
+                --border-color: #26354f;
+                --border-hover: #3b82f6;
+                --text-main: #f1f5f9;
                 --text-muted: #94a3b8;
                 --accent-blue: #38bdf8;
+                --accent-indigo: #6366f1;
                 --accent-green: #34d399;
                 --accent-red: #f87171;
+                --accent-amber: #fbbf24;
                 --accent-gray: #64748b;
             }}
-            * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
-            body {{ background: var(--bg-main); color: var(--text-main); min-height: 100vh; padding: 24px 16px; line-height: 1.5; }}
-            .container {{ max-width: 1080px; margin: 0 auto; background: var(--bg-card); padding: 28px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px -5px rgba(0,0,0,0.3); }}
-            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }}
-            .header h1 {{ font-size: 1.75rem; font-weight: 700; color: var(--text-main); }}
-            .nav {{ display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap; }}
-            .nav a {{ color: var(--text-muted); text-decoration: none; font-weight: 600; padding: 6px 12px; border-radius: 8px; transition: all 0.2s; }}
-            .nav a:hover {{ color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }}
-            .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }}
-            .stat-card {{ background: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }}
-            .stat-label {{ font-size: 0.875rem; color: var(--text-muted); margin-bottom: 4px; }}
-            .stat-value {{ font-size: 1.5rem; font-weight: 700; color: var(--accent-blue); }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 16px; border-radius: 8px; overflow: hidden; }}
-            th, td {{ padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }}
-            th {{ background: #0f172a; font-size: 0.875rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
+            * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }}
+            body {{ background: var(--bg-main); color: var(--text-main); min-height: 100vh; padding: 32px 16px; line-height: 1.5; }}
+            .container {{ max-width: 1140px; margin: 0 auto; background: var(--bg-card); padding: 32px; border-radius: 20px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5); }}
+            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; }}
+            .header h1 {{ font-size: 1.85rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.025em; display: flex; align-items: center; gap: 10px; }}
+            .nav {{ display: flex; gap: 8px; margin-bottom: 28px; background: var(--bg-main); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color); flex-wrap: wrap; }}
+            .nav a {{ color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.9rem; padding: 8px 16px; border-radius: 8px; transition: all 0.2s ease-in-out; }}
+            .nav a:hover {{ color: var(--text-main); background: var(--bg-card); }}
+            .nav a.active {{ color: #ffffff; background: var(--accent-indigo); shadow: 0 4px 12px rgba(99,102,241,0.3); }}
+            .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px; }}
+            .stat-card {{ background: var(--bg-main); padding: 22px; border-radius: 16px; border: 1px solid var(--border-color); position: relative; overflow: hidden; }}
+            .stat-label {{ font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }}
+            .stat-value {{ font-size: 1.75rem; font-weight: 800; color: var(--accent-blue); display: flex; justify-content: space-between; align-items: baseline; }}
+            .progress-bar-bg {{ width: 100%; height: 8px; background: var(--border-color); border-radius: 4px; margin-top: 12px; overflow: hidden; }}
+            .progress-bar-fill {{ height: 100%; background: linear-gradient(90deg, var(--accent-indigo), var(--accent-blue)); border-radius: 4px; transition: width 0.4s ease; }}
+            .section-title {{ font-size: 1.35rem; font-weight: 700; margin-top: 36px; margin-bottom: 16px; color: var(--text-main); display: flex; align-items: center; gap: 10px; }}
+            .card-panel {{ background: var(--bg-main); padding: 24px; border-radius: 16px; border: 1px solid var(--border-color); margin-bottom: 28px; }}
+            table {{ width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 12px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); }}
+            th, td {{ padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.925rem; }}
+            th {{ background: var(--bg-main); font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }}
             tr:last-child td {{ border-bottom: none; }}
-            tr:hover td {{ background: rgba(255,255,255,0.02); }}
-            .btn {{ padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; color: #0f172a; }}
-            .btn-primary {{ background: var(--accent-blue); color: #0f172a; }}
-            .btn-primary:hover {{ background: #0284c7; color: #fff; }}
-            .btn-danger {{ background: var(--accent-red); color: #0f172a; }}
-            .btn-danger:hover {{ background: #dc2626; color: #fff; }}
-            .btn-enable {{ background: var(--accent-green); color: #0f172a; }}
-            .btn-enable:hover {{ background: #059669; color: #fff; }}
-            .btn-disable {{ background: var(--accent-red); color: #0f172a; }}
-            .btn-disable:hover {{ background: #dc2626; color: #fff; }}
-            .btn-logout {{ background: var(--accent-gray); color: #fff; }}
-            .btn-logout:hover {{ background: #475569; }}
-            .status-enabled {{ color: var(--accent-green); font-weight: 600; }}
-            .status-disabled {{ color: var(--accent-red); font-weight: 600; }}
-            input, select {{ width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: #0f172a; color: var(--text-main); font-size: 0.95rem; }}
-            input:focus, select:focus {{ outline: none; border-color: var(--accent-blue); }}
+            tr {{ background: var(--bg-card); transition: background 0.15s; }}
+            tr:hover td {{ background: var(--bg-card-alt); }}
+            .badge {{ display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.775rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }}
+            .badge-success {{ background: rgba(52, 211, 153, 0.15); color: var(--accent-green); border: 1px solid rgba(52, 211, 153, 0.3); }}
+            .badge-danger {{ background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border: 1px solid rgba(248, 113, 113, 0.3); }}
+            .badge-admin {{ background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }}
+            .badge-observer {{ background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); border: 1px solid rgba(251, 191, 36, 0.3); }}
+            .btn {{ padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out; gap: 6px; }}
+            .btn-primary {{ background: var(--accent-indigo); color: #ffffff; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }}
+            .btn-primary:hover {{ background: #4f46e5; transform: translateY(-1px); }}
+            .btn-danger {{ background: rgba(248, 113, 113, 0.2); color: var(--accent-red); border: 1px solid rgba(248, 113, 113, 0.4); }}
+            .btn-danger:hover {{ background: var(--accent-red); color: #090d16; transform: translateY(-1px); }}
+            .btn-enable {{ background: rgba(52, 211, 153, 0.2); color: var(--accent-green); border: 1px solid rgba(52, 211, 153, 0.4); }}
+            .btn-enable:hover {{ background: var(--accent-green); color: #090d16; transform: translateY(-1px); }}
+            .btn-disable {{ background: rgba(248, 113, 113, 0.2); color: var(--accent-red); border: 1px solid rgba(248, 113, 113, 0.4); }}
+            .btn-disable:hover {{ background: var(--accent-red); color: #090d16; transform: translateY(-1px); }}
+            .btn-logout {{ background: var(--bg-main); color: var(--text-muted); border: 1px solid var(--border-color); }}
+            .btn-logout:hover {{ color: var(--text-main); border-color: var(--accent-gray); background: var(--bg-card-alt); }}
+            input, select {{ width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-size: 0.925rem; transition: all 0.2s; }}
+            input:focus, select:focus {{ outline: none; border-color: var(--border-hover); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }}
+            .grid-form {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end; }}
+            .apps-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }}
+            .app-card {{ background: var(--bg-main); border: 1px solid var(--border-color); padding: 20px; border-radius: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; transition: border-color 0.2s; }}
+            .app-card:hover {{ border-color: var(--accent-indigo); }}
+            .app-info {{ display: flex; justify-content: space-between; align-items: flex-start; }}
+            .app-title {{ font-weight: 700; font-size: 1.1rem; color: var(--text-main); }}
+            .app-subtitle {{ font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }}
             @media (max-width: 768px) {{
                 body {{ padding: 12px 8px; }}
-                .container {{ padding: 16px; border-radius: 12px; }}
+                .container {{ padding: 18px; border-radius: 14px; }}
                 table {{ display: block; overflow-x: auto; }}
-                .stats-grid {{ grid-template-columns: repeat(2, 1fr); gap: 10px; }}
+                .stats-grid {{ grid-template-columns: repeat(2, 1fr); gap: 12px; }}
             }}
         </style>
     </head>
@@ -517,7 +541,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     );
 
     // Navigation
-    html.push_str(r#"<div class="nav"><a href="/">Dashboard</a>"#);
+    html.push_str(r#"<div class="nav"><a href="/" class="active">Dashboard</a>"#);
     if is_admin {
         html.push_str(
             r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
@@ -525,43 +549,74 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     }
     html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
 
+    let ram_pct = if ram_total > 0 {
+        (ram_used as f64 / ram_total as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+    let swap_pct = if swap_total > 0 {
+        (swap_used as f64 / swap_total as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+    let disk_pct = if disk_total > 0 {
+        (disk_used as f64 / disk_total as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+
     // Stats Grid
     let _ = writeln!(
         html,
         r#"
         <div class="stats-grid">
             <div class="stat-card">
-                <div>CPU Usage</div>
-                <div class="stat-value">{:.1}%</div>
+                <div class="stat-label">CPU Usage</div>
+                <div class="stat-value"><span>{:.1}%</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
             <div class="stat-card">
-                <div>RAM Usage</div>
-                <div class="stat-value">{} / {} MB</div>
+                <div class="stat-label">RAM Usage</div>
+                <div class="stat-value"><span>{} MB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} MB</small></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
             <div class="stat-card">
-                <div>Swap Usage</div>
-                <div class="stat-value">{} / {} MB</div>
+                <div class="stat-label">Swap Usage</div>
+                <div class="stat-value"><span>{} MB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} MB</small></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
             <div class="stat-card">
-                <div>Disk (/)</div>
-                <div class="stat-value">{} / {} GB</div>
+                <div class="stat-label">Disk Storage (/)</div>
+                <div class="stat-value"><span>{} GB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} GB</small></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
         </div>
     "#,
-        cpu_usage, ram_used, ram_total, swap_used, swap_total, disk_used, disk_total
+        cpu_usage,
+        cpu_usage,
+        ram_used,
+        ram_total,
+        ram_pct,
+        swap_used,
+        swap_total,
+        swap_pct,
+        disk_used,
+        disk_total,
+        disk_pct
     );
 
-    // Services Table
+    // System Services Table
     html.push_str(
         r#"
-        <h2>Services</h2>
+        <div class="section-title">⚡ System Stack Services</div>
         <table>
             <thead>
                 <tr>
-                    <th>Service</th>
-                    <th>Image</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th>Service Name</th>
+                    <th>Docker Image</th>
+                    <th>Port(s)</th>
+                    <th>System Status</th>
+                    <th>System Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -571,51 +626,55 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     for svc in services {
         let name = svc.name();
         let enabled = config.is_enabled(name);
-        let status_class = if enabled {
-            "status-enabled"
+        let ports_str = svc.ports().join(", ");
+        let display_ports = if ports_str.is_empty() {
+            "-"
         } else {
-            "status-disabled"
+            &ports_str
         };
-        let status_text = if enabled { "Enabled" } else { "Disabled" };
+
+        let status_badge = if enabled {
+            r#"<span class="badge badge-success">Enabled</span>"#
+        } else {
+            r#"<span class="badge badge-danger">Disabled</span>"#
+        };
 
         let _ = writeln!(
             html,
             r#"
             <tr>
+                <td><strong>{}</strong></td>
+                <td><code style="background: var(--bg-main); padding: 2px 6px; border-radius: 6px; font-size: 0.825rem; border: 1px solid var(--border-color);">{}</code></td>
                 <td>{}</td>
                 <td>{}</td>
-                <td class="{}">{}</td>
                 <td>
         "#,
             name,
             svc.image(),
-            status_class,
-            status_text
+            display_ports,
+            status_badge
         );
 
         if is_admin {
             let _ = writeln!(
                 html,
                 r#"
-                    <form method="POST" action="/api/services/{}/{}">
+                    <form method="POST" action="/api/services/{}/{}" style="margin:0;">
                         <button type="submit" class="btn {}">{}</button>
                     </form>
              "#,
                 name,
                 if enabled { "disable" } else { "enable" },
                 if enabled { "btn-disable" } else { "btn-enable" },
-                if enabled {
-                    "Stack Disable"
-                } else {
-                    "Stack Enable"
-                }
+                if enabled { "Disable" } else { "Enable" }
             );
         } else {
-            html.push_str("<span>System Service</span>");
+            html.push_str(r#"<span style="color: var(--text-muted); font-size: 0.85rem;">System Controlled</span>"#);
         };
 
         html.push_str("</td></tr>");
     }
+    html.push_str("</tbody></table>");
 
     // User App Management Section (Quickbox.io style)
     let user_manager = state.get_users().await;
@@ -626,50 +685,42 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
 
     html.push_str(
         r#"
-        <h2 style="margin-top: 40px;">My Applications (User Portal)</h2>
-        <p>Manage your own application stack individually (Quickbox.io style).</p>
-        <table>
-            <thead>
-                <tr>
-                    <th>Application</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="section-title">📦 Personal Apps Portal (1-Click Apps)</div>
+        <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.925rem;">Install and manage individual user applications for your profile.</p>
+        <div class="apps-grid">
     "#,
     );
 
     for svc in services {
         let name = svc.name();
         let is_app_installed = installed_apps.contains(name);
-        let status_class = if is_app_installed {
-            "status-enabled"
+        let status_badge = if is_app_installed {
+            r#"<span class="badge badge-success">Installed</span>"#
         } else {
-            "status-disabled"
-        };
-        let status_text = if is_app_installed {
-            "Installed"
-        } else {
-            "Not Installed"
+            r#"<span class="badge badge-danger">Not Installed</span>"#
         };
 
         let _ = writeln!(
             html,
             r#"
-            <tr>
-                <td><strong>{}</strong></td>
-                <td class="{}">{}</td>
-                <td>
-                    <form method="POST" action="/user/apps/{}/{}" style="display:inline-block;">
-                        <button type="submit" class="btn {}">{}</button>
+            <div class="app-card">
+                <div class="app-info">
+                    <div>
+                        <div class="app-title">{}</div>
+                        <div class="app-subtitle">{}</div>
+                    </div>
+                    {}
+                </div>
+                <div>
+                    <form method="POST" action="/user/apps/{}/{}" style="margin: 0; width: 100%;">
+                        <button type="submit" class="btn {}" style="width: 100%;">{}</button>
                     </form>
-                </td>
-            </tr>
+                </div>
+            </div>
             "#,
             name,
-            status_class,
-            status_text,
+            svc.image(),
+            status_badge,
             name,
             if is_app_installed {
                 "uninstall"
@@ -682,22 +733,14 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                 "btn-primary"
             },
             if is_app_installed {
-                "1-Click Uninstall"
+                "Uninstall App"
             } else {
                 "1-Click Install"
             }
         );
     }
 
-    html.push_str("</tbody></table>");
-
-    html.push_str(
-        r#"
-            </tbody>
-        </table>
-        <p><em>Note: Actions may take a moment to apply.</em></p>
-    "#,
-    );
+    html.push_str("</div>");
     write_html_foot(&mut html);
 
     Html(html).into_response()
@@ -721,47 +764,52 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     html.push_str(r#"
         <div class="header">
             <h1>User Management 👥</h1>
-            <form method="POST" action="/logout">
+            <form method="POST" action="/logout" style="margin: 0;">
                 <button type="submit" class="btn btn-logout">Logout</button>
             </form>
         </div>
         <div class="nav">
             <a href="/">Dashboard</a>
-            <a href="/users">User Management</a>
+            <a href="/users" class="active">User Management</a>
             <a href="/updates">Updates &amp; Software</a>
+            <a href="/user/profile">My Profile</a>
         </div>
 
-        <h3>Add New User</h3>
-        <form method="POST" action="/users/add" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end;">
-            <div>
-                <label>Username</label><br>
-                <input type="text" name="username" required style="width: 100%; padding: 8px;">
-            </div>
-            <div>
-                <label>Password</label><br>
-                <input type="password" name="password" required style="width: 100%; padding: 8px;">
-            </div>
-            <div>
-                <label>Role</label><br>
-                <select name="role" style="width: 100%; padding: 8px;">
-                    <option value="Observer">Observer</option>
-                    <option value="Admin">Admin</option>
-                </select>
-            </div>
-            <div>
-                <label>Quota (GB) <small>(0 = unlimited)</small></label><br>
-                <input type="number" name="quota" value="0" style="width: 100%; padding: 8px;">
-            </div>
-            <button type="submit" class="btn btn-primary" style="height: 35px;">Add User</button>
-        </form>
+        <div class="card-panel">
+            <div class="section-title" style="margin-top: 0;">➕ Add New System User</div>
+            <form method="POST" action="/users/add" class="grid-form">
+                <div>
+                    <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Username</label>
+                    <input type="text" name="username" required placeholder="e.g. john">
+                </div>
+                <div>
+                    <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Password</label>
+                    <input type="password" name="password" required placeholder="••••••••">
+                </div>
+                <div>
+                    <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Role</label>
+                    <select name="role">
+                        <option value="Observer">Observer</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Quota (GB) <small style="color: var(--text-muted);">(0 = unlimited)</small></label>
+                    <input type="number" name="quota" value="0">
+                </div>
+                <button type="submit" class="btn btn-primary" style="height: 42px;">Add User</button>
+            </form>
+        </div>
 
-        <h3>Existing Users</h3>
+        <div class="section-title">👥 Existing User Accounts</div>
         <table>
             <thead>
                 <tr>
                     <th>Username</th>
                     <th>Role</th>
-                    <th>Quota (GB)</th>
+                    <th>Storage Quota</th>
+                    <th>Installed Apps</th>
+                    <th>Update Settings</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -769,38 +817,65 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
     "#);
 
     for u in user_manager.list_users() {
+        let role_badge = match u.role {
+            Role::Admin => r#"<span class="badge badge-admin">Admin</span>"#,
+            Role::Observer => r#"<span class="badge badge-observer">Observer</span>"#,
+        };
+
+        let quota_val = u.quota_gb.unwrap_or(0);
+        let apps_count = u.installed_apps.len();
+        let apps_display = if apps_count > 0 {
+            format!("{} app(s)", apps_count)
+        } else {
+            "None".to_string()
+        };
+
         let _ = writeln!(
             html,
             r#"
             <tr>
+                <td><strong>{}</strong></td>
                 <td>{}</td>
-                <td>{:?}</td>
-                <td>"#,
-            Escaped(&u.username),
-            u.role
-        );
-
-        match u.quota_gb {
-            Some(gb) if gb > 0 => {
-                let _ = writeln!(html, "{} GB", gb);
-            }
-            _ => {
-                html.push_str("Unlimited");
-            }
-        }
-
-        // Don't allow deleting self or last admin logic is handled in delete handler/manager
-        // But let's show delete button generally
-        let _ = writeln!(
-            html,
-            r#"</td>
+                <td>{}</td>
+                <td><span class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-main);">{}</span></td>
                 <td>
-                    <form method="POST" action="/users/delete/{}" onsubmit="return confirm('Are you sure you want to delete this user? This will delete their system account and data.');">
-                        <button type="submit" class="btn btn-danger">Delete</button>
+                    <form method="POST" action="/users/update/{}" style="display: flex; gap: 8px; align-items: center; margin: 0;">
+                        <select name="role" style="padding: 6px 10px; font-size: 0.85rem; width: 110px;">
+                            <option value="Observer"{}>Observer</option>
+                            <option value="Admin"{}>Admin</option>
+                        </select>
+                        <input type="number" name="quota" value="{}" style="padding: 6px 10px; font-size: 0.85rem; width: 90px;" placeholder="Quota">
+                        <button type="submit" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">Save</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="POST" action="/users/delete/{}" style="margin:0;" onsubmit="return confirm('Are you sure you want to delete user {}?');">
+                        <button type="submit" class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;">Delete</button>
                     </form>
                 </td>
             </tr>
         "#,
+            Escaped(&u.username),
+            role_badge,
+            if quota_val > 0 {
+                format!("{} GB", quota_val)
+            } else {
+                "Unlimited".to_string()
+            },
+            apps_display,
+            Escaped(&u.username),
+            if matches!(u.role, Role::Observer) {
+                " selected"
+            } else {
+                ""
+            },
+            if matches!(u.role, Role::Admin) {
+                " selected"
+            } else {
+                ""
+            },
+            quota_val,
+            Escaped(&u.username),
             Escaped(&u.username)
         );
     }
@@ -875,6 +950,71 @@ async fn add_user_handler(
         Err(e) => {
             error!("Failed to add user: {}", e);
             // In a real app we'd flash a message. Here just redirect.
+        }
+    }
+
+    Redirect::to("/users").into_response()
+}
+
+#[derive(Deserialize)]
+struct UpdateUserPayload {
+    role: String,
+    quota: Option<u64>,
+}
+
+async fn update_user_handler(
+    State(state): State<SharedState>,
+    session: Session,
+    Path(username): Path<String>,
+    Form(payload): Form<UpdateUserPayload>,
+) -> impl IntoResponse {
+    let session_user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !matches!(session_user.role, Role::Admin) {
+        return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+    }
+
+    let role_enum = match payload.role.as_str() {
+        "Admin" => Role::Admin,
+        _ => Role::Observer,
+    };
+
+    let quota_val = match payload.quota {
+        Some(0) => None,
+        Some(v) => Some(v),
+        None => None,
+    };
+
+    let mut cache = state.users_cache.write().await;
+    let mut manager_clone = cache.manager.clone();
+
+    let u_name = username.clone();
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+        manager_clone.update_user_role_and_quota(&u_name, role_enum, quota_val)?;
+        Ok(manager_clone)
+    })
+    .await
+    .expect("Blocking task should not panic");
+
+    match res {
+        Ok(new_manager) => {
+            cache.manager = new_manager;
+            info!(
+                "User {} updated via Web UI by {}",
+                username, session_user.username
+            );
+            let path = std::path::Path::new("users.yaml");
+            let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
+            let file_path = if path.exists() { path } else { fallback_path };
+            if let Ok(m) = std::fs::metadata(file_path) {
+                cache.last_modified = m.modified().ok();
+            }
+        }
+        Err(e) => {
+            error!("Failed to update user: {}", e);
         }
     }
 
@@ -993,21 +1133,24 @@ async fn updates_page(session: Session) -> impl IntoResponse {
         r#"
         <div class="header">
             <h1>Updates &amp; Software Management 🔄</h1>
-            <form method="POST" action="/logout">
+            <form method="POST" action="/logout" style="margin:0;">
                 <button type="submit" class="btn btn-logout">Logout</button>
             </form>
         </div>
         <div class="nav">
             <a href="/">Dashboard</a>
             <a href="/users">User Management</a>
-            <a href="/updates">Updates &amp; Software</a>
+            <a href="/updates" class="active">Updates &amp; Software</a>
+            <a href="/user/profile">My Profile</a>
         </div>
 
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e9ecef; margin-bottom: 20px;">
-            <h3>One-Click System &amp; Stack Update</h3>
-            <p>Pull the latest Docker container images for all enabled services and re-deploy the stack seamlessly.</p>
-            <form method="POST" action="/api/system/update" onsubmit="return confirm('Are you sure you want to pull latest images and update all active services?');">
-                <button type="submit" class="btn btn-primary" style="font-size: 1em; padding: 10px 20px;">🚀 Update Stack Now</button>
+        <div class="card-panel">
+            <div class="section-title" style="margin-top:0;">🚀 One-Click System &amp; Stack Update</div>
+            <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6;">
+                Pull the latest Docker container images for all active media services and seamlessly re-deploy the container stack without downtime.
+            </p>
+            <form method="POST" action="/api/system/update" onsubmit="return confirm('Are you sure you want to pull latest images and update all active services?');" style="margin:0;">
+                <button type="submit" class="btn btn-primary" style="font-size: 0.95rem; padding: 12px 24px;">🚀 Update Stack Now</button>
             </form>
         </div>
     "#,
@@ -1128,12 +1271,17 @@ async fn user_profile_page(
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "My Profile - Server Manager");
 
+    let role_badge = match user.role {
+        Role::Admin => r#"<span class="badge badge-admin">Admin</span>"#,
+        Role::Observer => r#"<span class="badge badge-observer">Observer</span>"#,
+    };
+
     let _ = writeln!(
         html,
         r#"
         <div class="header">
             <h1>My Profile 👤</h1>
-            <form method="POST" action="/logout">
+            <form method="POST" action="/logout" style="margin:0;">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
@@ -1152,29 +1300,40 @@ async fn user_profile_page(
     let _ = writeln!(
         html,
         r#"
-            <a href="/user/profile">My Profile</a>
+            <a href="/user/profile" class="active">My Profile</a>
         </div>
 
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e9ecef; margin-bottom: 20px;">
-            <h3>User Information</h3>
-            <p><strong>Username:</strong> {}</p>
-            <p><strong>Role:</strong> {:?}</p>
-            <p><strong>Storage Quota:</strong> {}</p>
+        <div class="card-panel">
+            <div class="section-title" style="margin-top:0;">👤 Account Details</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px;">
+                <div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Username</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; margin-top: 4px;">{}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Access Role</div>
+                    <div style="margin-top: 4px;">{}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Disk Quota</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; margin-top: 4px; color: var(--accent-blue);">{}</div>
+                </div>
+            </div>
         </div>
 
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e9ecef;">
-            <h3>Change Password</h3>
-            <form method="POST" action="/user/profile">
-                <div style="margin-bottom: 10px;">
-                    <label>New Password:</label><br>
-                    <input type="password" name="password" required style="width: 100%; max-width: 300px; padding: 8px;">
+        <div class="card-panel">
+            <div class="section-title" style="margin-top:0;">🔐 Security &amp; Password Update</div>
+            <form method="POST" action="/user/profile" style="max-width: 400px; margin-top: 16px;">
+                <div style="margin-bottom: 16px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">New Password</label>
+                    <input type="password" name="password" required placeholder="Enter new password">
                 </div>
                 <button type="submit" class="btn btn-primary">Update Password</button>
             </form>
         </div>
     "#,
         Escaped(&user.username),
-        user.role,
+        role_badge,
         quota_str
     );
 
