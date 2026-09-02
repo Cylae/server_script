@@ -163,6 +163,26 @@ impl UserManager {
         }
     }
 
+    pub fn update_user_role_and_quota(
+        &mut self,
+        username: &str,
+        role: Role,
+        quota_gb: Option<u64>,
+    ) -> Result<()> {
+        if let Some(user) = self.users.get_mut(username) {
+            if Uid::effective().is_root() {
+                if let Some(gb) = quota_gb {
+                    let _ = system::set_system_quota(username, gb);
+                }
+            }
+            user.role = role;
+            user.quota_gb = quota_gb;
+            self.save()
+        } else {
+            Err(anyhow!("User not found"))
+        }
+    }
+
     pub fn uninstall_user_app(&mut self, username: &str, app_name: &str) -> Result<()> {
         if let Some(user) = self.users.get_mut(username) {
             user.installed_apps.remove(app_name);
@@ -314,5 +334,25 @@ mod tests {
             .expect("Value should exist");
         // Now can delete one
         assert!(manager.delete_user("admin").is_ok());
+    }
+
+    #[test]
+    fn test_update_user_role_and_quota() {
+        let mut manager = UserManager::default();
+        manager
+            .add_user("user1", "pass123", Role::Observer, Some(10))
+            .expect("User creation failed");
+
+        let u = manager.get_user("user1").expect("User exists");
+        assert_eq!(u.role, Role::Observer);
+        assert_eq!(u.quota_gb, Some(10));
+
+        assert!(manager
+            .update_user_role_and_quota("user1", Role::Admin, Some(50))
+            .is_ok());
+
+        let updated_u = manager.get_user("user1").expect("User exists");
+        assert_eq!(updated_u.role, Role::Admin);
+        assert_eq!(updated_u.quota_gb, Some(50));
     }
 }

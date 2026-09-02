@@ -96,7 +96,8 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
                 _ => return Err(anyhow::anyhow!("Invalid role. Use 'Admin' or 'Observer'")),
             };
 
-            let password = rpassword::prompt_password(format!("Enter password for {}: ", username))?;
+            let password =
+                rpassword::prompt_password(format!("Enter password for {}: ", username))?;
             let password = password.trim().to_string();
 
             if password.is_empty() {
@@ -124,7 +125,8 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
             if user_manager.get_user(&username).is_none() {
                 return Err(anyhow::anyhow!("User not found"));
             }
-            let password = rpassword::prompt_password(format!("Enter new password for {}: ", username))?;
+            let password =
+                rpassword::prompt_password(format!("Enter new password for {}: ", username))?;
             let password = password.trim().to_string();
 
             if password.is_empty() {
