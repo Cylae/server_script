@@ -3,7 +3,7 @@ use log::info;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct Secrets {
@@ -17,14 +17,31 @@ pub struct Secrets {
     pub roundcube_db_password: Option<String>,
     pub yourls_admin_password: Option<String>,
     pub vaultwarden_admin_token: Option<String>,
+    pub server_manager_admin_password: Option<String>,
 }
 
 impl Secrets {
+    fn get_secrets_path() -> PathBuf {
+        let opt_path = Path::new("/opt/server_manager/secrets.yaml");
+        let local_path = Path::new("secrets.yaml");
+        if opt_path.exists() {
+            opt_path.to_path_buf()
+        } else if local_path.exists() {
+            local_path.to_path_buf()
+        } else if Path::new("/opt/server_manager").exists() {
+            opt_path.to_path_buf()
+        } else {
+            local_path.to_path_buf()
+        }
+    }
+
     pub fn load_or_create() -> Result<Self> {
-        let path = Path::new("secrets.yaml");
+        let path = Self::get_secrets_path();
         let mut secrets: Secrets = if path.exists() {
-            let content = fs::read_to_string(path).context("Failed to read secrets.yaml")?;
-            serde_yaml_ng::from_str(&content).context("Failed to parse secrets.yaml")?
+            let content = fs::read_to_string(&path)
+                .with_context(|| format!("Failed to read {}", path.display()))?;
+            serde_yaml_ng::from_str(&content)
+                .with_context(|| format!("Failed to parse {}", path.display()))?
         } else {
             Secrets::default()
         };
@@ -70,11 +87,22 @@ impl Secrets {
             secrets.vaultwarden_admin_token = Some(generate_hex(16)?);
             changed = true;
         }
+        if secrets.server_manager_admin_password.is_none() {
+            secrets.server_manager_admin_password = Some(generate_hex(16)?);
+            changed = true;
+        }
 
         if changed {
             info!("Generated new secrets.");
             let content = serde_yaml_ng::to_string(&secrets)?;
-            fs::write(path, content).context("Failed to write secrets.yaml")?;
+            fs::write(&path, content)
+                .with_context(|| format!("Failed to write {}", path.display()))?;
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
         }
 
         Ok(secrets)
@@ -108,5 +136,6 @@ mod tests {
     fn test_secrets_default() {
         let secrets = Secrets::default();
         assert!(secrets.mysql_root_password.is_none());
+        assert!(secrets.server_manager_admin_password.is_none());
     }
 }

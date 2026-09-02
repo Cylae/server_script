@@ -171,13 +171,20 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         .route("/users/delete/:username", post(delete_user_handler))
         .route("/updates", get(updates_page))
         .route("/user/apps/:name/install", post(user_install_app_handler))
-        .route("/user/apps/:name/uninstall", post(user_uninstall_app_handler))
-        .route("/user/profile", get(user_profile_page).post(user_passwd_handler))
+        .route(
+            "/user/apps/:name/uninstall",
+            post(user_uninstall_app_handler),
+        )
+        .route(
+            "/user/profile",
+            get(user_profile_page).post(user_passwd_handler),
+        )
         .route("/api/services/:name/enable", post(enable_service))
         .route("/api/services/:name/disable", post(disable_service))
         .route("/api/system/update", post(trigger_system_update))
         .route("/logout", post(logout))
         .route("/login", get(login_page).post(login_handler))
+        .layer(axum::middleware::from_fn(security_headers_middleware))
         .layer(session_layer)
         .with_state(app_state);
 
@@ -188,6 +195,35 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn security_headers_middleware(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    headers.insert(
+        axum::http::header::X_CONTENT_TYPE_OPTIONS,
+        axum::http::HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        axum::http::header::X_FRAME_OPTIONS,
+        axum::http::HeaderValue::from_static("DENY"),
+    );
+    headers.insert(
+        axum::http::header::X_XSS_PROTECTION,
+        axum::http::HeaderValue::from_static("1; mode=block"),
+    );
+    headers.insert(
+        axum::http::header::REFERRER_POLICY,
+        axum::http::HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    headers.insert(
+        axum::http::header::STRICT_TRANSPORT_SECURITY,
+        axum::http::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+    );
+    response
 }
 
 async fn login_page(session: Session) -> impl IntoResponse {
@@ -201,24 +237,46 @@ async fn login_page(session: Session) -> impl IntoResponse {
 
     let html = r#"
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Login - Server Manager</title>
         <style>
-            body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f4; }
-            .login-box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; }
-            input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-            button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            button:hover { background-color: #0056b3; }
+            :root {
+                --bg-main: #0f172a;
+                --bg-card: #1e293b;
+                --border-color: #334155;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --accent-blue: #38bdf8;
+                --accent-hover: #0284c7;
+            }
+            * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+            body { background: var(--bg-main); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+            .login-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 32px; width: 100%; max-width: 380px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); }
+            .login-title { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 24px; color: var(--text-main); }
+            .form-group { margin-bottom: 16px; }
+            label { display: block; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 6px; }
+            input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: #0f172a; color: var(--text-main); font-size: 1rem; transition: border-color 0.2s; }
+            input:focus { outline: none; border-color: var(--accent-blue); }
+            button { width: 100%; padding: 12px; background: var(--accent-blue); color: #0f172a; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: background 0.2s; margin-top: 8px; }
+            button:hover { background: var(--accent-hover); }
         </style>
     </head>
     <body>
         <div class="login-box">
-            <h2 style="text-align: center;">Login</h2>
+            <h2 class="login-title">Server Manager 🚀</h2>
             <form method="POST" action="/login">
-                <input type="text" name="username" placeholder="Username" required>
-                <input type="password" name="password" placeholder="Password" required>
-                <button type="submit">Login</button>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" placeholder="Username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="Password" required>
+                </div>
+                <button type="submit">Sign In</button>
             </form>
         </div>
     </body>
@@ -249,6 +307,7 @@ async fn login_handler(
             username: user.username,
             role: user.role,
         };
+        session.clear().await;
         if let Err(e) = session.insert(SESSION_KEY, session_user).await {
             error!("Failed to insert session: {}", e);
             return (
@@ -295,30 +354,62 @@ fn write_html_head(out: &mut String, title: &str) {
         out,
         r#"
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{}</title>
         <style>
-            body {{ font-family: sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }}
-            .container {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-            th, td {{ padding: 12px; border-bottom: 1px solid #eee; text-align: left; }}
-            th {{ background-color: #f4f4f4; }}
-            .btn {{ padding: 6px 12px; text-decoration: none; border-radius: 4px; color: white; border: none; cursor: pointer; display: inline-block; }}
-            .btn-primary {{ background-color: #007bff; }}
-            .btn-danger {{ background-color: #dc3545; }}
-            .btn-enable {{ background-color: #28a745; }}
-            .btn-disable {{ background-color: #dc3545; }}
-            .btn-logout {{ background-color: #6c757d; }}
-            .status-enabled {{ color: #28a745; font-weight: bold; }}
-            .status-disabled {{ color: #dc3545; font-weight: bold; }}
-            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
-            .nav {{ margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }}
-            .nav a {{ margin-right: 15px; text-decoration: none; color: #333; font-weight: bold; }}
-            .nav a:hover {{ color: #007bff; }}
-            .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }}
-            .stat-card {{ background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; }}
-            .stat-value {{ font-size: 1.5em; font-weight: bold; color: #007bff; }}
+            :root {{
+                --bg-main: #0f172a;
+                --bg-card: #1e293b;
+                --bg-card-hover: #334155;
+                --border-color: #334155;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --accent-blue: #38bdf8;
+                --accent-green: #34d399;
+                --accent-red: #f87171;
+                --accent-gray: #64748b;
+            }}
+            * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
+            body {{ background: var(--bg-main); color: var(--text-main); min-height: 100vh; padding: 24px 16px; line-height: 1.5; }}
+            .container {{ max-width: 1080px; margin: 0 auto; background: var(--bg-card); padding: 28px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px -5px rgba(0,0,0,0.3); }}
+            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }}
+            .header h1 {{ font-size: 1.75rem; font-weight: 700; color: var(--text-main); }}
+            .nav {{ display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap; }}
+            .nav a {{ color: var(--text-muted); text-decoration: none; font-weight: 600; padding: 6px 12px; border-radius: 8px; transition: all 0.2s; }}
+            .nav a:hover {{ color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }}
+            .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 28px; }}
+            .stat-card {{ background: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }}
+            .stat-label {{ font-size: 0.875rem; color: var(--text-muted); margin-bottom: 4px; }}
+            .stat-value {{ font-size: 1.5rem; font-weight: 700; color: var(--accent-blue); }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 16px; border-radius: 8px; overflow: hidden; }}
+            th, td {{ padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }}
+            th {{ background: #0f172a; font-size: 0.875rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
+            tr:last-child td {{ border-bottom: none; }}
+            tr:hover td {{ background: rgba(255,255,255,0.02); }}
+            .btn {{ padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; color: #0f172a; }}
+            .btn-primary {{ background: var(--accent-blue); color: #0f172a; }}
+            .btn-primary:hover {{ background: #0284c7; color: #fff; }}
+            .btn-danger {{ background: var(--accent-red); color: #0f172a; }}
+            .btn-danger:hover {{ background: #dc2626; color: #fff; }}
+            .btn-enable {{ background: var(--accent-green); color: #0f172a; }}
+            .btn-enable:hover {{ background: #059669; color: #fff; }}
+            .btn-disable {{ background: var(--accent-red); color: #0f172a; }}
+            .btn-disable:hover {{ background: #dc2626; color: #fff; }}
+            .btn-logout {{ background: var(--accent-gray); color: #fff; }}
+            .btn-logout:hover {{ background: #475569; }}
+            .status-enabled {{ color: var(--accent-green); font-weight: 600; }}
+            .status-disabled {{ color: var(--accent-red); font-weight: 600; }}
+            input, select {{ width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: #0f172a; color: var(--text-main); font-size: 0.95rem; }}
+            input:focus, select:focus {{ outline: none; border-color: var(--accent-blue); }}
+            @media (max-width: 768px) {{
+                body {{ padding: 12px 8px; }}
+                .container {{ padding: 16px; border-radius: 12px; }}
+                table {{ display: block; overflow-x: auto; }}
+                .stats-grid {{ grid-template-columns: repeat(2, 1fr); gap: 10px; }}
+            }}
         </style>
     </head>
     <body>
@@ -424,7 +515,9 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     // Navigation
     html.push_str(r#"<div class="nav"><a href="/">Dashboard</a>"#);
     if is_admin {
-        html.push_str(r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#);
+        html.push_str(
+            r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
+        );
     }
     html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
 
@@ -1047,7 +1140,9 @@ async fn user_profile_page(
     );
 
     if is_admin {
-        html.push_str(r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#);
+        html.push_str(
+            r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
+        );
     }
 
     let _ = writeln!(
