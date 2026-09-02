@@ -106,6 +106,13 @@ impl UserManager {
 
         let content = serde_yaml_ng::to_string(self)?;
         fs::write(target, content).context("Failed to write users.yaml")?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(target, fs::Permissions::from_mode(0o600));
+        }
+
         Ok(())
     }
 

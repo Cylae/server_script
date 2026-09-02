@@ -60,6 +60,11 @@ pub fn install_dependencies() -> Result<()> {
         bail!("Failed to install dependencies via apt-get");
     }
 
+    // Enable and start Fail2ban for brute-force attack prevention
+    let _ = Command::new("systemctl")
+        .args(["enable", "--now", "fail2ban"])
+        .status();
+
     Ok(())
 }
 
