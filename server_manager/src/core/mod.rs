@@ -1,3 +1,8 @@
+//! Core system components for Server Manager.
+//!
+//! This module provides hardware detection, Docker management, UFW firewall configuration,
+//! configuration persistence, secret management, system optimization, and user administration.
+
 pub mod compose;
 pub mod config;
 pub mod docker;
