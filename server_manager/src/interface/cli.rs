@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use log::{error, info};
+use log::{error, info, warn};
 use std::fmt::Write;
 use std::fs;
+use std::io::{self, Write as IoWrite};
 use std::process::Command;
 
 use crate::build_compose_structure;
@@ -11,7 +12,10 @@ use crate::services;
 
 #[derive(Parser)]
 #[command(name = "server_manager")]
-#[command(about = "Next-Gen Media Server Orchestrator", long_about = None)]
+#[command(
+    about = "Next-Gen Media Server Orchestrator & Management Platform",
+    long_about = None
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -25,7 +29,13 @@ pub enum Commands {
     Apply,
     /// Pull latest service Docker images and recreate containers
     Update,
-    /// Show system status
+    /// Clean Docker unused resources, caches, and system log artifacts
+    Clean,
+    /// Fix system permissions, UFW firewall rules, and container runtime issues
+    Fix,
+    /// Launch interactive TUI menu for quick server management
+    Interactive,
+    /// Show comprehensive system status, telemetry, and container runtime state
     Status,
     /// Generate docker-compose.yml only
     Generate,
@@ -70,6 +80,9 @@ pub async fn run() -> Result<()> {
         Commands::Install => run_install().await?,
         Commands::Apply => run_apply().await?,
         Commands::Update => run_update().await?,
+        Commands::Clean => run_clean().await?,
+        Commands::Fix => run_fix().await?,
+        Commands::Interactive => run_interactive().await?,
         Commands::Status => run_status().await?,
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
@@ -121,7 +134,6 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
             println!("└──────────────────────┴─────────────────┘");
         }
         UserCommands::Passwd { username } => {
-            // Check existence first
             if user_manager.get_user(&username).is_none() {
                 return Err(anyhow::anyhow!("User not found"));
             }
@@ -140,10 +152,112 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
     Ok(())
 }
 
+async fn run_clean() -> Result<()> {
+    info!("Cleaning system caches and unused Docker resources...");
+
+    info!("Running Docker system prune (removing stopped containers & dangling images)...");
+    let prune_status = Command::new("docker")
+        .args(["system", "prune", "-f"])
+        .status();
+
+    if let Ok(status) = prune_status {
+        if status.success() {
+            info!("Docker system prune completed successfully.");
+        } else {
+            warn!("Docker system prune exited with non-zero status.");
+        }
+    }
+
+    info!("Vacuuming systemd journal logs (> 100M)...");
+    let _ = Command::new("journalctl")
+        .args(["--vacuum-size=100M"])
+        .status();
+
+    info!("Cleaning temporary files in /tmp/server_manager...");
+    let temp_dir = std::path::Path::new("/tmp/server_manager");
+    if temp_dir.exists() {
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    info!("System cleanup complete! ✨");
+    Ok(())
+}
+
+async fn run_fix() -> Result<()> {
+    info!("Diagnosing and repairing system state & permissions...");
+
+    system::check_root()?;
+
+    let opt_dir = std::path::Path::new("/opt/server_manager");
+    if opt_dir.exists() {
+        info!("Ensuring correct permissions on /opt/server_manager...");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(entries) = fs::read_dir(opt_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .is_some_and(|s| s.ends_with(".yaml"))
+                    {
+                        let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
+                    }
+                }
+            }
+        }
+    }
+
+    info!("Re-applying UFW firewall rules...");
+    if let Err(e) = firewall::configure() {
+        warn!("Failed to re-configure firewall: {}", e);
+    }
+
+    info!("Verifying Docker service status...");
+    if let Err(e) = docker::install() {
+        warn!("Docker verification returned an error: {}", e);
+    }
+
+    info!("System repair complete! 🛠️");
+    Ok(())
+}
+
+async fn run_interactive() -> Result<()> {
+    println!("\n=======================================================");
+    println!("        🚀 Server Manager Interactive Console         ");
+    println!("=======================================================");
+    println!("  1. View System Status");
+    println!("  2. Apply Configuration & Deploy");
+    println!("  3. Update Stack Images");
+    println!("  4. Clean System & Docker Caches");
+    println!("  5. Repair & Fix System Permissions");
+    println!("  6. List System Users");
+    println!("  7. Start Web Dashboard (Port 8099)");
+    println!("  8. Exit");
+    println!("=======================================================");
+    print!("Select an option [1-8]: ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    match input.trim() {
+        "1" => run_status().await?,
+        "2" => run_apply().await?,
+        "3" => run_update().await?,
+        "4" => run_clean().await?,
+        "5" => run_fix().await?,
+        "6" => run_user_management(UserCommands::List).await?,
+        "7" => crate::interface::web::start_server(8099).await?,
+        "8" | "" => println!("Exiting interactive mode."),
+        _ => println!("Invalid option selected."),
+    }
+
+    Ok(())
+}
+
 async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
-    // 1. Load Config
-    // We assume we are in the install directory or user provides it.
-    // For safety, let's try to switch to /opt/server_manager if config not found locally
     if !std::path::Path::new("config.yaml").exists()
         && std::path::Path::new("/opt/server_manager/config.yaml").exists()
     {
@@ -152,7 +266,6 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 
     let mut config = config::Config::load()?;
 
-    // Check if service exists
     let services = services::get_all_services();
     if !services.iter().any(|s| s.name() == service_name) {
         error!("Service '{}' not found!", service_name);
@@ -169,13 +282,9 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 
     info!("Configuration updated. Re-running generation...");
 
-    // 2. Re-run generation logic (similar to run_generate/run_install subset)
-    // We need secrets for this
     let secrets = secrets::Secrets::load_or_create()?;
     let hw = hardware::HardwareInfo::detect();
 
-    // Only configure/generate, don't necessarily fully install dependencies again
-    // But we should probably trigger docker compose up to apply changes
     configure_services(&hw, &secrets, &config)?;
     initialize_services(&hw, &secrets, &config)?;
     generate_compose(&hw, &secrets, &config).await?;
@@ -202,10 +311,8 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 async fn run_install() -> Result<()> {
     info!("Starting Server Manager Installation...");
 
-    // 1. Root Check
     system::check_root()?;
 
-    // 1.1 Create Install Directory
     let install_dir = std::path::Path::new("/opt/server_manager");
     if !install_dir.exists() {
         info!("Creating installation directory at /opt/server_manager...");
@@ -213,31 +320,23 @@ async fn run_install() -> Result<()> {
     }
     std::env::set_current_dir(install_dir).context("Failed to chdir to /opt/server_manager")?;
 
-    // 1.2 Load Secrets & Config
     let secrets = secrets::Secrets::load_or_create()?;
     let config = config::Config::load()?;
 
-    // 2. Hardware Detection
     let hw = hardware::HardwareInfo::detect();
 
-    // 3. System Dependencies & Optimization
     system::install_dependencies()?;
     system::apply_optimizations(&hw)?;
 
-    // 4. Firewall
     firewall::configure()?;
 
-    // 5. Docker
     docker::install()?;
 
-    // 6. Initialize Services
     configure_services(&hw, &secrets, &config)?;
     initialize_services(&hw, &secrets, &config)?;
 
-    // 7. Generate Compose
     generate_compose(&hw, &secrets, &config).await?;
 
-    // 8. Launch
     info!("Launching Services via Docker Compose...");
     let status = Command::new("docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
@@ -283,9 +382,14 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
         );
     };
 
-    // Helper to format Option<String>
     let pass = |opt: &Option<String>| opt.as_deref().unwrap_or("ERROR").to_string();
 
+    append_row(
+        "Server Manager",
+        "http://<IP>:8099",
+        "admin",
+        &pass(&secrets.server_manager_admin_password),
+    );
     append_row(
         "Nginx Proxy",
         "http://<IP>:81",
@@ -330,7 +434,6 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
 
     println!("{}", summary);
 
-    // Save to /root/credentials.txt if running as root
     if nix::unistd::Uid::effective().is_root() {
         if let Err(e) = std::fs::write("/root/credentials.txt", &summary) {
             error!("Failed to save credentials to /root/credentials.txt: {}", e);
@@ -349,40 +452,58 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
 }
 
 async fn run_status() -> Result<()> {
-    let _config = config::Config::load_async().await?;
+    let config = config::Config::load_async().await?;
     let hw = hardware::HardwareInfo::detect();
-    println!("\n┌── System Status ────────────────────────┐");
-    println!("│ RAM:             {:<22} │", format!("{} GB", hw.ram_gb));
-    println!("│ Swap:            {:<22} │", format!("{} GB", hw.swap_gb));
-    println!("│ Disk (/):        {:<22} │", format!("{} GB", hw.disk_gb));
-    println!("│ CPU Cores:       {:<22} │", hw.cpu_cores);
-    println!("│ Profile:         {:<22?} │", hw.profile);
+    let services = services::get_all_services();
+    let total_services = services.len();
+    let enabled_count = services
+        .iter()
+        .filter(|s| config.is_enabled(s.name()))
+        .count();
+
+    println!("\n╔═════════════════════════════════════════════════════════════╗");
+    println!("║                    SYSTEM TELEMETRY                         ║");
+    println!("╠═════════════════════════════════════════════════════════════╣");
+    println!("║ RAM Total:       {:<42} ║", format!("{} GB", hw.ram_gb));
+    println!("║ Swap Total:      {:<42} ║", format!("{} GB", hw.swap_gb));
+    println!("║ Disk Root (/):   {:<42} ║", format!("{} GB", hw.disk_gb));
+    println!("║ CPU Cores:       {:<42} ║", hw.cpu_cores);
+    println!("║ Hardware Profile:{:<42?} ║", hw.profile);
     println!(
-        "│ Nvidia GPU:      {:<22} │",
-        if hw.has_nvidia { "Yes 🟢" } else { "No" }
-    );
-    println!(
-        "│ Intel QuickSync: {:<22} │",
-        if hw.has_intel_quicksync {
-            "Yes 🟢"
+        "║ Nvidia GPU:      {:<42} ║",
+        if hw.has_nvidia {
+            "Enabled 🟢"
         } else {
-            "No"
+            "Disabled"
         }
     );
-    println!("└─────────────────────────────────────────┘");
+    println!(
+        "║ Intel QuickSync: {:<42} ║",
+        if hw.has_intel_quicksync {
+            "Enabled 🟢"
+        } else {
+            "Disabled"
+        }
+    );
+    println!("╠═════════════════════════════════════════════════════════════╣");
+    println!("║                    STACK TELEMETRY                          ║");
+    println!("╠═════════════════════════════════════════════════════════════╣");
+    println!(
+        "║ Active Stack:    {:<42} ║",
+        format!("{} / {} Services Enabled", enabled_count, total_services)
+    );
 
-    println!("\n┌── Docker Status ────────────────────────┐");
     if let Ok(true) = tokio::process::Command::new("docker")
         .arg("ps")
         .status()
         .await
         .map(|s| s.success())
     {
-        println!("│ Status:          Running 🟢             │");
+        println!("║ Docker Daemon:   Active 🟢                                  ║");
     } else {
-        println!("│ Status:          Not Running 🔴         │");
+        println!("║ Docker Daemon:   Inactive 🔴                                ║");
     }
-    println!("└─────────────────────────────────────────┘\n");
+    println!("╚═════════════════════════════════════════════════════════════╝\n");
     Ok(())
 }
 
@@ -451,8 +572,6 @@ async fn run_apply() -> Result<()> {
 
 async fn run_generate() -> Result<()> {
     let hw = hardware::HardwareInfo::detect();
-    // For generate, we might not be in /opt/server_manager, but let's try to load secrets from CWD.
-    // We propagate the error because generating a compose file with empty passwords is bad.
     let secrets =
         secrets::Secrets::load_or_create().context("Failed to load or create secrets.yaml")?;
     let config = config::Config::load()?;
