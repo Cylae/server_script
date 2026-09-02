@@ -27,6 +27,7 @@ pub fn install_dependencies() -> Result<()> {
         "curl",
         "git",
         "ufw",
+        "fail2ban",
         "lsb-release",
         "ca-certificates",
         "gnupg",

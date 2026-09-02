@@ -340,7 +340,15 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
         if let Err(e) = std::fs::write("/root/credentials.txt", &summary) {
             error!("Failed to save credentials to /root/credentials.txt: {}", e);
         } else {
-            info!("Credentials saved to /root/credentials.txt");
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(
+                    "/root/credentials.txt",
+                    std::fs::Permissions::from_mode(0o600),
+                );
+            }
+            info!("Credentials saved to /root/credentials.txt (restricted permissions 0600)");
         }
     }
 }
