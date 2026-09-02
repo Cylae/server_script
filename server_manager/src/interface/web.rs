@@ -223,6 +223,10 @@ async fn security_headers_middleware(
         axum::http::header::STRICT_TRANSPORT_SECURITY,
         axum::http::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
     );
+    headers.insert(
+        axum::http::header::CONTENT_SECURITY_POLICY,
+        axum::http::HeaderValue::from_static("default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"),
+    );
     response
 }
 

@@ -24,6 +24,7 @@ bcrypt = "0.15"
 tower-sessions = "0.12"
 time = "0.3"
 rand = "0.10.0"
+rpassword = "7.3"
 
 [dev-dependencies]
 criterion = "0.5"

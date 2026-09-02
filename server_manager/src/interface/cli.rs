@@ -3,7 +3,6 @@ use clap::{Parser, Subcommand};
 use log::{error, info};
 use std::fmt::Write;
 use std::fs;
-use std::io::{self, Write as IoWrite};
 use std::process::Command;
 
 use crate::build_compose_structure;
@@ -97,17 +96,14 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
                 _ => return Err(anyhow::anyhow!("Invalid role. Use 'Admin' or 'Observer'")),
             };
 
-            print!("Enter password for {}: ", username);
-            io::stdout().flush()?;
-            let mut password = String::new();
-            io::stdin().read_line(&mut password)?;
-            let password = password.trim();
+            let password = rpassword::prompt_password(format!("Enter password for {}: ", username))?;
+            let password = password.trim().to_string();
 
             if password.is_empty() {
                 return Err(anyhow::anyhow!("Password cannot be empty"));
             }
 
-            user_manager.add_user(&username, password, role_enum, quota)?;
+            user_manager.add_user(&username, &password, role_enum, quota)?;
             info!("User '{}' added successfully.", username);
         }
         UserCommands::Delete { username } => {
@@ -128,17 +124,14 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
             if user_manager.get_user(&username).is_none() {
                 return Err(anyhow::anyhow!("User not found"));
             }
-            print!("Enter new password for {}: ", username);
-            io::stdout().flush()?;
-            let mut password = String::new();
-            io::stdin().read_line(&mut password)?;
-            let password = password.trim();
+            let password = rpassword::prompt_password(format!("Enter new password for {}: ", username))?;
+            let password = password.trim().to_string();
 
             if password.is_empty() {
                 return Err(anyhow::anyhow!("Password cannot be empty"));
             }
 
-            user_manager.update_password(&username, password)?;
+            user_manager.update_password(&username, &password)?;
             info!("Password for '{}' updated successfully.", username);
         }
     }
