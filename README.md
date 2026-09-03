@@ -1,6 +1,6 @@
 # Server Manager - Professional Media Server Orchestrator 🚀
 
-![Status](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Status](https://img.shields.io/badge/Status-Tested-brightgreen) [![CI Gate](https://github.com/Cylae/server_script/actions/workflows/rust.yml/badge.svg)](https://github.com/Cylae/server_script/actions/workflows/rust.yml) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a high-performance, enterprise-grade media server management and orchestration platform written in Rust. Inspired by QuickBox Pro, it provides automated deployment, real-time hardware telemetry, 1-click application management, system maintenance tools, and secure multi-user management.
 
