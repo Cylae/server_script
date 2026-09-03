@@ -1,3 +1,9 @@
+[NON-NORMATIVE SPECIFICATION NOTICE]
+Per Rule L0.7 in docs/spec/00-MISSION.md, docs/spec/00-MISSION.md ... 05-DELIVERY.md
+are authoritative and override this document. Self-contradictions (e.g., >95% branch
+coverage vs REQ-TST-001 >=75% branch coverage floor) are resolved in favor of the
+numbered specification in docs/spec/ and documented in docs/spec/DECISIONS.md.
+
 ================================================================================
 MISSION SPECIFICATION: AUTONOMOUS KERNEL-GRADE PRODUCTION ORCHESTRATOR REBUILD
 TARGET REPOSITORY    : Cylae/server_script
