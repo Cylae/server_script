@@ -11,6 +11,8 @@ pub mod firewall;
 pub mod hardware;
 pub mod journal;
 pub mod lock;
+pub mod ops;
 pub mod secrets;
 pub mod system;
 pub mod users;
+pub mod validate;

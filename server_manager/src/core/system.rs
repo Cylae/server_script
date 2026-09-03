@@ -8,8 +8,12 @@ use std::path::Path;
 use std::process::Command;
 use which::which;
 
+pub fn is_root() -> bool {
+    Uid::effective().is_root()
+}
+
 pub fn check_root() -> Result<()> {
-    if !Uid::effective().is_root() {
+    if !is_root() {
         bail!("This application must be run as root.");
     }
     Ok(())

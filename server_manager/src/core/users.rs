@@ -130,6 +130,7 @@ impl UserManager {
         role: Role,
         quota_gb: Option<u64>,
     ) -> Result<()> {
+        crate::core::validate::validate_username(username)?;
         if self.users.contains_key(username) {
             return Err(anyhow!("User already exists"));
         }
@@ -162,6 +163,8 @@ impl UserManager {
     }
 
     pub fn install_user_app(&mut self, username: &str, app_name: &str) -> Result<()> {
+        crate::core::validate::validate_username(username)?;
+        crate::core::validate::validate_service_name(app_name)?;
         if let Some(user) = self.users.get_mut(username) {
             user.installed_apps.insert(app_name.to_string());
             self.save()
@@ -176,6 +179,7 @@ impl UserManager {
         role: Role,
         quota_gb: Option<u64>,
     ) -> Result<()> {
+        crate::core::validate::validate_username(username)?;
         if let Some(user) = self.users.get_mut(username) {
             if Uid::effective().is_root() {
                 if let Some(gb) = quota_gb {
@@ -191,6 +195,8 @@ impl UserManager {
     }
 
     pub fn uninstall_user_app(&mut self, username: &str, app_name: &str) -> Result<()> {
+        crate::core::validate::validate_username(username)?;
+        crate::core::validate::validate_service_name(app_name)?;
         if let Some(user) = self.users.get_mut(username) {
             user.installed_apps.remove(app_name);
             self.save()
@@ -200,6 +206,7 @@ impl UserManager {
     }
 
     pub fn delete_user(&mut self, username: &str) -> Result<()> {
+        crate::core::validate::validate_username(username)?;
         if !self.users.contains_key(username) {
             return Err(anyhow!("User not found"));
         }
