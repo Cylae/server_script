@@ -4,62 +4,44 @@ on:
   push:
     branches:
       - main
+      - "gate/*"
   pull_request:
     branches:
       - main
-  workflow_dispatch: # Permet de forcer l'exécution manuellement depuis l'interface GitHub
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 concurrency:
-  # Annule les runs redondants si tu pushes plusieurs commits d'affilée sur une même PR
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint-and-format:
-    name: Code Quality & Linter
+  verify:
+    name: Verify & Test Gatekeeper
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@21e8406563b7852a3260cda2dcfad28a472c57fb # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Verify Formatting
-        run: cargo fmt --all -- --check
-
-      - name: Run Clippy (Strict)
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-  test:
-    name: Test Suite
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Run Tests
-        run: cargo test --all-targets --all-features
-
-  security-audit:
-    name: Security Vulnerability Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run Cargo Audit
-        uses: rustsec/audit-check@v2.0.0
+        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be954172b8dd464190820003 # v2.7.3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          workspaces: "server_manager"
+
+      - name: Install cargo-deny & cargo-audit
+        uses: taiki-e/install-action@b7ec4602f0e479a405527db59a35e806c57f9593 # v2.49.20
+        with:
+          tool: cargo-deny,cargo-audit
+
+      - name: Run Unified Verification Script
+        run: |
+          chmod +x ./verify.sh
+          ./verify.sh
