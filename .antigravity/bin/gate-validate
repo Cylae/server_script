@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GATE="${1:-}"
+
+if [[ -z "$GATE" ]]; then
+  echo "Usage: $0 <G0|G1|G2|G3|G4|G5|G6|G7|G8|G9>" >&2
+  exit 1
+fi
+
+echo "[*] Validation mécanique en cours pour : $GATE"
+
+# -----------------------------------------------------------------------------
+# 1. Invariants de persistance d'état et d'audit
+# -----------------------------------------------------------------------------
+echo "-> Invariant: Présence du fichier d'état CURRENT_STATE..."
+test -s ".antigravity/state/CURRENT_STATE" || {
+  echo "[-] ERREUR: .antigravity/state/CURRENT_STATE absent ou vide." >&2
+  exit 2
+}
+
+echo "-> Invariant: Vérification du registre de preuves..."
+test -s ".antigravity/state/evidence.log" || {
+  echo "[-] ERREUR: .antigravity/state/evidence.log est vide. Aucune preuve enregistrée." >&2
+  exit 2
+}
+
+echo "-> Invariant: Vérification de l'absence de diffs suspects..."
+/usr/bin/git diff --check
+
+echo "-> Invariant: Conformité du formatage Rust..."
+cargo fmt --manifest-path server_manager/Cargo.toml --all -- --check
+
+# -----------------------------------------------------------------------------
+# 2. Exigences spécifiques par Gate
+# -----------------------------------------------------------------------------
+case "$GATE" in
+  G0)
+    echo "-> G0: Validation de la matrice d'exigences et baseline..."
+    test -s ".antigravity/state/gate-plan.json" || {
+      echo "[-] ERREUR: .antigravity/state/gate-plan.json manquant ou vide." >&2
+      exit 3
+    }
+    ;;
+
+  G1)
+    echo "-> G1: Toolchain, compilation complète workspace et targets..."
+    cargo check --manifest-path server_manager/Cargo.toml --all-targets --all-features
+    cargo build --manifest-path server_manager/Cargo.toml --all-targets --all-features
+    ;;
+
+  G2)
+    echo "-> G2: Lints stricts, zéro warning, hygiène des erreurs..."
+    cargo clippy --manifest-path server_manager/Cargo.toml --all-targets --all-features -- -D warnings
+    ;;
+
+  G3)
+    echo "-> G3: Atomic I/O, permissions et secrets..."
+    cargo test --manifest-path server_manager/Cargo.toml --test contract_atomic_io --test contract_secret_redaction
+    ;;
+
+  G4)
+    echo "-> G4: Validation d'idempotence et journal de rollback..."
+    cargo test --manifest-path server_manager/Cargo.toml --test contract_idempotence --test contract_journal --test contract_locking
+    ;;
+
+  G5)
+    echo "-> G5: Input validation et audit supply chain..."
+    cargo test --manifest-path server_manager/Cargo.toml --test contract_input_validation
+    cargo deny check
+    cargo audit check
+    ;;
+
+  G6)
+    echo "-> G6: Web security, Argon2id et RBAC..."
+    cargo test --manifest-path server_manager/Cargo.toml --test contract_web_security
+    ;;
+
+  G7)
+    echo "-> G7: Determinisme compose et port matrix..."
+    cargo test --manifest-path server_manager/Cargo.toml --test contract_port_matrix --test contract_compose_determinism
+    test -s "docs/PORT-MATRIX.md"
+    ;;
+
+  G8)
+    echo "-> G8: Budgets de performance et Criterion..."
+    cargo test --manifest-path server_manager/Cargo.toml --test contract_performance_budgets
+    test -s "docs/audit/PERFORMANCE-BUDGETS.md"
+    ;;
+
+  G9)
+    echo "-> G9: Doctor, codes de retour sysexits, audit final et livrables..."
+    cargo test --manifest-path server_manager/Cargo.toml --all-targets
+    test -s "docs/audit/FINAL-AUDIT.md"
+    ;;
+
+  *)
+    echo "[-] Gate inconnue ou non implémentée: $GATE" >&2
+    exit 4
+    ;;
+esac
+
+echo "======================================================================"
+echo "[+] VALIDATION RÉUSSIE : Invariants satisfaits (Code 0) pour $GATE"
+echo "======================================================================"

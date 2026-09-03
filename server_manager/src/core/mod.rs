@@ -7,6 +7,8 @@ pub mod atomic_io;
 pub mod compose;
 pub mod config;
 pub mod docker;
+pub mod doctor;
+pub mod exit_codes;
 pub mod firewall;
 pub mod hardware;
 pub mod journal;

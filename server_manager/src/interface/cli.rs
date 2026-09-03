@@ -49,6 +49,11 @@ pub enum Commands {
         #[arg(long, default_value_t = 8099)]
         port: u16,
     },
+    /// Run diagnostic checks on system readiness, kernel, docker, and ports
+    Doctor {
+        #[arg(long)]
+        json: bool,
+    },
     /// Manage Users
     User {
         #[command(subcommand)]
@@ -86,12 +91,24 @@ pub async fn run() -> Result<()> {
         Commands::Interactive => run_interactive().await?,
         Commands::Status => run_status().await?,
         Commands::Generate => run_generate().await?,
+        Commands::Doctor { json } => run_doctor(json).await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
         Commands::Disable { service } => run_toggle_service(service, false).await?,
         Commands::Web { bind, port } => crate::interface::web::start_server(&bind, port).await?,
         Commands::User { action } => run_user_management(action).await?,
     }
 
+    Ok(())
+}
+
+async fn run_doctor(json: bool) -> Result<()> {
+    let report = crate::core::doctor::run_doctor_checks();
+    if json {
+        let json_str = report.to_json()?;
+        println!("{}", json_str);
+    } else {
+        report.print_console();
+    }
     Ok(())
 }
 

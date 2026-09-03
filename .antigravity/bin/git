@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Résolution sécurisée du vrai binaire Git
+REAL_GIT="/usr/bin/git"
+if [[ ! -x "$REAL_GIT" ]]; then
+  REAL_GIT="$(which -a git | grep -v "\.antigravity/bin/git" | head -n 1)"
+fi
+
+# Parsing et normalisation des arguments globaux
+ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -C|-c|--git-dir|--work-tree)
+      # Conserver les drapeaux globaux mais les isoler pour l'inspection
+      shift 2
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+SUBCMD="${ARGS[0]:-}"
+REST="${ARGS[*]:1}"
+
+reject() {
+  local reason="$1"
+  echo "======================================================================" >&2
+  echo "[-] ANTIGRAVITY SECURITY SHIM INTERCEPTION !" >&2
+  echo "[-] Motif du refus : $reason" >&2
+  echo "[-] Commande rejetée : git $*" >&2
+  echo "======================================================================" >&2
+  exit 126
+}
+
+case "$SUBCMD" in
+  reset)
+    if [[ "$REST" =~ "--hard" ]]; then
+      reject "git reset --hard est formellement prohibé (perte de données)."
+    fi
+    ;;
+  clean)
+    if [[ "$REST" =~ "-f" ]] || [[ "$REST" =~ "--force" ]]; then
+      reject "git clean destructif interdit."
+    fi
+    ;;
+  push)
+    if [[ "$REST" =~ "--force" ]] || [[ "$REST" =~ "-f" ]] || [[ "$REST" =~ "--force-with-lease" ]]; then
+      reject "Force push prohibé sur tous les remotes."
+    fi
+    ;;
+  checkout|restore)
+    if [[ "$REST" =~ (^|[[:space:]])\.[[:space:]]*$ ]] || [[ "$REST" =~ "-- ." ]]; then
+      reject "Écrasement en bloc du répertoire de travail (checkout/restore .) prohibé."
+    fi
+    ;;
+  branch)
+    if [[ "$REST" =~ "-D" ]]; then
+      reject "Suppression forcée de branche interdite sans autorisation explicite."
+    fi
+    ;;
+  stash)
+    if [[ "$REST" =~ "drop" ]] || [[ "$REST" =~ "clear" ]]; then
+      reject "Destruction d'entrées stash prohibée."
+    fi
+    ;;
+esac
+
+# Délégation au binaire légitime avec les arguments originaux
+exec "$REAL_GIT" "$@"

@@ -1,0 +1,30 @@
+{
+  "gate": "G9",
+  "name": "Documentation, Doctor Subcommand, and Final Delivery Audit",
+  "requirements": [
+    {
+      "id": "REQ-OPS-003",
+      "description": "Standard sysexits.h exit codes for CLI execution paths",
+      "acceptance": "CLI returns sysexits codes (0=OK, 64=USAGE, 70=SOFTWARE, 78=CONFIG)",
+      "risk": "Low"
+    },
+    {
+      "id": "REQ-OPS-005",
+      "description": "Preventative, non-destructive doctor subcommand",
+      "acceptance": "server_manager doctor checks docker, disk, ports, permissions with table and JSON output",
+      "risk": "Low"
+    },
+    {
+      "id": "REQ-TST-001",
+      "description": "Comprehensive test coverage and convergence roadmap",
+      "acceptance": "Overall line coverage >= 47% across complete workspace with 100% catalog/validation coverage",
+      "risk": "Low"
+    },
+    {
+      "id": "REQ-DOC-004",
+      "description": "Complete authoritative audit and delivery report",
+      "acceptance": "docs/audit/FINAL-AUDIT.md synthesized with baseline vs final comparison and evidence log",
+      "risk": "Low"
+    }
+  ]
+}

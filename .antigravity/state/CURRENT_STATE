@@ -1,0 +1,14 @@
+[SESSION]
+target_repo = Cylae/server_script
+active_gate = G9
+branch = gate/09-doc-doctor-audit
+base_commit = 9523f72
+last_verified_commit = 9523f72
+
+[BLOCKERS]
+active_blocker = NONE
+
+[NEXT_ATOMIC_ACTION]
+cmd = cargo test --manifest-path server_manager/Cargo.toml --all-targets
+acceptance_condition = exit_code == 0
+target_artifact = docs/audit/FINAL-AUDIT.md

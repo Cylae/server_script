@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SUBAGENT_ID="${1:-}"
+WORKTREE_DIR="${2:-}"
+
+if [[ -z "$SUBAGENT_ID" || -z "$WORKTREE_DIR" ]]; then
+  echo "Usage: $0 <subagent_id> <worktree_path>" >&2
+  exit 1
+fi
+
+echo "[*] Initialisation du confinement pour le sous-agent : $SUBAGENT_ID"
+
+# 1. Création d'un worktree Git dédié sur une branche éphémère isolée
+BRANCH_NAME="subagent/${SUBAGENT_ID}-$(date +%s)"
+if [[ ! -d "$WORKTREE_DIR" ]]; then
+  /usr/bin/git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" HEAD
+fi
+
+# 2. Définition des variables d'isolation
+TARGET_ISOLATED="/tmp/cargo-target-${SUBAGENT_ID}"
+mkdir -p "$TARGET_ISOLATED"
+mkdir -p ".antigravity/outbox"
+
+cat <<EOF
+[+] Environnement prêt pour $SUBAGENT_ID :
+    - Worktree : $WORKTREE_DIR
+    - Branche  : $BRANCH_NAME
+    - Target   : $TARGET_ISOLATED
+    - Outbox   : .antigravity/outbox/${SUBAGENT_ID}.json
+
+Pour exécuter une tâche sous-agent en isolation complète :
+  cd $WORKTREE_DIR
+  export CARGO_TARGET_DIR="$TARGET_ISOLATED"
+  # Déposer le livrable final exclusivement dans :
+  # \$OLDPWD/.antigravity/outbox/${SUBAGENT_ID}.json
+EOF
