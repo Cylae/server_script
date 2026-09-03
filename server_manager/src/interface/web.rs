@@ -1,4 +1,5 @@
 use crate::core::config::Config;
+use crate::core::journal::{Journal, StepStatus};
 use crate::core::users::{Role, UserManager};
 use crate::services;
 use axum::{
@@ -18,7 +19,7 @@ use sysinfo::{CpuExt, DiskExt, System, SystemExt};
 use time::Duration;
 use tokio::process::Command;
 use tokio::sync::RwLock;
-use tower_sessions::{Expiry, MemoryStore, Session, SessionManagerLayer};
+use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
@@ -27,6 +28,34 @@ struct SessionUser {
 }
 
 const SESSION_KEY: &str = "user";
+
+#[derive(Deserialize, Default)]
+struct ActionPayload {
+    csrf_token: Option<String>,
+}
+
+async fn get_csrf_token(session: &Session) -> String {
+    if let Ok(Some(token)) = session.get::<String>("csrf_token").await {
+        if !token.is_empty() {
+            return token;
+        }
+    }
+    let token = format!(
+        "{:016x}{:016x}",
+        rand::random::<u64>(),
+        rand::random::<u64>()
+    );
+    let _ = session.insert("csrf_token", &token).await;
+    token
+}
+
+async fn verify_csrf(session: &Session, submitted: Option<&str>) -> bool {
+    let session_csrf: Option<String> = session.get("csrf_token").await.unwrap_or(None);
+    match (session_csrf, submitted) {
+        (Some(expected), Some(actual)) if !expected.is_empty() => expected == actual,
+        _ => false,
+    }
+}
 
 struct CachedConfig {
     config: Config,
@@ -38,16 +67,31 @@ struct CachedUsers {
     last_modified: Option<SystemTime>,
 }
 
-struct AppState {
+pub struct AppState {
     system: Mutex<System>,
     last_system_refresh: Mutex<SystemTime>,
     config_cache: RwLock<CachedConfig>,
     users_cache: RwLock<CachedUsers>,
 }
 
-type SharedState = Arc<AppState>;
+pub type SharedState = Arc<AppState>;
 
 impl AppState {
+    pub fn new_test(config: Config, user_manager: UserManager) -> Arc<Self> {
+        Arc::new(Self {
+            system: Mutex::new(System::new_all()),
+            last_system_refresh: Mutex::new(SystemTime::now()),
+            config_cache: RwLock::new(CachedConfig {
+                config,
+                last_modified: None,
+            }),
+            users_cache: RwLock::new(CachedUsers {
+                manager: user_manager,
+                last_modified: None,
+            }),
+        })
+    }
+
     async fn get_config(&self) -> Config {
         // Fast path: check metadata
         let current_mtime = tokio::fs::metadata("config.yaml")
@@ -125,12 +169,48 @@ impl AppState {
     }
 }
 
-pub async fn start_server(port: u16) -> anyhow::Result<()> {
-    // Session setup
+pub fn build_app(app_state: Arc<AppState>) -> Router {
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Localhost/LAN, http usually
+        .with_secure(false) // Localhost/LAN http by default
+        .with_http_only(true)
+        .with_same_site(SameSite::Strict)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
+
+    Router::new()
+        .route("/", get(dashboard))
+        .route("/users", get(users_page))
+        .route("/users/add", post(add_user_handler))
+        .route("/users/update/:username", post(update_user_handler))
+        .route("/users/delete/:username", post(delete_user_handler))
+        .route("/updates", get(updates_page))
+        .route("/audit", get(audit_page))
+        .route("/user/apps/:name/install", post(user_install_app_handler))
+        .route(
+            "/user/apps/:name/uninstall",
+            post(user_uninstall_app_handler),
+        )
+        .route(
+            "/user/profile",
+            get(user_profile_page).post(user_passwd_handler),
+        )
+        .route("/api/services/:name/enable", post(enable_service))
+        .route("/api/services/:name/disable", post(disable_service))
+        .route("/api/system/update", post(trigger_system_update))
+        .route("/logout", post(logout))
+        .route("/login", get(login_page).post(login_handler))
+        .layer(axum::middleware::from_fn(security_headers_middleware))
+        .layer(session_layer)
+        .with_state(app_state)
+}
+
+pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
+    crate::core::validate::validate_ip(bind)?;
+    crate::core::validate::validate_port(port.into())?;
+    let ip: std::net::IpAddr = bind
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Invalid bind IP address '{}': {}", bind, e))?;
+    let addr = SocketAddr::new(ip, port);
 
     // Initialize System once
     let mut sys = System::new_all();
@@ -164,32 +244,8 @@ pub async fn start_server(port: u16) -> anyhow::Result<()> {
         }),
     });
 
-    let app = Router::new()
-        .route("/", get(dashboard))
-        .route("/users", get(users_page))
-        .route("/users/add", post(add_user_handler))
-        .route("/users/update/:username", post(update_user_handler))
-        .route("/users/delete/:username", post(delete_user_handler))
-        .route("/updates", get(updates_page))
-        .route("/user/apps/:name/install", post(user_install_app_handler))
-        .route(
-            "/user/apps/:name/uninstall",
-            post(user_uninstall_app_handler),
-        )
-        .route(
-            "/user/profile",
-            get(user_profile_page).post(user_passwd_handler),
-        )
-        .route("/api/services/:name/enable", post(enable_service))
-        .route("/api/services/:name/disable", post(disable_service))
-        .route("/api/system/update", post(trigger_system_update))
-        .route("/logout", post(logout))
-        .route("/login", get(login_page).post(login_handler))
-        .layer(axum::middleware::from_fn(security_headers_middleware))
-        .layer(session_layer)
-        .with_state(app_state);
+    let app = build_app(app_state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("Starting Web UI on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -304,18 +360,26 @@ async fn login_handler(
     session: Session,
     Form(payload): Form<LoginPayload>,
 ) -> impl IntoResponse {
-    // Reload users on login attempt to get fresh data
-    let user_manager = state.get_users().await;
+    // Reload users on login attempt and transparently upgrade bcrypt to Argon2id
+    let mut cache = state.users_cache.write().await;
 
-    if let Some(user) = user_manager
-        .verify_async(&payload.username, &payload.password)
-        .await
+    if let Some(user) = cache
+        .manager
+        .verify_and_migrate(&payload.username, &payload.password)
     {
         let session_user = SessionUser {
             username: user.username,
             role: user.role,
         };
         session.clear().await;
+        let csrf_token = format!(
+            "{:016x}{:016x}",
+            rand::random::<u64>(),
+            rand::random::<u64>()
+        );
+        if let Err(e) = session.insert("csrf_token", &csrf_token).await {
+            error!("Failed to insert CSRF token in session: {}", e);
+        }
         if let Err(e) = session.insert(SESSION_KEY, session_user).await {
             error!("Failed to insert session: {}", e);
             return (
@@ -326,15 +390,17 @@ async fn login_handler(
         }
         Redirect::to("/").into_response()
     } else {
-        // Simple error handling: redirect back to login
         warn!("Failed login attempt for user: {}", payload.username);
         Redirect::to("/login").into_response()
     }
 }
 
-async fn logout(session: Session) -> impl IntoResponse {
+async fn logout(session: Session, Form(payload): Form<ActionPayload>) -> impl IntoResponse {
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
     session.delete().await.ok();
-    Redirect::to("/login")
+    Redirect::to("/login").into_response()
 }
 
 // Helper for HTML escaping
@@ -411,7 +477,9 @@ fn write_html_head(out: &mut String, title: &str) {
             .badge-success {{ background: rgba(52, 211, 153, 0.15); color: var(--accent-green); border: 1px solid rgba(52, 211, 153, 0.3); }}
             .badge-danger {{ background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border: 1px solid rgba(248, 113, 113, 0.3); }}
             .badge-admin {{ background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }}
+            .badge-operator {{ background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }}
             .badge-observer {{ background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); border: 1px solid rgba(251, 191, 36, 0.3); }}
+            .badge-auditor {{ background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }}
             .btn {{ padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out; gap: 6px; }}
             .btn-primary {{ background: var(--accent-indigo); color: #ffffff; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }}
             .btn-primary:hover {{ background: #4f46e5; transform: translateY(-1px); }}
@@ -463,8 +531,6 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
-
-    let is_admin = matches!(user.role, Role::Admin);
 
     let services = services::get_all_services();
     let config = state.get_config().await;
@@ -530,6 +596,7 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         }
     };
 
+    let csrf_token = get_csrf_token(&session).await;
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
 
@@ -539,19 +606,25 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         <div class="header">
             <h1>Server Manager 🚀</h1>
             <form method="POST" action="/logout" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{}">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
     "#,
+        csrf_token,
         Escaped(&user.username)
     );
 
     // Navigation
     html.push_str(r#"<div class="nav"><a href="/" class="active">Dashboard</a>"#);
-    if is_admin {
-        html.push_str(
-            r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
-        );
+    if user.role.can_manage_users() {
+        html.push_str(r#"<a href="/users">User Management</a>"#);
+    }
+    if user.role.can_trigger_updates() {
+        html.push_str(r#"<a href="/updates">Updates &amp; Software</a>"#);
+    }
+    if user.role.can_view_audit_logs() {
+        html.push_str(r#"<a href="/audit">Audit Log</a>"#);
     }
     html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
 
@@ -661,21 +734,25 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
             status_badge
         );
 
-        if is_admin {
+        if user.role.can_manage_services() {
             let _ = writeln!(
                 html,
                 r#"
                     <form method="POST" action="/api/services/{}/{}" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{}">
                         <button type="submit" class="btn {}">{}</button>
                     </form>
              "#,
                 name,
                 if enabled { "disable" } else { "enable" },
+                csrf_token,
                 if enabled { "btn-disable" } else { "btn-enable" },
                 if enabled { "Disable" } else { "Enable" }
             );
         } else {
-            html.push_str(r#"<span style="color: var(--text-muted); font-size: 0.85rem;">System Controlled</span>"#);
+            html.push_str(
+                r#"<span style="color: var(--text-muted); font-size: 0.85rem;">View-Only</span>"#,
+            );
         };
 
         html.push_str("</td></tr>");
@@ -718,31 +795,50 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
                     {}
                 </div>
                 <div>
-                    <form method="POST" action="/user/apps/{}/{}" style="margin: 0; width: 100%;">
-                        <button type="submit" class="btn {}" style="width: 100%;">{}</button>
-                    </form>
-                </div>
-            </div>
             "#,
             name,
             svc.image(),
-            status_badge,
-            name,
-            if is_app_installed {
-                "uninstall"
-            } else {
-                "install"
-            },
-            if is_app_installed {
-                "btn-danger"
-            } else {
-                "btn-primary"
-            },
-            if is_app_installed {
-                "Uninstall App"
-            } else {
-                "1-Click Install"
-            }
+            status_badge
+        );
+
+        if matches!(user.role, Role::Auditor) {
+            html.push_str(
+                r#"<span style="color: var(--text-muted); font-size: 0.85rem;">Audit-Only</span>"#,
+            );
+        } else {
+            let _ = writeln!(
+                html,
+                r#"
+                    <form method="POST" action="/user/apps/{}/{}" style="margin: 0; width: 100%;">
+                        <input type="hidden" name="csrf_token" value="{}">
+                        <button type="submit" class="btn {}" style="width: 100%;">{}</button>
+                    </form>
+                "#,
+                name,
+                if is_app_installed {
+                    "uninstall"
+                } else {
+                    "install"
+                },
+                csrf_token,
+                if is_app_installed {
+                    "btn-danger"
+                } else {
+                    "btn-primary"
+                },
+                if is_app_installed {
+                    "Uninstall App"
+                } else {
+                    "1-Click Install"
+                }
+            );
+        }
+
+        html.push_str(
+            r#"
+                </div>
+            </div>
+        "#,
         );
     }
 
@@ -759,31 +855,37 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(user.role, Role::Admin) {
-        return Redirect::to("/").into_response();
+    if !user.role.can_manage_users() {
+        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
     }
 
+    let csrf_token = get_csrf_token(&session).await;
     let user_manager = state.get_users().await;
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "User Management - Server Manager");
 
-    html.push_str(r#"
+    let _ = writeln!(
+        html,
+        r#"
         <div class="header">
             <h1>User Management 👥</h1>
             <form method="POST" action="/logout" style="margin: 0;">
-                <button type="submit" class="btn btn-logout">Logout</button>
+                <input type="hidden" name="csrf_token" value="{}">
+                <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
         <div class="nav">
             <a href="/">Dashboard</a>
             <a href="/users" class="active">User Management</a>
             <a href="/updates">Updates &amp; Software</a>
+            <a href="/audit">Audit Log</a>
             <a href="/user/profile">My Profile</a>
         </div>
 
         <div class="card-panel">
             <div class="section-title" style="margin-top: 0;">➕ Add New System User</div>
             <form method="POST" action="/users/add" class="grid-form">
+                <input type="hidden" name="csrf_token" value="{}">
                 <div>
                     <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Username</label>
                     <input type="text" name="username" required placeholder="e.g. john">
@@ -795,8 +897,10 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                 <div>
                     <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Role</label>
                     <select name="role">
-                        <option value="Observer">Observer</option>
                         <option value="Admin">Admin</option>
+                        <option value="Operator">Operator</option>
+                        <option value="Observer" selected>Observer</option>
+                        <option value="Auditor">Auditor</option>
                     </select>
                 </div>
                 <div>
@@ -820,12 +924,18 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                 </tr>
             </thead>
             <tbody>
-    "#);
+    "#,
+        csrf_token,
+        Escaped(&user.username),
+        csrf_token
+    );
 
     for u in user_manager.list_users() {
         let role_badge = match u.role {
             Role::Admin => r#"<span class="badge badge-admin">Admin</span>"#,
+            Role::Operator => r#"<span class="badge badge-operator">Operator</span>"#,
             Role::Observer => r#"<span class="badge badge-observer">Observer</span>"#,
+            Role::Auditor => r#"<span class="badge badge-auditor">Auditor</span>"#,
         };
 
         let quota_val = u.quota_gb.unwrap_or(0);
@@ -846,9 +956,12 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                 <td><span class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-main);">{}</span></td>
                 <td>
                     <form method="POST" action="/users/update/{}" style="display: flex; gap: 8px; align-items: center; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{}">
                         <select name="role" style="padding: 6px 10px; font-size: 0.85rem; width: 110px;">
-                            <option value="Observer"{}>Observer</option>
                             <option value="Admin"{}>Admin</option>
+                            <option value="Operator"{}>Operator</option>
+                            <option value="Observer"{}>Observer</option>
+                            <option value="Auditor"{}>Auditor</option>
                         </select>
                         <input type="number" name="quota" value="{}" style="padding: 6px 10px; font-size: 0.85rem; width: 90px;" placeholder="Quota">
                         <button type="submit" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">Save</button>
@@ -856,6 +969,7 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
                 </td>
                 <td>
                     <form method="POST" action="/users/delete/{}" style="margin:0;" onsubmit="return confirm('Are you sure you want to delete user {}?');">
+                        <input type="hidden" name="csrf_token" value="{}">
                         <button type="submit" class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;">Delete</button>
                     </form>
                 </td>
@@ -870,19 +984,31 @@ async fn users_page(State(state): State<SharedState>, session: Session) -> impl 
             },
             apps_display,
             Escaped(&u.username),
+            csrf_token,
+            if matches!(u.role, Role::Admin) {
+                " selected"
+            } else {
+                ""
+            },
+            if matches!(u.role, Role::Operator) {
+                " selected"
+            } else {
+                ""
+            },
             if matches!(u.role, Role::Observer) {
                 " selected"
             } else {
                 ""
             },
-            if matches!(u.role, Role::Admin) {
+            if matches!(u.role, Role::Auditor) {
                 " selected"
             } else {
                 ""
             },
             quota_val,
             Escaped(&u.username),
-            Escaped(&u.username)
+            Escaped(&u.username),
+            csrf_token
         );
     }
 
@@ -898,6 +1024,7 @@ struct AddUserPayload {
     password: String,
     role: String,
     quota: Option<u64>,
+    csrf_token: Option<String>,
 }
 
 async fn add_user_handler(
@@ -910,12 +1037,18 @@ async fn add_user_handler(
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(session_user.role, Role::Admin) {
-        return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+    if !session_user.role.can_manage_users() {
+        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
     }
 
-    let role_enum = match payload.role.as_str() {
-        "Admin" => Role::Admin,
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
+
+    let role_enum = match payload.role.to_lowercase().as_str() {
+        "admin" => Role::Admin,
+        "operator" => Role::Operator,
+        "auditor" => Role::Auditor,
         _ => Role::Observer,
     };
 
@@ -953,7 +1086,6 @@ async fn add_user_handler(
                 "User {} added via Web UI by {}",
                 payload.username, session_user.username
             );
-            // Update mtime to prevent unnecessary reload
             let path = std::path::Path::new("users.yaml");
             let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
             let file_path = if path.exists() { path } else { fallback_path };
@@ -963,7 +1095,6 @@ async fn add_user_handler(
         }
         Err(e) => {
             error!("Failed to add user: {}", e);
-            // In a real app we'd flash a message. Here just redirect.
         }
     }
 
@@ -974,6 +1105,7 @@ async fn add_user_handler(
 struct UpdateUserPayload {
     role: String,
     quota: Option<u64>,
+    csrf_token: Option<String>,
 }
 
 async fn update_user_handler(
@@ -987,12 +1119,18 @@ async fn update_user_handler(
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(session_user.role, Role::Admin) {
-        return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+    if !session_user.role.can_manage_users() {
+        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
     }
 
-    let role_enum = match payload.role.as_str() {
-        "Admin" => Role::Admin,
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
+
+    let role_enum = match payload.role.to_lowercase().as_str() {
+        "admin" => Role::Admin,
+        "operator" => Role::Operator,
+        "auditor" => Role::Auditor,
         _ => Role::Observer,
     };
 
@@ -1047,14 +1185,19 @@ async fn delete_user_handler(
     State(state): State<SharedState>,
     session: Session,
     Path(username): Path<String>,
+    Form(payload): Form<ActionPayload>,
 ) -> impl IntoResponse {
     let session_user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(session_user.role, Role::Admin) {
-        return (StatusCode::FORBIDDEN, "Access Denied").into_response();
+    if !session_user.role.can_manage_users() {
+        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
+    }
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
     }
 
     let mut cache = state.users_cache.write().await;
@@ -1083,7 +1226,6 @@ async fn delete_user_handler(
                 "User {} deleted via Web UI by {}",
                 username, session_user.username
             );
-            // Update mtime to prevent unnecessary reload
             let path = std::path::Path::new("users.yaml");
             let fallback_path = std::path::Path::new("/opt/server_manager/users.yaml");
             let file_path = if path.exists() { path } else { fallback_path };
@@ -1099,22 +1241,43 @@ async fn delete_user_handler(
     Redirect::to("/users").into_response()
 }
 
-async fn enable_service(session: Session, Path(name): Path<String>) -> impl IntoResponse {
-    check_admin_role(session, &name, true).await
+async fn enable_service(
+    session: Session,
+    Path(name): Path<String>,
+    Form(payload): Form<ActionPayload>,
+) -> impl IntoResponse {
+    check_service_toggle_role(session, payload, &name, true).await
 }
 
-async fn disable_service(session: Session, Path(name): Path<String>) -> impl IntoResponse {
-    check_admin_role(session, &name, false).await
+async fn disable_service(
+    session: Session,
+    Path(name): Path<String>,
+    Form(payload): Form<ActionPayload>,
+) -> impl IntoResponse {
+    check_service_toggle_role(session, payload, &name, false).await
 }
 
-async fn check_admin_role(session: Session, name: &str, enable: bool) -> impl IntoResponse {
+async fn check_service_toggle_role(
+    session: Session,
+    payload: ActionPayload,
+    name: &str,
+    enable: bool,
+) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(user.role, Role::Admin) {
-        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
+    if !user.role.can_manage_services() {
+        return (
+            StatusCode::FORBIDDEN,
+            "Access Denied: Admin or Operator role required",
+        )
+            .into_response();
+    }
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
     }
 
     run_cli_toggle(name, enable);
@@ -1156,52 +1319,84 @@ async fn updates_page(session: Session) -> impl IntoResponse {
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(user.role, Role::Admin) {
-        return Redirect::to("/").into_response();
+    if !user.role.can_trigger_updates() {
+        return (
+            StatusCode::FORBIDDEN,
+            "Access Denied: Admin or Operator role required",
+        )
+            .into_response();
     }
 
+    let csrf_token = get_csrf_token(&session).await;
     let mut html = String::with_capacity(4096);
     write_html_head(&mut html, "Updates & Software - Server Manager");
 
-    html.push_str(
+    let _ = writeln!(
+        html,
         r#"
         <div class="header">
             <h1>Updates &amp; Software Management 🔄</h1>
             <form method="POST" action="/logout" style="margin:0;">
-                <button type="submit" class="btn btn-logout">Logout</button>
+                <input type="hidden" name="csrf_token" value="{}">
+                <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
         <div class="nav">
             <a href="/">Dashboard</a>
-            <a href="/users">User Management</a>
-            <a href="/updates" class="active">Updates &amp; Software</a>
-            <a href="/user/profile">My Profile</a>
-        </div>
+        "#,
+        csrf_token,
+        Escaped(&user.username)
+    );
 
+    if user.role.can_manage_users() {
+        html.push_str(r#"<a href="/users">User Management</a>"#);
+    }
+    html.push_str(r#"<a href="/updates" class="active">Updates &amp; Software</a>"#);
+    if user.role.can_view_audit_logs() {
+        html.push_str(r#"<a href="/audit">Audit Log</a>"#);
+    }
+    html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
+
+    let _ = writeln!(
+        html,
+        r#"
         <div class="card-panel">
             <div class="section-title" style="margin-top:0;">🚀 One-Click System &amp; Stack Update</div>
             <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6;">
                 Pull the latest Docker container images for all active media services and seamlessly re-deploy the container stack without downtime.
             </p>
             <form method="POST" action="/api/system/update" onsubmit="return confirm('Are you sure you want to pull latest images and update all active services?');" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{}">
                 <button type="submit" class="btn btn-primary" style="font-size: 0.95rem; padding: 12px 24px;">🚀 Update Stack Now</button>
             </form>
         </div>
     "#,
+        csrf_token
     );
 
     write_html_foot(&mut html);
     Html(html).into_response()
 }
 
-async fn trigger_system_update(session: Session) -> impl IntoResponse {
+async fn trigger_system_update(
+    session: Session,
+    Form(payload): Form<ActionPayload>,
+) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
 
-    if !matches!(user.role, Role::Admin) {
-        return (StatusCode::FORBIDDEN, "Access Denied: Admin role required").into_response();
+    if !user.role.can_trigger_updates() {
+        return (
+            StatusCode::FORBIDDEN,
+            "Access Denied: Admin or Operator role required",
+        )
+            .into_response();
+    }
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
     }
 
     info!("Web UI triggering stack update: server_manager update");
@@ -1229,11 +1424,24 @@ async fn user_install_app_handler(
     State(state): State<SharedState>,
     session: Session,
     Path(name): Path<String>,
+    Form(payload): Form<ActionPayload>,
 ) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
+
+    if matches!(user.role, Role::Auditor) {
+        return (
+            StatusCode::FORBIDDEN,
+            "Auditor role cannot modify applications",
+        )
+            .into_response();
+    }
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
 
     let mut cache = state.users_cache.write().await;
     let mut manager_clone = cache.manager.clone();
@@ -1267,11 +1475,24 @@ async fn user_uninstall_app_handler(
     State(state): State<SharedState>,
     session: Session,
     Path(name): Path<String>,
+    Form(payload): Form<ActionPayload>,
 ) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
+
+    if matches!(user.role, Role::Auditor) {
+        return (
+            StatusCode::FORBIDDEN,
+            "Auditor role cannot modify applications",
+        )
+            .into_response();
+    }
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
 
     let mut cache = state.users_cache.write().await;
     let mut manager_clone = cache.manager.clone();
@@ -1310,7 +1531,7 @@ async fn user_profile_page(
         _ => return Redirect::to("/login").into_response(),
     };
 
-    let is_admin = matches!(user.role, Role::Admin);
+    let csrf_token = get_csrf_token(&session).await;
     let user_manager = state.get_users().await;
     let current_user_opt = user_manager.get_user(&user.username);
     let quota_str = current_user_opt
@@ -1323,7 +1544,9 @@ async fn user_profile_page(
 
     let role_badge = match user.role {
         Role::Admin => r#"<span class="badge badge-admin">Admin</span>"#,
+        Role::Operator => r#"<span class="badge badge-operator">Operator</span>"#,
         Role::Observer => r#"<span class="badge badge-observer">Observer</span>"#,
+        Role::Auditor => r#"<span class="badge badge-auditor">Auditor</span>"#,
     };
 
     let _ = writeln!(
@@ -1332,19 +1555,25 @@ async fn user_profile_page(
         <div class="header">
             <h1>My Profile 👤</h1>
             <form method="POST" action="/logout" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{}">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
         <div class="nav">
             <a href="/">Dashboard</a>
         "#,
+        csrf_token,
         Escaped(&user.username)
     );
 
-    if is_admin {
-        html.push_str(
-            r#"<a href="/users">User Management</a><a href="/updates">Updates &amp; Software</a>"#,
-        );
+    if user.role.can_manage_users() {
+        html.push_str(r#"<a href="/users">User Management</a>"#);
+    }
+    if user.role.can_trigger_updates() {
+        html.push_str(r#"<a href="/updates">Updates &amp; Software</a>"#);
+    }
+    if user.role.can_view_audit_logs() {
+        html.push_str(r#"<a href="/audit">Audit Log</a>"#);
     }
 
     let _ = writeln!(
@@ -1374,6 +1603,7 @@ async fn user_profile_page(
         <div class="card-panel">
             <div class="section-title" style="margin-top:0;">🔐 Security &amp; Password Update</div>
             <form method="POST" action="/user/profile" style="max-width: 400px; margin-top: 16px;">
+                <input type="hidden" name="csrf_token" value="{}">
                 <div style="margin-bottom: 16px;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">New Password</label>
                     <input type="password" name="password" required placeholder="Enter new password">
@@ -1384,7 +1614,8 @@ async fn user_profile_page(
     "#,
         Escaped(&user.username),
         role_badge,
-        quota_str
+        quota_str,
+        csrf_token
     );
 
     write_html_foot(&mut html);
@@ -1394,6 +1625,7 @@ async fn user_profile_page(
 #[derive(Deserialize)]
 struct UserPasswdPayload {
     password: String,
+    csrf_token: Option<String>,
 }
 
 async fn user_passwd_handler(
@@ -1405,6 +1637,10 @@ async fn user_passwd_handler(
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
     };
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
 
     if payload.password.trim().is_empty() {
         return Redirect::to("/user/profile").into_response();
@@ -1436,4 +1672,116 @@ async fn user_passwd_handler(
     }
 
     Redirect::to("/user/profile").into_response()
+}
+
+// Audit Log Page (Auditor & Admin roles)
+async fn audit_page(session: Session) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !user.role.can_view_audit_logs() {
+        return (
+            StatusCode::FORBIDDEN,
+            "Access Denied: Admin or Auditor role required",
+        )
+            .into_response();
+    }
+
+    let csrf_token = get_csrf_token(&session).await;
+    let mut html = String::with_capacity(8192);
+    write_html_head(&mut html, "Audit Log - Server Manager");
+
+    let _ = writeln!(
+        html,
+        r#"
+        <div class="header">
+            <h1>Audit &amp; Journal History 📜</h1>
+            <form method="POST" action="/logout" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{}">
+                <button type="submit" class="btn btn-logout">Logout ({})</button>
+            </form>
+        </div>
+        <div class="nav">
+            <a href="/">Dashboard</a>
+        "#,
+        csrf_token,
+        Escaped(&user.username)
+    );
+
+    if user.role.can_manage_users() {
+        html.push_str(r#"<a href="/users">User Management</a>"#);
+    }
+    if user.role.can_trigger_updates() {
+        html.push_str(r#"<a href="/updates">Updates &amp; Software</a>"#);
+    }
+    html.push_str(r#"<a href="/audit" class="active">Audit Log</a>"#);
+    html.push_str(r#"<a href="/user/profile">My Profile</a></div>"#);
+
+    let entries = match Journal::open_or_create(Journal::default_path()) {
+        Ok(j) => j.read_entries().unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
+
+    html.push_str(r#"
+        <div class="card-panel">
+            <div class="section-title" style="margin-top: 0;">📜 Forward Operation Journal</div>
+            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 16px;">
+                Immutable forward-logging journal records for all infrastructure modifications and state transitions.
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp (UTC)</th>
+                        <th>Op ID</th>
+                        <th>Step</th>
+                        <th>Operation Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+    "#);
+
+    if entries.is_empty() {
+        html.push_str(r#"<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No journal entries found. Operations will be recorded here.</td></tr>"#);
+    } else {
+        for entry in entries.iter().rev() {
+            let status_badge = match entry.status {
+                StepStatus::Completed => r#"<span class="badge badge-success">Completed</span>"#,
+                StepStatus::InProgress => {
+                    r#"<span class="badge badge-observer">In Progress</span>"#
+                }
+                StepStatus::Planned => r#"<span class="badge badge-admin">Planned</span>"#,
+                StepStatus::Failed => r#"<span class="badge badge-danger">Failed</span>"#,
+                StepStatus::Compensated => {
+                    r#"<span class="badge badge-operator">Compensated</span>"#
+                }
+                StepStatus::CompensationFailed => {
+                    r#"<span class="badge badge-danger">Comp Failed</span>"#
+                }
+            };
+            let _ = writeln!(
+                html,
+                r#"
+                <tr>
+                    <td><code>{}</code></td>
+                    <td><code>{}</code></td>
+                    <td>#{}</td>
+                    <td><strong>{}</strong></td>
+                    <td>{}</td>
+                </tr>
+                "#,
+                Escaped(&entry.timestamp),
+                Escaped(&entry.op_id),
+                entry.step_index,
+                Escaped(&entry.step_name),
+                status_badge
+            );
+        }
+    }
+
+    html.push_str("</tbody></table></div>");
+    write_html_foot(&mut html);
+    Html(html).into_response()
 }
