@@ -1,4 +1,4 @@
-use super::Service;
+use super::{Service, ServiceCategory};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use anyhow::{Context, Result};
@@ -13,6 +13,12 @@ impl Service for VaultwardenService {
     }
     fn image(&self) -> &'static str {
         "vaultwarden/server:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Bitwarden-Compatible Lightweight Password Vault"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8001:80".to_string()]
@@ -42,6 +48,12 @@ impl Service for FilebrowserService {
     fn image(&self) -> &'static str {
         "filebrowser/filebrowser:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Web-Based File Manager"
+    }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8002:80".to_string()]
     }
@@ -61,6 +73,12 @@ impl Service for YourlsService {
     }
     fn image(&self) -> &'static str {
         "yourls:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Self-Hosted URL Shortener"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8003:80".to_string()]
@@ -102,6 +120,12 @@ impl Service for GLPIService {
     fn image(&self) -> &'static str {
         "diouxx/glpi:latest"
     } // Common community image, official docker-library is scarce
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "IT Asset Management & Service Desk"
+    }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8088:80".to_string()]
     }
@@ -120,6 +144,12 @@ impl Service for GiteaService {
     }
     fn image(&self) -> &'static str {
         "gitea/gitea:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Self-Hosted Git Service"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:3000:3000".to_string(), "2222:22".to_string()]
@@ -163,6 +193,12 @@ impl Service for RoundcubeService {
     fn image(&self) -> &'static str {
         "roundcube/roundcubemail:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Browser-Based Multilingual Webmail Client"
+    }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8090:80".to_string()]
     }
@@ -193,6 +229,12 @@ impl Service for NextcloudService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/nextcloud:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Self-Hosted Productivity & File Sync Platform"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:4443:443".to_string()]
@@ -273,6 +315,12 @@ impl Service for MailService {
     fn image(&self) -> &'static str {
         "mailserver/docker-mailserver:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Full-Featured Production Mail Server"
+    }
     fn ports(&self) -> Vec<String> {
         vec![
             "25:25".to_string(),
@@ -327,6 +375,12 @@ impl Service for SyncthingService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/syncthing:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Apps
+    }
+    fn description(&self) -> &'static str {
+        "Continuous Decentralized File Synchronization"
     }
     fn ports(&self) -> Vec<String> {
         vec![

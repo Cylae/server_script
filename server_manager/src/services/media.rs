@@ -1,4 +1,4 @@
-use super::{ResourceConfig, Service};
+use super::{ResourceConfig, Service, ServiceCategory};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
@@ -11,6 +11,12 @@ impl Service for PlexService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/plex:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Media
+    }
+    fn description(&self) -> &'static str {
+        "Media Streaming Platform"
     }
 
     fn ports(&self) -> Vec<String> {
@@ -91,6 +97,12 @@ impl Service for JellyfinService {
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/jellyfin:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Media
+    }
+    fn description(&self) -> &'static str {
+        "Open Source Media Server"
+    }
 
     fn ports(&self) -> Vec<String> {
         vec!["8096:8096".to_string()]
@@ -162,6 +174,12 @@ impl Service for JellyseerrService {
     fn image(&self) -> &'static str {
         "fallenbagel/jellyseerr:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Media
+    }
+    fn description(&self) -> &'static str {
+        "Media Request Management (Jellyfin)"
+    }
     // Internal port 5055, exposed as 5056 to avoid conflict with Overseerr
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:5056:5055".to_string()]
@@ -186,6 +204,12 @@ impl Service for TautulliService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/tautulli:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Media
+    }
+    fn description(&self) -> &'static str {
+        "Plex Statistics & Analytics"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:8181:8181".to_string()]
@@ -213,6 +237,12 @@ impl Service for OverseerrService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/overseerr:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Media
+    }
+    fn description(&self) -> &'static str {
+        "Media Request Management (Plex)"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:5055:5055".to_string()]

@@ -6,7 +6,6 @@ use std::fs;
 use std::io::{self, Write as IoWrite};
 use std::process::Command;
 
-use crate::build_compose_structure;
 use crate::core::{config, docker, firewall, hardware, secrets, system, users};
 use crate::services;
 
@@ -630,8 +629,7 @@ async fn generate_compose(
     config: &config::Config,
 ) -> Result<()> {
     info!("Generating docker-compose.yml based on hardware profile...");
-    let top_level = build_compose_structure(hw, secrets, config)?;
-    let yaml_output = serde_yaml_ng::to_string(&top_level)?;
+    let yaml_output = crate::generate_compose_yaml(hw, secrets, config)?;
 
     crate::core::atomic_io::atomic_write_str("docker-compose.yml", &yaml_output, 0o644)
         .context("Failed to write docker-compose.yml")?;
