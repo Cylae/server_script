@@ -1,3 +1,4 @@
+use crate::core::atomic_io;
 use anyhow::{Context, Result};
 use log::info;
 use rand::RngExt;
@@ -18,6 +19,60 @@ pub struct Secrets {
     pub yourls_admin_password: Option<String>,
     pub vaultwarden_admin_token: Option<String>,
     pub server_manager_admin_password: Option<String>,
+}
+
+impl std::fmt::Debug for Secrets {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Secrets")
+            .field(
+                "mysql_root_password",
+                &self.mysql_root_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "mysql_user_password",
+                &self.mysql_user_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "nextcloud_admin_password",
+                &self.nextcloud_admin_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "nextcloud_db_password",
+                &self.nextcloud_db_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "mailserver_password",
+                &self.mailserver_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "glpi_db_password",
+                &self.glpi_db_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "gitea_db_password",
+                &self.gitea_db_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "roundcube_db_password",
+                &self.roundcube_db_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "yourls_admin_password",
+                &self.yourls_admin_password.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "vaultwarden_admin_token",
+                &self.vaultwarden_admin_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "server_manager_admin_password",
+                &self
+                    .server_manager_admin_password
+                    .as_ref()
+                    .map(|_| "[REDACTED]"),
+            )
+            .finish()
+    }
 }
 
 impl Secrets {
@@ -95,14 +150,8 @@ impl Secrets {
         if changed {
             info!("Generated new secrets.");
             let content = serde_yaml_ng::to_string(&secrets)?;
-            fs::write(&path, content)
+            atomic_io::atomic_write_str(&path, &content, 0o600)
                 .with_context(|| format!("Failed to write {}", path.display()))?;
-        }
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
         }
 
         Ok(secrets)
