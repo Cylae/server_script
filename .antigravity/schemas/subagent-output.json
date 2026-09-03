@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AntigravitySubagentPayload",
+  "description": "Livrable obligatoire d'un sous-agent Antigravity déposé dans .antigravity/outbox/",
+  "type": "object",
+  "required": [
+    "subagent_id",
+    "scope",
+    "files_inspected",
+    "proven_claims",
+    "blocked_or_unverified",
+    "recommended_action"
+  ],
+  "properties": {
+    "subagent_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "files_inspected": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "proven_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "command", "exit_code", "raw_output_snippet"],
+        "properties": {
+          "claim": { "type": "string" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "raw_output_snippet": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "blocked_or_unverified": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "reason", "unblocking_requirement"],
+        "properties": {
+          "claim": { "type": "string" },
+          "reason": { "type": "string" },
+          "unblocking_requirement": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recommended_action": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
