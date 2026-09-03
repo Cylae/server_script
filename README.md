@@ -90,7 +90,11 @@ Once installed, access the Web Dashboard at `http://YOUR-SERVER-IP:8099`.
 | `server_manager fix` | Audits and fixes permissions on config files and verifies UFW/Docker daemon state. |
 | `server_manager interactive` | Opens the interactive console menu. |
 | `server_manager status` | Displays system telemetry (CPU, RAM, Swap, Disk, GPU) and Docker daemon state. |
-| `server_manager web --port 8099` | Launches the web dashboard. |
+| `server_manager doctor` | Runs comprehensive non-destructive system diagnostics (kernel, Docker, firewall, ports). |
+| `server_manager generate` | Generates the deterministic `docker-compose.yml` stack configuration. |
+| `server_manager enable <service>` | Enables a service in the orchestrator configuration. |
+| `server_manager disable <service>` | Disables a service in the orchestrator configuration. |
+| `server_manager web --bind 127.0.0.1 --port 8099` | Launches the web administration interface. |
 | `server_manager user add <name> --role Admin --quota 50` | Adds a new user account with storage quota in GB. |
 | `server_manager user delete <name>` | Deletes a user account. |
 | `server_manager user list` | Lists all existing user accounts and roles. |
