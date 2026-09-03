@@ -41,11 +41,12 @@ pub fn build_compose_structure(
         let environment = if envs.is_empty() {
             None
         } else {
-            Some(
-                envs.into_iter()
-                    .map(|(k, v)| format!("{}={}", k, v))
-                    .collect(),
-            )
+            let mut env_vec: Vec<String> = envs
+                .into_iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect();
+            env_vec.sort();
+            Some(env_vec)
         };
 
         let vols = service_impl.volumes(hw);
@@ -79,12 +80,12 @@ pub fn build_compose_structure(
         let labels = if labels_map.is_empty() {
             None
         } else {
-            Some(
-                labels_map
-                    .into_iter()
-                    .map(|(k, v)| format!("{}={}", k, v))
-                    .collect(),
-            )
+            let mut label_vec: Vec<String> = labels_map
+                .into_iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect();
+            label_vec.sort();
+            Some(label_vec)
         };
 
         let caps = service_impl.cap_add();
@@ -128,7 +129,7 @@ pub fn build_compose_structure(
         let logging_options = if logging_info.options.is_empty() {
             None
         } else {
-            Some(logging_info.options)
+            Some(logging_info.options.into_iter().collect())
         };
         let logging = Some(Logging {
             driver: logging_info.driver,
