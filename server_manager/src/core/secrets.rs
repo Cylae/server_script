@@ -123,6 +123,7 @@ fn generate_hex(bytes: usize) -> Result<String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
