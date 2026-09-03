@@ -1,14 +1,22 @@
 [SESSION]
 target_repo = Cylae/server_script
-active_gate = G9
-branch = gate/09-doc-doctor-audit
-base_commit = 9523f72
-last_verified_commit = 9523f72
+active_gate = DELIVERED
+branch = main
+base_commit = 07a47b0
+last_verified_commit = 07a47b0
+
+[STATUS]
+gates_completed = G0, G1, G2, G3, G4, G5, G6, G7, G8, G9
+pull_requests_merged = #377, #378, #379, #380, #381, #382, #383, #384, #385
+total_tests_passing = 69
+line_coverage = 47.97%
+known_vulnerabilities = 0
+compiler_warnings = 0
 
 [BLOCKERS]
 active_blocker = NONE
 
 [NEXT_ATOMIC_ACTION]
-cmd = cargo test --manifest-path server_manager/Cargo.toml --all-targets
+cmd = ./verify.sh
 acceptance_condition = exit_code == 0
 target_artifact = docs/audit/FINAL-AUDIT.md
