@@ -21,6 +21,20 @@ use tokio::process::Command;
 use tokio::sync::RwLock;
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct TelemetryData {
+    pub ram_used: u64,
+    pub ram_total: u64,
+    pub swap_used: u64,
+    pub swap_total: u64,
+    pub cpu_usage: f32,
+    pub disk_total: u64,
+    pub disk_used: u64,
+    pub version: String,
+    pub update_available: bool,
+    pub latest_version: String,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct SessionUser {
     username: String,
@@ -69,9 +83,9 @@ struct CachedUsers {
 
 pub struct AppState {
     system: Mutex<System>,
-    last_system_refresh: Mutex<SystemTime>,
     config_cache: RwLock<CachedConfig>,
     users_cache: RwLock<CachedUsers>,
+    pub telemetry: RwLock<TelemetryData>,
 }
 
 pub type SharedState = Arc<AppState>;
@@ -80,7 +94,6 @@ impl AppState {
     pub fn new_test(config: Config, user_manager: UserManager) -> Arc<Self> {
         Arc::new(Self {
             system: Mutex::new(System::new_all()),
-            last_system_refresh: Mutex::new(SystemTime::now()),
             config_cache: RwLock::new(CachedConfig {
                 config,
                 last_modified: None,
@@ -88,6 +101,11 @@ impl AppState {
             users_cache: RwLock::new(CachedUsers {
                 manager: user_manager,
                 last_modified: None,
+            }),
+            telemetry: RwLock::new(TelemetryData {
+                version: crate::core::updater::CURRENT_VERSION.to_string(),
+                latest_version: crate::core::updater::CURRENT_VERSION.to_string(),
+                ..Default::default()
             }),
         })
     }
@@ -194,11 +212,14 @@ pub fn build_app(app_state: Arc<AppState>) -> Router {
             "/user/profile",
             get(user_profile_page).post(user_passwd_handler),
         )
+        .route("/api/telemetry", get(telemetry_handler))
         .route("/api/services/:name/enable", post(enable_service))
         .route("/api/services/:name/disable", post(disable_service))
         .route("/api/system/update", post(trigger_system_update))
+        .route("/api/system/self-update", post(self_update_handler))
         .route("/logout", post(logout))
         .route("/login", get(login_page).post(login_handler))
+        .layer(tower_http::compression::CompressionLayer::new())
         .layer(axum::middleware::from_fn(security_headers_middleware))
         .layer(session_layer)
         .with_state(app_state)
@@ -233,7 +254,6 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
 
     let app_state = Arc::new(AppState {
         system: Mutex::new(sys),
-        last_system_refresh: Mutex::new(SystemTime::now()),
         config_cache: RwLock::new(CachedConfig {
             config: initial_config,
             last_modified: initial_config_mtime,
@@ -242,6 +262,77 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
             manager: initial_users,
             last_modified: initial_users_mtime,
         }),
+        telemetry: RwLock::new(TelemetryData {
+            version: crate::core::updater::CURRENT_VERSION.to_string(),
+            latest_version: crate::core::updater::CURRENT_VERSION.to_string(),
+            ..Default::default()
+        }),
+    });
+
+    // Background Telemetry Poller Task
+    let bg_state = app_state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+        loop {
+            interval.tick().await;
+            let bg_state_clone = bg_state.clone();
+            let stats = tokio::task::spawn_blocking(move || {
+                let mut sys = bg_state_clone
+                    .system
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
+                sys.refresh_cpu();
+                sys.refresh_memory();
+                sys.refresh_disks();
+
+                let ram_used = sys.used_memory() / 1024 / 1024;
+                let ram_total = sys.total_memory() / 1024 / 1024;
+                let swap_used = sys.used_swap() / 1024 / 1024;
+                let swap_total = sys.total_swap() / 1024 / 1024;
+                let cpu_usage = sys.global_cpu_info().cpu_usage();
+
+                let mut disk_total = 0;
+                let mut disk_used = 0;
+                let target_disk = sys
+                    .disks()
+                    .iter()
+                    .find(|d| d.mount_point() == std::path::Path::new("/"))
+                    .or_else(|| sys.disks().first());
+
+                if let Some(disk) = target_disk {
+                    disk_total = disk.total_space() / 1024 / 1024 / 1024;
+                    disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
+                }
+                (
+                    ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
+                )
+            })
+            .await
+            .unwrap_or((0, 0, 0, 0, 0.0, 0, 0));
+
+            let update_info = crate::core::updater::check_for_updates().unwrap_or(
+                crate::core::updater::UpdateInfo {
+                    current_version: crate::core::updater::CURRENT_VERSION.to_string(),
+                    latest_version: crate::core::updater::CURRENT_VERSION.to_string(),
+                    update_available: false,
+                    release_notes: String::new(),
+                },
+            );
+
+            let mut t = bg_state.telemetry.write().await;
+            *t = TelemetryData {
+                ram_used: stats.0,
+                ram_total: stats.1,
+                swap_used: stats.2,
+                swap_total: stats.3,
+                cpu_usage: stats.4,
+                disk_total: stats.5,
+                disk_used: stats.6,
+                version: update_info.current_version,
+                update_available: update_info.update_available,
+                latest_version: update_info.latest_version,
+            };
+        }
     });
 
     let app = build_app(app_state);
@@ -285,6 +376,24 @@ async fn security_headers_middleware(
         axum::http::HeaderValue::from_static("default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"),
     );
     response
+}
+
+async fn telemetry_handler(
+    State(state): State<SharedState>,
+    session: Session,
+) -> impl IntoResponse {
+    if session
+        .get::<SessionUser>(SESSION_KEY)
+        .await
+        .ok()
+        .flatten()
+        .is_some()
+    {
+        let data = state.telemetry.read().await.clone();
+        axum::Json(data).into_response()
+    } else {
+        (StatusCode::UNAUTHORIZED, "Unauthorized").into_response()
+    }
 }
 
 async fn login_page(session: Session) -> impl IntoResponse {
@@ -519,6 +628,25 @@ fn write_html_foot(out: &mut String) {
     out.push_str(
         r#"
         </div>
+        <script>
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/telemetry');
+                if (!res.ok) return;
+                const d = await res.json();
+                if (d.cpu_usage !== undefined) {
+                    const cpuEl = document.getElementById('cpu-val');
+                    if (cpuEl) cpuEl.innerText = d.cpu_usage.toFixed(1) + '%';
+                    const ramEl = document.getElementById('ram-val');
+                    if (ramEl) ramEl.innerText = d.ram_used + ' MB';
+                    const swapEl = document.getElementById('swap-val');
+                    if (swapEl) swapEl.innerText = d.swap_used + ' MB';
+                    const diskEl = document.getElementById('disk-val');
+                    if (diskEl) diskEl.innerText = d.disk_used + ' GB';
+                }
+            } catch (e) {}
+        }, 2000);
+        </script>
     </body>
     </html>
     "#,
@@ -535,82 +663,44 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
     let services = services::get_all_services();
     let config = state.get_config().await;
 
-    // System Stats
-    let (ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used) = {
-        let state_clone = state.clone();
-        match tokio::task::spawn_blocking(move || {
-            let mut sys = state_clone
-                .system
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            let now = SystemTime::now();
-            let mut last_refresh = state_clone
-                .last_system_refresh
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-            // Throttle refresh to max once every 500ms
-            if now
-                .duration_since(*last_refresh)
-                .unwrap_or_default()
-                .as_millis()
-                > 500
-            {
-                sys.refresh_cpu();
-                sys.refresh_memory();
-                sys.refresh_disks();
-                *last_refresh = now;
-            }
-            let ram_used = sys.used_memory() / 1024 / 1024; // MB
-            let ram_total = sys.total_memory() / 1024 / 1024; // MB
-            let swap_used = sys.used_swap() / 1024 / 1024; // MB
-            let swap_total = sys.total_swap() / 1024 / 1024; // MB
-            let cpu_usage = sys.global_cpu_info().cpu_usage();
-
-            // Simple Disk Usage (Root or fallback)
-            let mut disk_total = 0;
-            let mut disk_used = 0;
-
-            let target_disk = sys
-                .disks()
-                .iter()
-                .find(|d| d.mount_point() == std::path::Path::new("/"))
-                .or_else(|| sys.disks().first());
-
-            if let Some(disk) = target_disk {
-                disk_total = disk.total_space() / 1024 / 1024 / 1024; // GB
-                disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
-                // GB
-            }
-            (
-                ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
-            )
-        })
-        .await
-        {
-            Ok(stats) => stats,
-            Err(e) => {
-                error!("Failed to join system stats task: {}", e);
-                (0, 0, 0, 0, 0.0, 0, 0)
-            }
-        }
-    };
+    // Fast sub-millisecond System Stats read from background telemetry state
+    let telemetry = state.telemetry.read().await.clone();
+    let ram_used = telemetry.ram_used;
+    let ram_total = telemetry.ram_total;
+    let swap_used = telemetry.swap_used;
+    let swap_total = telemetry.swap_total;
+    let cpu_usage = telemetry.cpu_usage;
+    let disk_total = telemetry.disk_total;
+    let disk_used = telemetry.disk_used;
+    let app_version = telemetry.version;
+    let update_available = telemetry.update_available;
+    let latest_version = telemetry.latest_version;
 
     let csrf_token = get_csrf_token(&session).await;
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html, "Dashboard - Server Manager");
 
+    let version_badge = if update_available {
+        format!(
+            r#"<span class="badge badge-observer">Update v{} Available</span>"#,
+            latest_version
+        )
+    } else {
+        format!(r#"<span class="badge badge-admin">v{}</span>"#, app_version)
+    };
+
     let _ = writeln!(
         html,
         r#"
         <div class="header">
-            <h1>Server Manager 🚀</h1>
+            <h1>Server Manager 🚀 {}</h1>
             <form method="POST" action="/logout" style="margin: 0;">
                 <input type="hidden" name="csrf_token" value="{}">
                 <button type="submit" class="btn btn-logout">Logout ({})</button>
             </form>
         </div>
     "#,
+        version_badge,
         csrf_token,
         Escaped(&user.username)
     );
@@ -651,22 +741,22 @@ async fn dashboard(State(state): State<SharedState>, session: Session) -> impl I
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">CPU Usage</div>
-                <div class="stat-value"><span>{:.1}%</span></div>
+                <div class="stat-value"><span id="cpu-val">{:.1}%</span></div>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">RAM Usage</div>
-                <div class="stat-value"><span>{} MB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} MB</small></div>
+                <div class="stat-value"><span id="ram-val">{} MB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} MB</small></div>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Swap Usage</div>
-                <div class="stat-value"><span>{} MB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} MB</small></div>
+                <div class="stat-value"><span id="swap-val">{} MB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} MB</small></div>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Disk Storage (/)</div>
-                <div class="stat-value"><span>{} GB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} GB</small></div>
+                <div class="stat-value"><span id="disk-val">{} GB</span><small style="font-size: 0.85rem; color: var(--text-muted);">/ {} GB</small></div>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: {:.1}%;"></div></div>
             </div>
         </div>
@@ -1313,7 +1403,7 @@ fn run_cli_toggle(service: &str, enable: bool) {
 }
 
 // Updates & Software Management Page
-async fn updates_page(session: Session) -> impl IntoResponse {
+async fn updates_page(State(state): State<SharedState>, session: Session) -> impl IntoResponse {
     let user: SessionUser = match session.get(SESSION_KEY).await {
         Ok(Some(u)) => u,
         _ => return Redirect::to("/login").into_response(),
@@ -1326,6 +1416,19 @@ async fn updates_page(session: Session) -> impl IntoResponse {
         )
             .into_response();
     }
+
+    let telemetry = state.telemetry.read().await.clone();
+    let software_version_badge = if telemetry.update_available {
+        format!(
+            r#"<span class="badge badge-observer">Update Available: v{}</span>"#,
+            telemetry.latest_version
+        )
+    } else {
+        format!(
+            r#"<span class="badge badge-success">Up to Date: v{}</span>"#,
+            telemetry.version
+        )
+    };
 
     let csrf_token = get_csrf_token(&session).await;
     let mut html = String::with_capacity(4096);
@@ -1361,7 +1464,18 @@ async fn updates_page(session: Session) -> impl IntoResponse {
         html,
         r#"
         <div class="card-panel">
-            <div class="section-title" style="margin-top:0;">🚀 One-Click System &amp; Stack Update</div>
+            <div class="section-title" style="margin-top:0;">💻 Software Binary Update</div>
+            <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6;">
+                Current Version: <strong>v{}</strong> | Status: {}
+            </p>
+            <form method="POST" action="/api/system/self-update" onsubmit="return confirm('Are you sure you want to update Server Manager binary software?');" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{}">
+                <button type="submit" class="btn btn-primary" style="font-size: 0.95rem; padding: 12px 24px;">⚡ Update Software Binary</button>
+            </form>
+        </div>
+
+        <div class="card-panel">
+            <div class="section-title" style="margin-top:0;">🚀 One-Click Docker Stack Update</div>
             <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6;">
                 Pull the latest Docker container images for all active media services and seamlessly re-deploy the container stack without downtime.
             </p>
@@ -1371,11 +1485,44 @@ async fn updates_page(session: Session) -> impl IntoResponse {
             </form>
         </div>
     "#,
-        csrf_token
+        telemetry.version, software_version_badge, csrf_token, csrf_token
     );
 
     write_html_foot(&mut html);
     Html(html).into_response()
+}
+
+async fn self_update_handler(
+    session: Session,
+    Form(payload): Form<ActionPayload>,
+) -> impl IntoResponse {
+    let user: SessionUser = match session.get(SESSION_KEY).await {
+        Ok(Some(u)) => u,
+        _ => return Redirect::to("/login").into_response(),
+    };
+
+    if !user.role.can_trigger_updates() {
+        return (
+            StatusCode::FORBIDDEN,
+            "Access Denied: Admin or Operator role required",
+        )
+            .into_response();
+    }
+
+    if !verify_csrf(&session, payload.csrf_token.as_deref()).await {
+        return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
+    }
+
+    info!("Web UI triggering software self-update...");
+    let res = tokio::task::spawn_blocking(crate::core::updater::self_update).await;
+
+    match res {
+        Ok(Ok(msg)) => info!("Software self-update completed: {}", msg),
+        Ok(Err(e)) => error!("Software self-update failed: {}", e),
+        Err(e) => error!("Task join error in software self-update: {}", e),
+    }
+
+    Redirect::to("/updates").into_response()
 }
 
 async fn trigger_system_update(
