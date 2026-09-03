@@ -1,4 +1,4 @@
-use super::{ResourceConfig, Service};
+use super::{ResourceConfig, Service, ServiceCategory};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use anyhow::{Context, Result};
@@ -15,6 +15,12 @@ impl Service for MariaDBService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/mariadb:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Internal Relational SQL Database"
     }
     fn ports(&self) -> Vec<String> {
         vec![]
@@ -145,6 +151,12 @@ impl Service for RedisService {
     fn image(&self) -> &'static str {
         "redis:alpine"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Internal In-Memory Cache"
+    }
     fn ports(&self) -> Vec<String> {
         vec![]
     } // Internal only
@@ -173,6 +185,12 @@ impl Service for NginxProxyService {
     }
     fn image(&self) -> &'static str {
         "jc21/nginx-proxy-manager:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Reverse Proxy & SSL Management"
     }
     fn ports(&self) -> Vec<String> {
         vec![
@@ -221,6 +239,12 @@ impl Service for DNSCryptService {
     fn image(&self) -> &'static str {
         "klutchell/dnscrypt-proxy:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Secure DNS Over HTTPS/TLS Proxy"
+    }
     fn ports(&self) -> Vec<String> {
         vec!["5300:5053/tcp".to_string(), "5300:5053/udp".to_string()]
     }
@@ -249,6 +273,12 @@ impl Service for WireguardService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/wireguard:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Secure Fast VPN Gateway"
     }
     fn ports(&self) -> Vec<String> {
         vec!["51820:51820/udp".to_string()]
@@ -288,6 +318,12 @@ impl Service for PortainerService {
     fn image(&self) -> &'static str {
         "portainer/portainer-ce:latest"
     }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Docker Container Management Web UI"
+    }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:9000:9000".to_string()]
     }
@@ -322,6 +358,12 @@ impl Service for NetdataService {
     }
     fn image(&self) -> &'static str {
         "netdata/netdata:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Real-time System Metrics & Monitoring"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:19999:19999".to_string()]
@@ -361,6 +403,12 @@ impl Service for UptimeKumaService {
     }
     fn image(&self) -> &'static str {
         "louislam/uptime-kuma:1"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Infrastructure
+    }
+    fn description(&self) -> &'static str {
+        "Service Health & Uptime Monitoring"
     }
     fn ports(&self) -> Vec<String> {
         vec!["127.0.0.1:3001:3001".to_string()]

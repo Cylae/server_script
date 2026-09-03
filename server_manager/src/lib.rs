@@ -172,3 +172,14 @@ pub fn build_compose_structure(
         networks,
     })
 }
+
+/// Serializes the docker-compose configuration to a byte-deterministic YAML string.
+pub fn generate_compose_yaml(
+    hw: &hardware::HardwareInfo,
+    secrets: &secrets::Secrets,
+    config: &config::Config,
+) -> Result<String> {
+    let top_level = build_compose_structure(hw, secrets, config)?;
+    let yaml = serde_yaml_ng::to_string(&top_level)?;
+    Ok(yaml)
+}

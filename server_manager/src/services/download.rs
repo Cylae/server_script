@@ -1,4 +1,4 @@
-use super::Service;
+use super::{Service, ServiceCategory};
 use crate::core::hardware::HardwareInfo;
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
@@ -11,6 +11,12 @@ impl Service for QBittorrentService {
     }
     fn image(&self) -> &'static str {
         "lscr.io/linuxserver/qbittorrent:latest"
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Download
+    }
+    fn description(&self) -> &'static str {
+        "BitTorrent Client"
     }
 
     fn ports(&self) -> Vec<String> {

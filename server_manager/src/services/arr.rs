@@ -1,10 +1,10 @@
-use super::{ResourceConfig, Service};
+use super::{ResourceConfig, Service, ServiceCategory};
 use crate::core::hardware::{HardwareInfo, HardwareProfile};
 use crate::core::secrets::Secrets;
 use std::collections::HashMap;
 
 macro_rules! define_arr_service {
-    ($struct_name:ident, $name:expr, $image:expr, $port:expr) => {
+    ($struct_name:ident, $name:expr, $image:expr, $port:expr, $desc:expr) => {
         pub struct $struct_name;
         impl Service for $struct_name {
             fn name(&self) -> &'static str {
@@ -12,6 +12,12 @@ macro_rules! define_arr_service {
             }
             fn image(&self) -> &'static str {
                 $image
+            }
+            fn category(&self) -> ServiceCategory {
+                ServiceCategory::Automation
+            }
+            fn description(&self) -> &'static str {
+                $desc
             }
             fn ports(&self) -> Vec<String> {
                 vec![format!("127.0.0.1:{}:{}", $port, $port)]
@@ -57,29 +63,34 @@ define_arr_service!(
     SonarrService,
     "sonarr",
     "lscr.io/linuxserver/sonarr:latest",
-    8989
+    8989,
+    "Smart TV Series Manager"
 );
 define_arr_service!(
     RadarrService,
     "radarr",
     "lscr.io/linuxserver/radarr:latest",
-    7878
+    7878,
+    "Movie Manager"
 );
 define_arr_service!(
     ProwlarrService,
     "prowlarr",
     "lscr.io/linuxserver/prowlarr:latest",
-    9696
+    9696,
+    "Torrent & Usenet Indexer Sync"
 );
 define_arr_service!(
     JackettService,
     "jackett",
     "lscr.io/linuxserver/jackett:latest",
-    9117
+    9117,
+    "Indexer Proxy"
 );
 define_arr_service!(
     BazarrService,
     "bazarr",
     "lscr.io/linuxserver/bazarr:latest",
-    6767
+    6767,
+    "Subtitle Management"
 );
