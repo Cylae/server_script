@@ -45,6 +45,8 @@ pub enum Commands {
     Disable { service: String },
     /// Start the Web Administration Interface
     Web {
+        #[arg(long, default_value = "127.0.0.1")]
+        bind: String,
         #[arg(long, default_value_t = 8099)]
         port: u16,
     },
@@ -87,7 +89,7 @@ pub async fn run() -> Result<()> {
         Commands::Generate => run_generate().await?,
         Commands::Enable { service } => run_toggle_service(service, true).await?,
         Commands::Disable { service } => run_toggle_service(service, false).await?,
-        Commands::Web { port } => crate::interface::web::start_server(port).await?,
+        Commands::Web { bind, port } => crate::interface::web::start_server(&bind, port).await?,
         Commands::User { action } => run_user_management(action).await?,
     }
 
@@ -105,8 +107,15 @@ async fn run_user_management(action: UserCommands) -> Result<()> {
         } => {
             let role_enum = match role.to_lowercase().as_str() {
                 "admin" => users::Role::Admin,
+                "operator" => users::Role::Operator,
                 "observer" => users::Role::Observer,
-                _ => return Err(anyhow::anyhow!("Invalid role. Use 'Admin' or 'Observer'")),
+                "auditor" => users::Role::Auditor,
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Invalid role '{}'. Valid roles are: Admin, Operator, Observer, Auditor",
+                        role
+                    ))
+                }
             };
 
             let password =
@@ -249,7 +258,7 @@ async fn run_interactive() -> Result<()> {
         "4" => run_clean().await?,
         "5" => run_fix().await?,
         "6" => run_user_management(UserCommands::List).await?,
-        "7" => crate::interface::web::start_server(8099).await?,
+        "7" => crate::interface::web::start_server("127.0.0.1", 8099).await?,
         "8" | "" => println!("Exiting interactive mode."),
         _ => println!("Invalid option selected."),
     }

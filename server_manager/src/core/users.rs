@@ -1,7 +1,10 @@
 use crate::core::secrets::Secrets;
 use crate::core::system;
 use anyhow::{anyhow, Context, Result};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use argon2::{
+    password_hash::{phc::PasswordHash, PasswordHasher, PasswordVerifier},
+    Argon2, Params,
+};
 use log::{info, warn};
 use nix::unistd::Uid;
 use serde::{Deserialize, Serialize};
@@ -9,10 +12,60 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
     Admin,
+    Operator,
     Observer,
+    Auditor,
+}
+
+impl Role {
+    pub fn can_manage_users(&self) -> bool {
+        matches!(self, Role::Admin)
+    }
+
+    pub fn can_manage_services(&self) -> bool {
+        matches!(self, Role::Admin | Role::Operator)
+    }
+
+    pub fn can_view_secrets(&self) -> bool {
+        matches!(self, Role::Admin)
+    }
+
+    pub fn can_view_audit_logs(&self) -> bool {
+        matches!(self, Role::Admin | Role::Auditor)
+    }
+
+    pub fn can_trigger_updates(&self) -> bool {
+        matches!(self, Role::Admin | Role::Operator)
+    }
+}
+
+/// Computes an Argon2id password hash with parameters: 64 MiB memory, 3 iterations, 4 lanes.
+pub fn hash_password(password: &str) -> Result<String> {
+    let params =
+        Params::new(65536, 3, 4, None).map_err(|e| anyhow!("Invalid Argon2 parameters: {}", e))?;
+    let argon2 = Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
+    let hash = argon2
+        .hash_password(password.as_bytes())
+        .map_err(|e| anyhow!("Argon2 hashing failed: {}", e))?
+        .to_string();
+    Ok(hash)
+}
+
+/// Verifies a password against either an Argon2id hash or a legacy bcrypt hash.
+pub fn verify_password(password: &str, hash_str: &str) -> bool {
+    if hash_str.starts_with("$argon2id$") {
+        if let Ok(parsed) = PasswordHash::new(hash_str) {
+            return Argon2::default()
+                .verify_password(password.as_bytes(), &parsed)
+                .is_ok();
+        }
+    } else if hash_str.starts_with("$2") {
+        return bcrypt::verify(password, hash_str).unwrap_or(false);
+    }
+    false
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -84,7 +137,7 @@ impl UserManager {
                 Err(_) => "admin".to_string(),
             };
 
-            let pass_hash = hash(&initial_pass, DEFAULT_COST)?;
+            let pass_hash = hash_password(&initial_pass)?;
             manager.users.insert(
                 "admin".to_string(),
                 User {
@@ -148,7 +201,7 @@ impl UserManager {
             );
         }
 
-        let hash = hash(password, DEFAULT_COST)?;
+        let hash = hash_password(password)?;
         self.users.insert(
             username.to_string(),
             User {
@@ -240,16 +293,48 @@ impl UserManager {
                 );
             }
 
-            user.password_hash = hash(new_password, DEFAULT_COST)?;
+            user.password_hash = hash_password(new_password)?;
             self.save()
         } else {
             Err(anyhow!("User not found"))
         }
     }
 
+    /// Verifies credentials and transparently upgrades legacy bcrypt hashes to Argon2id.
+    pub fn verify_and_migrate(&mut self, username: &str, password: &str) -> Option<User> {
+        let user = self.users.get(username)?;
+        let hash_str = user.password_hash.clone();
+
+        if hash_str.starts_with("$argon2id$") {
+            if let Ok(parsed) = PasswordHash::new(&hash_str) {
+                if Argon2::default()
+                    .verify_password(password.as_bytes(), &parsed)
+                    .is_ok()
+                {
+                    return Some(user.clone());
+                }
+            }
+        } else if hash_str.starts_with("$2") && bcrypt::verify(password, &hash_str).unwrap_or(false)
+        {
+            info!(
+                "Transparently upgrading password hash for user '{}' from bcrypt to Argon2id",
+                username
+            );
+            if let Ok(new_hash) = hash_password(password) {
+                if let Some(u) = self.users.get_mut(username) {
+                    u.password_hash = new_hash;
+                }
+                let _ = self.save();
+            }
+            return self.users.get(username).cloned();
+        }
+
+        None
+    }
+
     pub fn verify(&self, username: &str, password: &str) -> Option<User> {
         if let Some(user) = self.users.get(username) {
-            if verify(password, &user.password_hash).unwrap_or(false) {
+            if verify_password(password, &user.password_hash) {
                 return Some(user.clone());
             }
         }
@@ -262,10 +347,9 @@ impl UserManager {
             let password = password.to_string();
             let user_clone = user.clone();
 
-            let is_valid =
-                tokio::task::spawn_blocking(move || verify(&password, &hash).unwrap_or(false))
-                    .await
-                    .unwrap_or(false);
+            let is_valid = tokio::task::spawn_blocking(move || verify_password(&password, &hash))
+                .await
+                .unwrap_or(false);
 
             if is_valid {
                 return Some(user_clone);
@@ -369,5 +453,88 @@ mod tests {
         let updated_u = manager.get_user("user1").expect("User exists");
         assert_eq!(updated_u.role, Role::Admin);
         assert_eq!(updated_u.quota_gb, Some(50));
+    }
+
+    #[test]
+    fn test_argon2id_hashing_and_verify() {
+        let hash = hash_password("SuperSecret123!").expect("hashing should succeed");
+        assert!(hash.starts_with("$argon2id$"));
+        assert!(verify_password("SuperSecret123!", &hash));
+        assert!(!verify_password("WrongPassword!", &hash));
+    }
+
+    #[test]
+    fn test_transparent_bcrypt_migration() {
+        let mut manager = UserManager::default();
+        // Insert a user with a legacy bcrypt hash directly
+        let legacy_bcrypt =
+            bcrypt::hash("legacy_password", bcrypt::DEFAULT_COST).expect("bcrypt hash failed");
+        assert!(legacy_bcrypt.starts_with("$2"));
+
+        manager.users.insert(
+            "legacy_user".to_string(),
+            User {
+                username: "legacy_user".to_string(),
+                password_hash: legacy_bcrypt,
+                role: Role::Observer,
+                quota_gb: None,
+                installed_apps: HashSet::new(),
+            },
+        );
+
+        // verify_and_migrate with wrong password fails and does not migrate
+        assert!(manager
+            .verify_and_migrate("legacy_user", "wrong_pass")
+            .is_none());
+        assert!(manager
+            .get_user("legacy_user")
+            .expect("user exists")
+            .password_hash
+            .starts_with("$2"));
+
+        // verify_and_migrate with correct password succeeds and upgrades to $argon2id$
+        let authenticated = manager.verify_and_migrate("legacy_user", "legacy_password");
+        assert!(authenticated.is_some());
+
+        let upgraded_hash = &manager
+            .get_user("legacy_user")
+            .expect("user exists")
+            .password_hash;
+        assert!(
+            upgraded_hash.starts_with("$argon2id$"),
+            "Hash was not upgraded to argon2id: {}",
+            upgraded_hash
+        );
+
+        // Next verification uses Argon2id directly
+        assert!(manager.verify("legacy_user", "legacy_password").is_some());
+    }
+
+    #[test]
+    fn test_role_matrix_permissions() {
+        assert!(Role::Admin.can_manage_users());
+        assert!(!Role::Operator.can_manage_users());
+        assert!(!Role::Observer.can_manage_users());
+        assert!(!Role::Auditor.can_manage_users());
+
+        assert!(Role::Admin.can_manage_services());
+        assert!(Role::Operator.can_manage_services());
+        assert!(!Role::Observer.can_manage_services());
+        assert!(!Role::Auditor.can_manage_services());
+
+        assert!(Role::Admin.can_view_secrets());
+        assert!(!Role::Operator.can_view_secrets());
+        assert!(!Role::Observer.can_view_secrets());
+        assert!(!Role::Auditor.can_view_secrets());
+
+        assert!(Role::Admin.can_view_audit_logs());
+        assert!(!Role::Operator.can_view_audit_logs());
+        assert!(!Role::Observer.can_view_audit_logs());
+        assert!(Role::Auditor.can_view_audit_logs());
+
+        assert!(Role::Admin.can_trigger_updates());
+        assert!(Role::Operator.can_trigger_updates());
+        assert!(!Role::Observer.can_trigger_updates());
+        assert!(!Role::Auditor.can_trigger_updates());
     }
 }
