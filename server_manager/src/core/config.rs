@@ -126,7 +126,8 @@ impl Config {
     pub fn save(&self) -> Result<()> {
         let path = Self::get_config_path();
         let content = serde_yaml_ng::to_string(self)?;
-        fs::write(&path, content).with_context(|| format!("Failed to write {}", path.display()))?;
+        crate::core::atomic_io::atomic_write_str(&path, &content, 0o644)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
         Ok(())
     }
 

@@ -15,7 +15,7 @@ pub enum Role {
     Observer,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct User {
     pub username: String,
     pub password_hash: String,
@@ -24,6 +24,18 @@ pub struct User {
     pub quota_gb: Option<u64>,
     #[serde(default)]
     pub installed_apps: HashSet<String>,
+}
+
+impl std::fmt::Debug for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("User")
+            .field("username", &self.username)
+            .field("password_hash", &"[REDACTED]")
+            .field("role", &self.role)
+            .field("quota_gb", &self.quota_gb)
+            .field("installed_apps", &self.installed_apps)
+            .finish()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -105,13 +117,8 @@ impl UserManager {
         };
 
         let content = serde_yaml_ng::to_string(self)?;
-        fs::write(target, content).context("Failed to write users.yaml")?;
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(target, fs::Permissions::from_mode(0o600));
-        }
+        crate::core::atomic_io::atomic_write_str(target, &content, 0o600)
+            .context("Failed to write users.yaml")?;
 
         Ok(())
     }
