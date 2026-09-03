@@ -1122,6 +1122,10 @@ async fn check_admin_role(session: Session, name: &str, enable: bool) -> impl In
 }
 
 fn run_cli_toggle(service: &str, enable: bool) {
+    if let Err(e) = crate::core::validate::validate_service_name(service) {
+        error!("Refusing to toggle invalid service name: {}", e);
+        return;
+    }
     let action = if enable { "enable" } else { "disable" };
     info!("Web UI triggering: server_manager {} {}", action, service);
 
