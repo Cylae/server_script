@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 #[derive(Serialize)]
 pub struct ComposeFile {
@@ -76,7 +76,7 @@ pub struct ResourceLimits {
 pub struct Logging {
     pub driver: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub options: Option<HashMap<String, String>>,
+    pub options: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Serialize)]
