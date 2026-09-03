@@ -23,21 +23,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@21e8406563b7852a3260cda2dcfad28a472c57fb # stable
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable
         with:
           toolchain: stable
           components: rustfmt, clippy
 
       - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be954172b8dd464190820003 # v2.7.3
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2.7.7
         with:
           workspaces: "server_manager"
 
       - name: Install cargo-deny & cargo-audit
-        uses: taiki-e/install-action@b7ec4602f0e479a405527db59a35e806c57f9593 # v2.49.20
+        uses: taiki-e/install-action@e85bddd15a6534f63d5cac892707c03d5db74669 # v2.49.20
         with:
           tool: cargo-deny,cargo-audit
 
