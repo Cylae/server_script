@@ -180,7 +180,7 @@ impl Config {
 
         if changed {
             let content = serde_yaml_ng::to_string(&guard.config)?;
-            tokio::fs::write(&path, content).await?;
+            crate::core::atomic_io::atomic_write_str(&path, &content, 0o644)?;
             if let Ok(metadata) = tokio::fs::metadata(&path).await {
                 guard.last_mtime = Some(metadata.modified().unwrap_or_else(|_| SystemTime::now()));
             }

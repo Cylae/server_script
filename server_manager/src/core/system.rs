@@ -2,7 +2,6 @@ use crate::core::hardware::HardwareInfo;
 use anyhow::{bail, Context, Result};
 use log::{error, info, warn};
 use nix::unistd::{Uid, User};
-use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -73,16 +72,7 @@ pub fn install_dependencies() -> Result<()> {
 }
 
 fn validate_username(username: &str) -> Result<()> {
-    if username.is_empty() {
-        bail!("Username cannot be empty");
-    }
-    // Allow alphanumeric, dashes, underscores. No spaces.
-    if !username
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-    {
-        bail!("Username contains invalid characters. Use alphanumeric, '-' or '_'.");
-    }
+    crate::core::validate::validate_username(username)?;
     Ok(())
 }
 
@@ -272,13 +262,11 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn apply_optimizations(hw: &HardwareInfo) -> Result<()> {
-    info!("Applying system optimizations for media server performance...");
-
+pub fn generate_sysctl_config(hw: &HardwareInfo) -> String {
     // Aggressive swappiness reduction for high RAM
     let swappiness = if hw.ram_gb > 16 { 1 } else { 10 };
 
-    let config = format!(
+    format!(
         r#"# Server Manager Media Server Optimizations
 fs.inotify.max_user_watches=524288
 vm.swappiness={}
@@ -293,10 +281,17 @@ net.core.rmem_max=4194304
 net.core.wmem_max=1048576
 "#,
         swappiness
-    );
+    )
+}
+
+pub fn apply_optimizations(hw: &HardwareInfo) -> Result<()> {
+    info!("Applying system optimizations for media server performance...");
+
+    let config = generate_sysctl_config(hw);
 
     let path = Path::new("/etc/sysctl.d/99-server-manager-optimization.conf");
-    fs::write(path, config).context("Failed to write sysctl config")?;
+    crate::core::atomic_io::atomic_write_str(path, &config, 0o644)
+        .context("Failed to write sysctl config")?;
 
     let status = Command::new("sysctl")
         .arg("--system")

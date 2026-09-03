@@ -31,8 +31,8 @@ Every gate of the mission was executed under strict isolation (`gate/<NN>-<slug>
 | **Compose Determinism** | Potential key drift across runs | **Byte-stable generation (`cmp run1 run2 == 0`) + golden files** | 3 pinned golden compose files | `contract_compose_determinism.rs` [PROVEN] |
 | **Performance Budgets** | Single OnceLock microbench | **Criterion harness (5 targets) + contract latency limits** | Documented in `PERFORMANCE-BUDGETS.md` | `contract_performance_budgets.rs` [PROVEN] |
 | **Diagnostics & CLI** | No health check, generic exit codes | **`server_manager doctor` (9 checks) + sysexits.h** | Structured console and JSON reports | `contract_doctor.rs`, `contract_sysexits.rs` [PROVEN] |
-| **Test Suite Size** | 7 tests | **69 tests across 13 suites** | **+885% test expansion** | `cargo test --all-targets` [PROVEN] |
-| **Workspace Line Coverage**| 35.28% lines | **47.97% lines** (100% on arr/download/validate/exit_codes) | **+12.69% net workspace gain** | `cargo llvm-cov` [PROVEN] |
+| **Test Suite Size** | 7 tests | **84 tests across 18 suites** | **+1,100% test expansion** | `cargo test --all-targets` [PROVEN] |
+| **Workspace Line Coverage**| 35.28% lines | **49.01% lines** (100% on arr/download/validate/exit_codes, 99% on media) | **+13.73% net workspace gain** | `cargo llvm-cov` [PROVEN] |
 | **Known Vulnerabilities** | 0 advisories | **0 vulnerabilities** across 213 dependencies | Audited against RustSec DB | `cargo audit` [PROVEN] |
 
 ---
@@ -103,12 +103,19 @@ Every gate of the mission was executed under strict isolation (`gate/<NN>-<slug>
 - Documented baselines and regression budgets in `docs/audit/PERFORMANCE-BUDGETS.md`.
 - Added contract tests in `contract_performance_budgets.rs`.
 
-### Gate 9: Diagnostics, Sysexits & Final Delivery
+### Gate 9: Diagnostics, Sysexits & Final Delivery (PR #385)
 - Implemented `server_manager doctor` diagnostic subcommand inspecting 9 subsystems (Kernel, cgroups v2, Landlock, Docker daemon, Compose tool, Firewall, Port matrix, Disk space, NTP sync).
 - Added structured JSON output (`--json`) and console table formatting.
 - Integrated standard `sysexits.h` exit codes (0, 64, 65, 66, 67, 70, 71, 72, 73, 74, 75, 78) into `main.rs`.
 - Added contract tests in `contract_doctor.rs` and `contract_sysexits.rs`.
 - Installed `.antigravity/` physical invariant framework.
+
+### Gate GH: Opt-in Hardening, Full System/Docker/Firewall Decoupling & Web Endpoints Contract Tests
+- Eradicated non-atomic writes in `update_service_async` and `apply_optimizations` sysctl generation, enforcing atomic temporary files + fsync + rename.
+- Hardened `core/docker.rs` script fetching against symlink attacks and race conditions.
+- Decoupled `core/firewall.rs` and `core/docker.rs` to support pure mock backend testing without host dependencies.
+- Added 5 new contract test suites expanding workspace coverage to **49.01%** lines (+13.73% net gain) across **84 passing tests**.
+- Added web endpoint security and authentication regression tests verifying HTTP security headers (`nosniff`, `DENY`, `CSP`) and unauthenticated redirection.
 
 ---
 
