@@ -533,7 +533,23 @@ async fn run_status() -> Result<()> {
 }
 
 async fn run_update() -> Result<()> {
-    info!("Updating Server Manager Stack...");
+    info!("Updating Server Manager Software & Stack...");
+
+    if let Ok(update_info) = crate::core::updater::check_for_updates() {
+        info!("Current Software Version: v{}", update_info.current_version);
+        if update_info.update_available {
+            info!(
+                "New Software Version Available: v{}",
+                update_info.latest_version
+            );
+            info!("Executing software self-update...");
+            if let Ok(msg) = crate::core::updater::self_update() {
+                info!("{}", msg);
+            }
+        } else {
+            info!("Software is already running the latest version.");
+        }
+    }
 
     if !std::path::Path::new("docker-compose.yml").exists()
         && std::path::Path::new("/opt/server_manager/docker-compose.yml").exists()
