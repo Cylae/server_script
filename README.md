@@ -1,6 +1,6 @@
 # Server Manager - Professional Media Server Orchestrator 🚀
 
-![Status](https://img.shields.io/badge/Status-Tested-brightgreen) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
+![Status](https://img.shields.io/badge/Status-Tested-brightgreen) [![CI Gate](https://github.com/Cylae/server_script/actions/workflows/rust.yml/badge.svg)](https://github.com/Cylae/server_script/actions/workflows/rust.yml) ![Rust](https://img.shields.io/badge/Built%20With-Rust-orange) ![Docker](https://img.shields.io/badge/Powered%20By-Docker-blue)
 
 **Server Manager** is a high-performance, enterprise-grade media server management and orchestration platform written in Rust. Inspired by QuickBox Pro, it provides automated deployment, real-time hardware telemetry, 1-click application management, system maintenance tools, and secure multi-user management.
 
@@ -20,6 +20,12 @@ The system consists of a compiled Rust application (`server_manager`) operating 
 Server Manager follows strict secure-by-default principles:
 * **Firewall Binding**: Automatically configures UFW rules; internal/admin microservices are bound to `127.0.0.1` and isolated behind Nginx Proxy Manager.
 * **Credential Protection**: Passwords and administrative tokens are cryptographically generated on initial setup and persisted with strict `0600` Unix permissions in `/opt/server_manager/secrets.yaml`.
+* **Password Hashing**: Uses Argon2id password hashing with transparent migration support for legacy bcrypt hashes.
+* **Role-Based Access Control (RBAC)**: Enforces four fine-grained user roles:
+  * `Admin`: Full system control, user management, secret viewing, service management, and updates.
+  * `Operator`: Service management, configuration updates, and stack control.
+  * `Observer`: Read-only telemetry access and user dashboard view.
+  * `Auditor`: Telemetry and system audit log inspection permissions.
 * **Session Hardening**: Web interface incorporates session clearing on login (preventing session fixation) and injects HTTP security headers (`Content-Security-Policy`, `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`).
 * **Brute-Force Defense**: Integrates with system `fail2ban` services for SSH and Web endpoints.
 
@@ -129,10 +135,17 @@ Once installed, access the Web Dashboard at `http://YOUR-SERVER-IP:8099`.
 
 ## 🧪 Testing and Verification
 
-To execute tests and linters:
+To execute full verification including formatting, clippy static analysis, unit/integration test suite, cargo deny license/dependency checks, and cargo audit vulnerability scans:
+
+```sh
+./verify.sh
+```
+
+Alternatively, run individual cargo subcommands within the `server_manager` directory:
 
 ```sh
 cd server_manager
+cargo fmt -- --check
 cargo test
 cargo clippy --all-targets --all-features
 ```
