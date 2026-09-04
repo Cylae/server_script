@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_check_for_updates() {
-        let info = check_for_updates().unwrap();
+        let info = check_for_updates().expect("check_for_updates failed");
         assert_eq!(info.current_version, CURRENT_VERSION);
     }
 }
