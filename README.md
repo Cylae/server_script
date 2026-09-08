@@ -151,7 +151,7 @@ Alternatively, run individual cargo subcommands within the `server_manager` dire
 cd server_manager
 cargo fmt -- --check
 cargo test
-cargo clippy --all-targets --all-features
+cargo clippy --all-targets --all-features -- -D warnings
 ```
 
 ---
