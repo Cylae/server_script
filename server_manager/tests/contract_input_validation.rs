@@ -114,3 +114,10 @@ fn test_validate_safe_path() {
     assert!(validate_safe_path(Path::new("/opt/server_manager/../../etc/shadow")).is_err());
     assert!(validate_safe_path(Path::new("a/b/../../../etc/passwd")).is_err());
 }
+
+#[test]
+fn test_validate_safe_path_extended_traversal() {
+    assert!(validate_safe_path(Path::new("..\\secret")).is_err());
+    assert!(validate_safe_path(Path::new("..")).is_err());
+    assert!(validate_safe_path(Path::new(".")).is_ok());
+}

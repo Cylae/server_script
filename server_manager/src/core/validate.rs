@@ -142,7 +142,9 @@ pub fn validate_ip(ip_str: &str) -> Result<IpAddr> {
 /// Validates that a path does not contain directory traversal sequences (`..`).
 pub fn validate_safe_path<P: AsRef<Path>>(path: P) -> Result<P> {
     let p = path.as_ref();
-    for comp in p.components() {
+    let normalized = p.to_string_lossy().replace('\\', "/");
+    let norm_path = Path::new(&normalized);
+    for comp in norm_path.components() {
         if comp == Component::ParentDir {
             bail!(
                 "Validation error: path traversal forbidden in '{}'",
