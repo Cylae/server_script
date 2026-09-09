@@ -106,7 +106,7 @@ pub fn create_system_user(username: &str, password: &str) -> Result<()> {
 
     info!("Creating system user '{}'...", username);
     // useradd -m -s /bin/bash <username>
-    let status = Command::new("useradd")
+    let status = Command::new("/usr/sbin/useradd")
         .arg("-m")
         .arg("-s")
         .arg("/bin/bash")
@@ -308,4 +308,18 @@ net.core.wmem_max=1048576
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_username() {
+        assert!(validate_username("valid_user").is_ok());
+        assert!(validate_username("valid-user-123").is_ok());
+        assert!(validate_username("").is_err());
+        assert!(validate_username("invalid user").is_err());
+        assert!(validate_username("user;id").is_err());
+    }
 }
