@@ -1383,7 +1383,7 @@ fn run_cli_toggle(service: &str, enable: bool) {
     info!("Web UI triggering: server_manager {} {}", action, service);
 
     if let Ok(exe) = std::env::current_exe() {
-        match Command::new(exe).arg(action).arg(service).spawn() {
+        match Command::new(exe).arg(action).arg("--").arg(service).spawn() {
             Ok(mut child) => {
                 // Spawn a background task to wait for the child process to exit.
                 // This prevents zombie processes by collecting the exit status.
@@ -1931,4 +1931,18 @@ async fn audit_page(session: Session) -> impl IntoResponse {
     html.push_str("</tbody></table></div>");
     write_html_foot(&mut html);
     Html(html).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_run_cli_toggle_command_args() {
+        let action = "enable";
+        let service = "plex";
+        let mut cmd = std::process::Command::new("server_manager");
+        cmd.arg(action).arg("--").arg(service);
+
+        let args: Vec<&std::ffi::OsStr> = cmd.get_args().collect();
+        assert_eq!(args, vec!["enable", "--", "plex"]);
+    }
 }
