@@ -363,7 +363,10 @@ impl UserManager {
     }
 
     pub fn list_users(&self) -> Vec<&User> {
-        self.users.values().collect()
+        let mut list = Vec::with_capacity(self.users.len());
+        list.extend(self.users.values());
+        list.sort_by(|a, b| a.username.cmp(&b.username));
+        list
     }
 }
 
