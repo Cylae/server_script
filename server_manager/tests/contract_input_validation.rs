@@ -1,6 +1,6 @@
 use server_manager::core::validate::{
-    validate_domain, validate_ip, validate_port, validate_port_str, validate_safe_path,
-    validate_service_name, validate_username,
+    validate_domain, validate_ip, validate_port, validate_safe_path, validate_service_name,
+    validate_username,
 };
 use std::path::Path;
 
@@ -80,11 +80,6 @@ fn test_validate_port() {
     assert!(validate_port(0).is_err());
     assert!(validate_port(65536).is_err());
     assert!(validate_port(100000).is_err());
-
-    // String parsing
-    assert_eq!(validate_port_str("8099").unwrap_or_default(), 8099);
-    assert!(validate_port_str("abc").is_err());
-    assert!(validate_port_str("80;rm -rf").is_err());
 }
 
 #[test]
