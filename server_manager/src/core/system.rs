@@ -309,3 +309,25 @@ net.core.wmem_max=1048576
 
     Ok(())
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_root_and_check_root() {
+        let expected_root = nix::unistd::Uid::effective().is_root();
+        assert_eq!(is_root(), expected_root);
+
+        let result = check_root();
+        if expected_root {
+            assert!(result.is_ok());
+        } else {
+            assert!(result.is_err());
+            if let Err(e) = result {
+                assert_eq!(e.to_string(), "This application must be run as root.");
+            }
+        }
+    }
+}
