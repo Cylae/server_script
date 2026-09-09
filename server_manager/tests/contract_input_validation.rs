@@ -121,3 +121,37 @@ fn test_validate_safe_path_extended_traversal() {
     assert!(validate_safe_path(Path::new("..")).is_err());
     assert!(validate_safe_path(Path::new(".")).is_ok());
 }
+
+#[test]
+fn test_validate_input_edge_case_boundaries() {
+    // Service name exact 64 character boundary
+    let max_service = "a".repeat(64);
+    assert_eq!(validate_service_name(&max_service).unwrap(), max_service);
+
+    // Username exact 32 character boundary
+    let max_user = format!("u{}", "a".repeat(31));
+    assert_eq!(validate_username(&max_user).unwrap(), max_user);
+
+    // Domain label exact 63 character boundary
+    let label63 = "a".repeat(63);
+    let domain63 = format!("{}.com", label63);
+    assert!(validate_domain(&domain63).is_ok());
+
+    // Domain label exceeding 63 characters (64 chars)
+    let label64 = "a".repeat(64);
+    let domain64 = format!("{}.com", label64);
+    assert!(validate_domain(&domain64).is_err());
+
+    // Domain exactly 253 characters
+    let label63 = "a".repeat(63);
+    let domain253 = format!("{}.{}.{}.{}", label63, label63, label63, "a".repeat(61));
+    assert_eq!(domain253.len(), 253);
+    assert!(validate_domain(&domain253).is_ok());
+
+    // Domain exceeding 253 characters
+    let domain254 = format!("a.{}", domain253);
+    assert!(validate_domain(&domain254).is_err());
+
+    // Port string whitespace trimming
+    assert_eq!(validate_port_str("  8080\t\n").unwrap_or_default(), 8080);
+}
