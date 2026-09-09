@@ -273,9 +273,21 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
     let bg_state = app_state.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+        let mut tick_count: u64 = 0;
+        let mut cached_disk = (0u64, 0u64);
+        let mut cached_update_info = crate::core::updater::UpdateInfo {
+            current_version: crate::core::updater::CURRENT_VERSION.to_string(),
+            latest_version: crate::core::updater::CURRENT_VERSION.to_string(),
+            update_available: false,
+            release_notes: String::new(),
+        };
+
         loop {
             interval.tick().await;
+            #[allow(clippy::manual_is_multiple_of)]
+            let refresh_disk_now = tick_count % 10 == 0;
             let bg_state_clone = bg_state.clone();
+            let last_disk = cached_disk;
             let stats = tokio::task::spawn_blocking(move || {
                 let mut sys = bg_state_clone
                     .system
@@ -283,7 +295,26 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
                     .unwrap_or_else(|p| p.into_inner());
                 sys.refresh_cpu();
                 sys.refresh_memory();
-                sys.refresh_disks();
+
+                let (disk_total, disk_used) = if refresh_disk_now {
+                    sys.refresh_disks();
+                    let target_disk = sys
+                        .disks()
+                        .iter()
+                        .find(|d| d.mount_point() == std::path::Path::new("/"))
+                        .or_else(|| sys.disks().first());
+
+                    if let Some(disk) = target_disk {
+                        let total = disk.total_space() / 1024 / 1024 / 1024;
+                        let used =
+                            (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
+                        (total, used)
+                    } else {
+                        (0, 0)
+                    }
+                } else {
+                    last_disk
+                };
 
                 let ram_used = sys.used_memory() / 1024 / 1024;
                 let ram_total = sys.total_memory() / 1024 / 1024;
@@ -291,18 +322,6 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
                 let swap_total = sys.total_swap() / 1024 / 1024;
                 let cpu_usage = sys.global_cpu_info().cpu_usage();
 
-                let mut disk_total = 0;
-                let mut disk_used = 0;
-                let target_disk = sys
-                    .disks()
-                    .iter()
-                    .find(|d| d.mount_point() == std::path::Path::new("/"))
-                    .or_else(|| sys.disks().first());
-
-                if let Some(disk) = target_disk {
-                    disk_total = disk.total_space() / 1024 / 1024 / 1024;
-                    disk_used = (disk.total_space() - disk.available_space()) / 1024 / 1024 / 1024;
-                }
                 (
                     ram_used, ram_total, swap_used, swap_total, cpu_usage, disk_total, disk_used,
                 )
@@ -310,14 +329,14 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
             .await
             .unwrap_or((0, 0, 0, 0, 0.0, 0, 0));
 
-            let update_info = crate::core::updater::check_for_updates().unwrap_or(
-                crate::core::updater::UpdateInfo {
-                    current_version: crate::core::updater::CURRENT_VERSION.to_string(),
-                    latest_version: crate::core::updater::CURRENT_VERSION.to_string(),
-                    update_available: false,
-                    release_notes: String::new(),
-                },
-            );
+            cached_disk = (stats.5, stats.6);
+
+            #[allow(clippy::manual_is_multiple_of)]
+            if tick_count % 60 == 0 {
+                if let Ok(info) = crate::core::updater::check_for_updates() {
+                    cached_update_info = info;
+                }
+            }
 
             let mut t = bg_state.telemetry.write().await;
             *t = TelemetryData {
@@ -328,10 +347,12 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
                 cpu_usage: stats.4,
                 disk_total: stats.5,
                 disk_used: stats.6,
-                version: update_info.current_version,
-                update_available: update_info.update_available,
-                latest_version: update_info.latest_version,
+                version: cached_update_info.current_version.clone(),
+                update_available: cached_update_info.update_available,
+                latest_version: cached_update_info.latest_version.clone(),
             };
+
+            tick_count = tick_count.wrapping_add(1);
         }
     });
 
