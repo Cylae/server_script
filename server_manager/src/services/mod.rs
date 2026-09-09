@@ -360,4 +360,47 @@ mod tests {
         assert!(names.contains(&"sonarr"));
         assert!(names.contains(&"mariadb"));
     }
+
+    #[test]
+    fn test_port_mapping_parse_valid() {
+        let p1 = PortMapping::parse("80").unwrap();
+        assert_eq!(p1.host_port, 80);
+        assert_eq!(p1.container_port, 80);
+        assert_eq!(p1.protocol, Protocol::Tcp);
+        assert_eq!(p1.host_ip, None);
+
+        let p2 = PortMapping::parse("8080:80/udp").unwrap();
+        assert_eq!(p2.host_port, 8080);
+        assert_eq!(p2.container_port, 80);
+        assert_eq!(p2.protocol, Protocol::Udp);
+        assert_eq!(p2.host_ip, None);
+
+        let p3 = PortMapping::parse("127.0.0.1:8080:80/tcp").unwrap();
+        assert_eq!(p3.host_port, 8080);
+        assert_eq!(p3.container_port, 80);
+        assert_eq!(p3.protocol, Protocol::Tcp);
+        assert_eq!(p3.host_ip, Some("127.0.0.1".to_string()));
+    }
+
+    #[test]
+    fn test_port_mapping_parse_invalid_port_format() {
+        assert!(PortMapping::parse("invalid").is_err());
+        assert!(PortMapping::parse("8080:invalid").is_err());
+        assert!(PortMapping::parse("invalid:80").is_err());
+        assert!(PortMapping::parse("127.0.0.1:8080:invalid").is_err());
+        assert!(PortMapping::parse("127.0.0.1:invalid:80").is_err());
+        assert!(PortMapping::parse("65536").is_err());
+    }
+
+    #[test]
+    fn test_port_mapping_parse_unsupported_protocol() {
+        let err = PortMapping::parse("80/sctp").unwrap_err();
+        assert!(err.to_string().contains("Unsupported protocol 'sctp'"));
+    }
+
+    #[test]
+    fn test_port_mapping_parse_invalid_parts() {
+        let err = PortMapping::parse("127.0.0.1:8080:80:90").unwrap_err();
+        assert!(err.to_string().contains("Invalid port format"));
+    }
 }

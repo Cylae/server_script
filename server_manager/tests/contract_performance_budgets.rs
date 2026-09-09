@@ -147,6 +147,9 @@ fn test_budget_atomic_write_under_50ms() {
     let test_file = tmp_dir.join("test_file.txt");
     let payload = "A".repeat(64 * 1024); // 64 KiB
 
+    // Warm up filesystem / page cache / directory allocation
+    let _ = atomic_write_str(&test_file, &payload, 0o600);
+
     let start = Instant::now();
     let iterations = 5;
     for _ in 0..iterations {
