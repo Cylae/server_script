@@ -1,19 +1,20 @@
 use anyhow::{Context, Result};
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::Write;
 use std::path::Path;
+use tempfile::Builder;
 
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::PermissionsExt;
 
-/// Atomically writes content to a file.
+/// Atomically writes content to a file using secure temporary file creation.
 ///
 /// Steps:
-/// 1. Creates a temporary file in the same directory as `path` (guaranteeing same filesystem/mount).
+/// 1. Creates a secure temporary file in the same directory as `path` using `tempfile::Builder` (guaranteeing same filesystem/mount and unguessable filename).
 /// 2. Sets explicit permissions on creation (e.g. 0600 or 0644 on Unix).
 /// 3. Writes content and flushes buffers.
 /// 4. Synchronizes to disk via `fsync` (`sync_all`).
-/// 5. Atomically renames the temporary file to the destination path.
+/// 5. Atomically persists/renames the temporary file to the destination path.
 pub fn atomic_write<P: AsRef<Path>>(path: P, content: &[u8], mode: u32) -> Result<()> {
     let dest = path.as_ref();
     let parent = dest.parent().unwrap_or_else(|| Path::new("."));
@@ -27,55 +28,56 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, content: &[u8], mode: u32) -> Resul
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "temp_file".to_string());
 
-    let pid = std::process::id();
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
+    let prefix = format!(".tmp.{}.", file_name);
 
-    let tmp_name = format!(".tmp.{}.{}.{}", file_name, pid, nanos);
-    let tmp_path = parent.join(tmp_name);
-
-    let write_result = (|| -> Result<()> {
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-
-        #[cfg(unix)]
-        options.mode(mode);
-
-        let mut file = options
-            .open(&tmp_path)
-            .with_context(|| format!("Failed to create temporary file {}", tmp_path.display()))?;
-
-        file.write_all(content)
-            .with_context(|| format!("Failed to write content to {}", tmp_path.display()))?;
-        file.flush()
-            .with_context(|| format!("Failed to flush temporary file {}", tmp_path.display()))?;
-        file.sync_all()
-            .with_context(|| format!("Failed to fsync temporary file {}", tmp_path.display()))?;
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(&tmp_path, fs::Permissions::from_mode(mode));
-        }
-
-        fs::rename(&tmp_path, dest).with_context(|| {
+    let mut temp_file = Builder::new()
+        .prefix(&prefix)
+        .tempfile_in(parent)
+        .with_context(|| {
             format!(
-                "Failed to atomically rename {} to {}",
-                tmp_path.display(),
-                dest.display()
+                "Failed to create secure temporary file in {}",
+                parent.display()
             )
         })?;
 
-        Ok(())
-    })();
-
-    if write_result.is_err() && tmp_path.exists() {
-        let _ = fs::remove_file(&tmp_path);
+    #[cfg(unix)]
+    {
+        let perms = fs::Permissions::from_mode(mode);
+        fs::set_permissions(temp_file.path(), perms).with_context(|| {
+            format!(
+                "Failed to set permissions on temporary file {}",
+                temp_file.path().display()
+            )
+        })?;
     }
 
-    write_result
+    temp_file.write_all(content).with_context(|| {
+        format!(
+            "Failed to write content to temporary file {}",
+            temp_file.path().display()
+        )
+    })?;
+    temp_file.flush().with_context(|| {
+        format!(
+            "Failed to flush temporary file {}",
+            temp_file.path().display()
+        )
+    })?;
+    temp_file.as_file().sync_all().with_context(|| {
+        format!(
+            "Failed to fsync temporary file {}",
+            temp_file.path().display()
+        )
+    })?;
+
+    temp_file.persist(dest).with_context(|| {
+        format!(
+            "Failed to atomically persist temporary file to {}",
+            dest.display()
+        )
+    })?;
+
+    Ok(())
 }
 
 /// Helper function to atomically write a string slice.
