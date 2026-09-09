@@ -132,3 +132,78 @@ fn test_journal_compensatory_rollback_in_reverse_order() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_journal_recovery() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "test_journal_recovery_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&temp_dir).unwrap_or_default();
+    let journal_path = temp_dir.join("journal.jsonl");
+
+    let mut journal = Journal::open_or_create(&journal_path).unwrap_or_else(|e| {
+        panic!("Failed to create journal: {}", e);
+    });
+
+    let op_id = generate_op_id();
+
+    // Step 0: Created file A (Completed with compensatory action)
+    let file_a = temp_dir.join("recovered_a.txt");
+    fs::write(&file_a, "data_a").unwrap_or_default();
+    assert!(file_a.exists());
+
+    journal
+        .append(&JournalEntry {
+            timestamp: now_iso8601(),
+            op_id: op_id.clone(),
+            step_index: 0,
+            step_name: "create_file_a".to_string(),
+            parameters: HashMap::new(),
+            status: StepStatus::Completed,
+            compensatory_action: Some(CompensatoryAction::RemoveFile {
+                path: file_a.clone(),
+            }),
+        })
+        .unwrap_or_default();
+
+    // Step 1: InProgress step simulating crash during execution
+    journal
+        .append(&JournalEntry {
+            timestamp: now_iso8601(),
+            op_id: op_id.clone(),
+            step_index: 1,
+            step_name: "crashed_step".to_string(),
+            parameters: HashMap::new(),
+            status: StepStatus::InProgress,
+            compensatory_action: None,
+        })
+        .unwrap_or_default();
+
+    // Trigger recovery of incomplete transactions
+    let rolled_back_ops = journal
+        .rollback_incomplete_transactions()
+        .unwrap_or_default();
+    assert_eq!(
+        rolled_back_ops, 1,
+        "Exactly one incomplete operation should be rolled back"
+    );
+    assert!(
+        !file_a.exists(),
+        "File A must be removed by recovery rollback"
+    );
+
+    // Re-running recovery should roll back 0 ops (idempotent)
+    let second_pass = journal
+        .rollback_incomplete_transactions()
+        .unwrap_or_default();
+    assert_eq!(
+        second_pass, 0,
+        "Second pass must find zero incomplete operations"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
