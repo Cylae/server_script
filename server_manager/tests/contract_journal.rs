@@ -1,6 +1,14 @@
 use server_manager::core::journal::{
-    generate_op_id, now_iso8601, CompensatoryAction, Journal, JournalEntry, StepStatus,
+    now_iso8601, CompensatoryAction, Journal, JournalEntry, StepStatus,
 };
+
+fn generate_op_id() -> String {
+    format!(
+        "{:016x}{:016x}",
+        rand::random::<u64>(),
+        rand::random::<u64>()
+    )
+}
 use std::collections::HashMap;
 use std::fs;
 

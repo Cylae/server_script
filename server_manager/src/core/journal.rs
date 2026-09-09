@@ -276,12 +276,3 @@ pub fn now_iso8601() -> String {
         .format(&Rfc3339)
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
 }
-
-/// Generates a 128-bit random hex transaction ID.
-pub fn generate_op_id() -> String {
-    format!(
-        "{:016x}{:016x}",
-        rand::random::<u64>(),
-        rand::random::<u64>()
-    )
-}
