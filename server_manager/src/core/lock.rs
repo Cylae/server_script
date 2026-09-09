@@ -15,6 +15,7 @@ impl ProcessLock {
     /// Attempts to acquire an exclusive lock on the specified path.
     /// If `non_blocking` is true and the lock is already held, returns an error immediately.
     pub fn acquire<P: AsRef<Path>>(path: P, non_blocking: bool) -> Result<Self> {
+        crate::core::validate::validate_safe_path(path.as_ref())?;
         let target = path.as_ref();
         let parent = target.parent().unwrap_or_else(|| Path::new("."));
         if !parent.as_os_str().is_empty() {
