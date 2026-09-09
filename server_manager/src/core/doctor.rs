@@ -301,16 +301,13 @@ pub fn check_firewall() -> DoctorCheckResult {
 
 pub fn check_port_conflicts() -> DoctorCheckResult {
     let catalog = crate::services::get_service_catalog();
-    let mut total_ports = 0;
-    for entry in &catalog {
-        total_ports += entry.ports.len();
-    }
+    let total_ports: usize = catalog.iter().map(|entry| entry.ports.len()).sum();
 
     // In a diagnostic check, we verify that the port matrix has zero internal collisions
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = std::collections::HashSet::with_capacity(total_ports);
     for entry in &catalog {
         for port in &entry.ports {
-            let key = (port.host_ip.clone(), port.host_port, port.protocol);
+            let key = (port.host_ip.as_deref(), port.host_port, port.protocol);
             if !seen.insert(key) {
                 return DoctorCheckResult {
                     name: "Port Matrix".to_string(),
