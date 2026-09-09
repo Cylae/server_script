@@ -27,6 +27,7 @@ time = "0.3"
 rand = "0.10.0"
 rpassword = "7.3"
 argon2 = "0.6.0"
+tempfile = "3.8"
 
 [dev-dependencies]
 criterion = "0.5"
