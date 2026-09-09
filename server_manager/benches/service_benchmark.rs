@@ -107,11 +107,21 @@ fn benchmark_port_matrix_generation(c: &mut Criterion) {
     });
 }
 
+fn benchmark_hardware_detection(c: &mut Criterion) {
+    c.bench_function("hardware_detection", |b| {
+        b.iter(|| {
+            let hw = HardwareInfo::detect();
+            criterion::black_box(hw);
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_catalog_retrieval,
     benchmark_compose_generation,
     benchmark_validation_throughput,
-    benchmark_port_matrix_generation
+    benchmark_port_matrix_generation,
+    benchmark_hardware_detection
 );
 criterion_main!(benches);
