@@ -122,15 +122,6 @@ pub fn validate_port(port: u32) -> Result<u16> {
     }
 }
 
-/// Validates a port string slice (e.g. "8080").
-pub fn validate_port_str(port_str: &str) -> Result<u16> {
-    let port: u32 = port_str
-        .trim()
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Validation error: invalid port format '{}'", port_str))?;
-    validate_port(port)
-}
-
 /// Validates an IPv4 or IPv6 address.
 pub fn validate_ip(ip_str: &str) -> Result<IpAddr> {
     ip_str
