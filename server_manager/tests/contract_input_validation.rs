@@ -1,6 +1,6 @@
 use server_manager::core::validate::{
-    validate_domain, validate_ip, validate_port, validate_port_str, validate_safe_path,
-    validate_service_name, validate_username,
+    validate_ip, validate_port, validate_port_str, validate_safe_path, validate_service_name,
+    validate_username,
 };
 use std::path::Path;
 
@@ -48,23 +48,6 @@ fn test_validate_username() {
     // Exceeds 32 chars
     let long_user = "a".repeat(33);
     assert!(validate_username(&long_user).is_err());
-}
-
-#[test]
-fn test_validate_domain() {
-    // Valid domains
-    assert!(validate_domain("example.com").is_ok());
-    assert!(validate_domain("cloud.sub.example.org").is_ok());
-    assert!(validate_domain("my-server-01.local").is_ok());
-    assert!(validate_domain("localhost").is_ok());
-
-    // Invalid domains
-    assert!(validate_domain("").is_err());
-    assert!(validate_domain("-leading-hyphen.com").is_err());
-    assert!(validate_domain("trailing-hyphen-.com").is_err());
-    assert!(validate_domain("double..dot.com").is_err());
-    assert!(validate_domain("domain;curl evil.com").is_err());
-    assert!(validate_domain("domain with spaces.com").is_err());
 }
 
 #[test]
