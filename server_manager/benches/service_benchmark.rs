@@ -107,11 +107,21 @@ fn benchmark_port_matrix_generation(c: &mut Criterion) {
     });
 }
 
+fn benchmark_doctor_check_port_conflicts(c: &mut Criterion) {
+    c.bench_function("doctor_check_port_conflicts", |b| {
+        b.iter(|| {
+            let result = server_manager::core::doctor::check_port_conflicts();
+            criterion::black_box(result);
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_catalog_retrieval,
     benchmark_compose_generation,
     benchmark_validation_throughput,
-    benchmark_port_matrix_generation
+    benchmark_port_matrix_generation,
+    benchmark_doctor_check_port_conflicts
 );
 criterion_main!(benches);
