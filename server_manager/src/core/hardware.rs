@@ -1,8 +1,11 @@
 use log::{info, warn};
 use nix::unistd::User;
 use std::path::Path;
+use std::sync::OnceLock;
 use sysinfo::{DiskExt, System, SystemExt};
 use which::which;
+
+static HARDWARE_CACHE: OnceLock<HardwareInfo> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HardwareProfile {
@@ -26,6 +29,10 @@ pub struct HardwareInfo {
 
 impl HardwareInfo {
     pub fn detect() -> Self {
+        HARDWARE_CACHE.get_or_init(Self::detect_uncached).clone()
+    }
+
+    pub fn detect_uncached() -> Self {
         let (user_id, group_id) = Self::detect_user();
         let mut sys = System::new();
         sys.refresh_memory();
@@ -41,16 +48,17 @@ impl HardwareInfo {
 
         let cpu_cores = sys.cpus().len();
 
-        let mut disk_gb = 0;
-        for disk in sys.disks() {
-            // Filter out virtual filesystems to prevent double counting (e.g., overlayfs)
-            let fs_type = std::str::from_utf8(disk.file_system()).unwrap_or("unknown");
-            match fs_type {
-                "overlay" | "tmpfs" | "devtmpfs" | "squashfs" | "sysfs" | "proc" => continue,
-                _ => {}
-            }
-            disk_gb += disk.total_space() / 1024 / 1024 / 1024;
-        }
+        let disk_gb = sys
+            .disks()
+            .iter()
+            .filter(|disk| {
+                !matches!(
+                    disk.file_system(),
+                    b"overlay" | b"tmpfs" | b"devtmpfs" | b"squashfs" | b"sysfs" | b"proc"
+                )
+            })
+            .map(|disk| disk.total_space() / 1024 / 1024 / 1024)
+            .sum();
 
         let profile = Self::evaluate_profile(ram_gb, cpu_cores, swap_gb);
 
@@ -157,5 +165,14 @@ mod tests {
             HardwareInfo::evaluate_profile(6, 4, 2),
             HardwareProfile::Standard
         ); // 6GB RAM + Swap -> Standard
+    }
+
+    #[test]
+    fn test_hardware_info_cached_and_uncached_detection() {
+        let hw_uncached = HardwareInfo::detect_uncached();
+        let hw_cached = HardwareInfo::detect();
+        assert_eq!(hw_uncached.cpu_cores, hw_cached.cpu_cores);
+        assert_eq!(hw_uncached.ram_gb, hw_cached.ram_gb);
+        assert_eq!(hw_uncached.profile, hw_cached.profile);
     }
 }
