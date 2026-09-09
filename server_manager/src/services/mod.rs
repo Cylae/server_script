@@ -117,10 +117,6 @@ impl PortMapping {
         self.host_ip.as_deref() == Some("127.0.0.1")
     }
 
-    pub fn is_public(&self) -> bool {
-        !self.is_localhost()
-    }
-
     pub fn host_binding_str(&self) -> String {
         match &self.host_ip {
             Some(ip) => format!("{}:{}", ip, self.host_port),
@@ -359,5 +355,18 @@ mod tests {
         assert!(names.contains(&"plex"));
         assert!(names.contains(&"sonarr"));
         assert!(names.contains(&"mariadb"));
+    }
+
+    #[test]
+    fn test_port_mapping_methods() {
+        let pm_local = PortMapping::parse("127.0.0.1:8080:80").unwrap();
+        assert!(pm_local.is_localhost());
+        assert_eq!(pm_local.host_binding_str(), "127.0.0.1:8080");
+        assert_eq!(pm_local.security_tier_str(), "Localhost Only");
+
+        let pm_public = PortMapping::parse("8080:80").unwrap();
+        assert!(!pm_public.is_localhost());
+        assert_eq!(pm_public.host_binding_str(), "0.0.0.0:8080");
+        assert_eq!(pm_public.security_tier_str(), "Public");
     }
 }
