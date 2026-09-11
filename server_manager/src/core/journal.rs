@@ -67,6 +67,7 @@ impl Journal {
     /// Opens or creates the journal file with 0600 permissions.
     pub fn open_or_create<P: AsRef<Path>>(path: P) -> Result<Self> {
         let target = path.as_ref();
+        crate::core::validate::validate_safe_path(target)?;
         let parent = target.parent().unwrap_or_else(|| Path::new("."));
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)

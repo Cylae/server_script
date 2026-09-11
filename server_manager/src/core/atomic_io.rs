@@ -16,6 +16,7 @@ use std::os::unix::fs::OpenOptionsExt;
 /// 5. Atomically renames the temporary file to the destination path.
 pub fn atomic_write<P: AsRef<Path>>(path: P, content: &[u8], mode: u32) -> Result<()> {
     let dest = path.as_ref();
+    crate::core::validate::validate_safe_path(dest)?;
     let parent = dest.parent().unwrap_or_else(|| Path::new("."));
     if !parent.as_os_str().is_empty() {
         fs::create_dir_all(parent)

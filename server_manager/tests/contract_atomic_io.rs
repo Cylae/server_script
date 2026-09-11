@@ -32,6 +32,12 @@ fn test_atomic_write_creates_file_with_content() {
 }
 
 #[test]
+fn test_atomic_write_path_traversal_forbidden() {
+    let invalid_path = std::path::Path::new("subdir/../forbidden.txt");
+    assert!(atomic_write_str(invalid_path, "forbidden", 0o600).is_err());
+}
+
+#[test]
 fn test_atomic_write_overwrites_existing_file() {
     let temp_dir = std::env::temp_dir().join(format!(
         "test_atomic_overwrite_{}",
