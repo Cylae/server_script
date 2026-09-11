@@ -363,7 +363,10 @@ impl UserManager {
     }
 
     pub fn list_users(&self) -> Vec<&User> {
-        self.users.values().collect()
+        let mut list: Vec<&User> = Vec::with_capacity(self.users.len());
+        list.extend(self.users.values());
+        list.sort_by(|a, b| a.username.cmp(&b.username));
+        list
     }
 }
 
@@ -536,5 +539,23 @@ mod tests {
         assert!(Role::Operator.can_trigger_updates());
         assert!(!Role::Observer.can_trigger_updates());
         assert!(!Role::Auditor.can_trigger_updates());
+    }
+
+    #[test]
+    fn test_list_users_deterministic_sorting() {
+        let mut manager = UserManager::default();
+        manager
+            .add_user("charlie", "pass123", Role::Observer, None)
+            .expect("add charlie");
+        manager
+            .add_user("alice", "pass123", Role::Admin, None)
+            .expect("add alice");
+        manager
+            .add_user("bob", "pass123", Role::Operator, None)
+            .expect("add bob");
+
+        let users = manager.list_users();
+        let usernames: Vec<&str> = users.iter().map(|u| u.username.as_str()).collect();
+        assert_eq!(usernames, vec!["alice", "bob", "charlie"]);
     }
 }

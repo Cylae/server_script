@@ -39,3 +39,9 @@ fn test_process_lock_acquisition_and_mutual_exclusion() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_process_lock_path_traversal_forbidden() {
+    let invalid_path = std::path::Path::new("subdir/../forbidden.lock");
+    assert!(ProcessLock::acquire(invalid_path, true).is_err());
+}

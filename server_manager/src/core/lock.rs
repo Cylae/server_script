@@ -16,6 +16,7 @@ impl ProcessLock {
     /// If `non_blocking` is true and the lock is already held, returns an error immediately.
     pub fn acquire<P: AsRef<Path>>(path: P, non_blocking: bool) -> Result<Self> {
         let target = path.as_ref();
+        crate::core::validate::validate_safe_path(target)?;
         let parent = target.parent().unwrap_or_else(|| Path::new("."));
         if !parent.as_os_str().is_empty() {
             let _ = std::fs::create_dir_all(parent);
