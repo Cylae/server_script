@@ -15,6 +15,7 @@ use std::os::unix::fs::OpenOptionsExt;
 /// 4. Synchronizes to disk via `fsync` (`sync_all`).
 /// 5. Atomically renames the temporary file to the destination path.
 pub fn atomic_write<P: AsRef<Path>>(path: P, content: &[u8], mode: u32) -> Result<()> {
+    crate::core::validate::validate_safe_path(&path)?;
     let dest = path.as_ref();
     let parent = dest.parent().unwrap_or_else(|| Path::new("."));
     if !parent.as_os_str().is_empty() {
