@@ -139,10 +139,25 @@ pub fn validate_ip(ip_str: &str) -> Result<IpAddr> {
         .map_err(|_| anyhow::anyhow!("Validation error: invalid IP address '{}'", ip_str))
 }
 
-/// Validates that a path does not contain directory traversal sequences (`..`).
+/// Validates that a path does not contain directory traversal sequences (`..`), NUL bytes, or control characters.
 pub fn validate_safe_path<P: AsRef<Path>>(path: P) -> Result<P> {
     let p = path.as_ref();
-    let normalized = p.to_string_lossy().replace('\\', "/");
+    let path_str = p.to_string_lossy();
+    if path_str.contains('\0') {
+        bail!(
+            "Validation error: NUL byte forbidden in path '{}'",
+            p.display()
+        );
+    }
+    for c in path_str.chars() {
+        if c.is_ascii_control() {
+            bail!(
+                "Validation error: control character forbidden in path '{}'",
+                p.display()
+            );
+        }
+    }
+    let normalized = path_str.replace('\\', "/");
     let norm_path = Path::new(&normalized);
     for comp in norm_path.components() {
         if comp == Component::ParentDir {

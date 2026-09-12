@@ -32,6 +32,12 @@ fn test_atomic_write_creates_file_with_content() {
 }
 
 #[test]
+fn test_atomic_write_rejects_unsafe_path() {
+    let bytes = b"test payload";
+    assert!(atomic_write("../unsafe_atomic_write.tmp", bytes, 0o600).is_err());
+}
+
+#[test]
 fn test_atomic_write_overwrites_existing_file() {
     let temp_dir = std::env::temp_dir().join(format!(
         "test_atomic_overwrite_{}",

@@ -46,6 +46,11 @@ fn test_journal_creation_and_append() {
 }
 
 #[test]
+fn test_journal_open_or_create_rejects_unsafe_path() {
+    assert!(Journal::open_or_create("../unsafe_journal.jsonl").is_err());
+}
+
+#[test]
 fn test_journal_compensatory_rollback_in_reverse_order() {
     let temp_dir = std::env::temp_dir().join(format!(
         "test_journal_rollback_{}",

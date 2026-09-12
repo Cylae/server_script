@@ -39,3 +39,8 @@ fn test_process_lock_acquisition_and_mutual_exclusion() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_process_lock_rejects_unsafe_path() {
+    assert!(ProcessLock::acquire("../unsafe.lock", true).is_err());
+}

@@ -120,4 +120,10 @@ fn test_validate_safe_path_extended_traversal() {
     assert!(validate_safe_path(Path::new("..\\secret")).is_err());
     assert!(validate_safe_path(Path::new("..")).is_err());
     assert!(validate_safe_path(Path::new(".")).is_ok());
+
+    // NUL byte & control characters
+    assert!(validate_safe_path(Path::new("config.yaml\0.bak")).is_err());
+    assert!(validate_safe_path(Path::new("config\nfile.txt")).is_err());
+    assert!(validate_safe_path(Path::new("config\rfile.txt")).is_err());
+    assert!(validate_safe_path(Path::new("config\tfile.txt")).is_err());
 }
