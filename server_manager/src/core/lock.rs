@@ -3,11 +3,16 @@ use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 #[cfg(not(unix))]
-compile_error!(
-    "server_manager requires a POSIX/Unix system. \
-     Advisory file locking (flock) is not available on this target, \
-     which would silently break the mutual-exclusion guarantee."
-);
+fn warn_no_lock() {
+    static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        log::warn!(
+            "server_manager requires a POSIX/Unix system. \
+             Advisory file locking (flock) is not available on this target, \
+             which silently breaks the mutual-exclusion guarantee."
+        );
+    }
+}
 
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
@@ -64,6 +69,10 @@ impl ProcessLock {
                 return Err(err)
                     .with_context(|| format!("Failed to acquire lock on {}", target.display()));
             }
+        }
+        #[cfg(not(unix))]
+        {
+            warn_no_lock();
         }
 
         Ok(Self {
