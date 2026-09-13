@@ -4,6 +4,7 @@ use crate::core::secrets::Secrets;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fmt::Write;
+use std::fs;
 use std::path::Path;
 use std::process::Command;
 

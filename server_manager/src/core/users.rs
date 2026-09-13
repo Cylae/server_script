@@ -98,7 +98,9 @@ pub struct UserManager {
 
 impl UserManager {
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load).await?
+        tokio::task::spawn_blocking(Self::load)
+            .await
+            .context("Failed to join blocking task")?
     }
 
     pub fn load() -> Result<Self> {
