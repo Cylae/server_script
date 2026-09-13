@@ -98,9 +98,7 @@ pub struct UserManager {
 
 impl UserManager {
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load)
-            .await
-            .context("Failed to join blocking task")?
+        tokio::task::spawn_blocking(Self::load).await?
     }
 
     pub fn load() -> Result<Self> {
@@ -399,7 +397,10 @@ impl UserManager {
 
             let is_valid = tokio::task::spawn_blocking(move || verify_password(&password, &hash))
                 .await
-                .unwrap_or(false);
+                .unwrap_or_else(|e| {
+                    log::error!("Task join error during password verification: {}", e);
+                    false
+                });
 
             if is_valid {
                 return Some(user_clone);

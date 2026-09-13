@@ -311,7 +311,10 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
                 )
             })
             .await
-            .unwrap_or((0, 0, 0, 0, 0.0, 0, 0));
+            .unwrap_or_else(|e| {
+                error!("Telemetry task join error: {}", e);
+                (0, 0, 0, 0, 0.0, 0, 0)
+            });
 
             let update_info = crate::core::updater::check_for_updates().unwrap_or(
                 crate::core::updater::UpdateInfo {
@@ -1157,20 +1160,14 @@ async fn add_user_handler(
     let user_name = payload.username.clone();
     let pass = payload.password.clone();
 
-    let res = match tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.add_user(&user_name, &pass, role_enum, quota_val)?;
         Ok(manager_clone)
     })
     .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            error!("Blocking task join error in add_user: {}", e);
-            Err(anyhow::anyhow!(
-                "Internal server error: failed to join background task"
-            ))
-        }
-    };
+    .unwrap_or_else(|e| {
+        Err(anyhow::Error::from(e).context("Blocking task join error in add_user"))
+    });
 
     match res {
         Ok(new_manager) => {
@@ -1237,20 +1234,14 @@ async fn update_user_handler(
     let mut manager_clone = cache.manager.clone();
 
     let u_name = username.clone();
-    let res = match tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.update_user_role_and_quota(&u_name, role_enum, quota_val)?;
         Ok(manager_clone)
     })
     .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            error!("Blocking task join error in update_user: {}", e);
-            Err(anyhow::anyhow!(
-                "Internal server error: failed to join background task"
-            ))
-        }
-    };
+    .unwrap_or_else(|e| {
+        Err(anyhow::Error::from(e).context("Blocking task join error in update_user"))
+    });
 
     match res {
         Ok(new_manager) => {
@@ -1297,20 +1288,14 @@ async fn delete_user_handler(
     let mut manager_clone = cache.manager.clone();
 
     let u_name = username.clone();
-    let res = match tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.delete_user(&u_name)?;
         Ok(manager_clone)
     })
     .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            error!("Blocking task join error in delete_user: {}", e);
-            Err(anyhow::anyhow!(
-                "Internal server error: failed to join background task"
-            ))
-        }
-    };
+    .unwrap_or_else(|e| {
+        Err(anyhow::Error::from(e).context("Blocking task join error in delete_user"))
+    });
 
     match res {
         Ok(new_manager) => {
@@ -1598,20 +1583,14 @@ async fn user_install_app_handler(
     let u_name = user.username.clone();
     let app_name = name.clone();
 
-    let res = match tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.install_user_app(&u_name, &app_name)?;
         Ok(manager_clone)
     })
     .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            error!("Blocking task join error in install_user_app: {}", e);
-            Err(anyhow::anyhow!(
-                "Internal server error: failed to join background task"
-            ))
-        }
-    };
+    .unwrap_or_else(|e| {
+        Err(anyhow::Error::from(e).context("Blocking task join error in install_user_app"))
+    });
 
     if let Ok(new_manager) = res {
         cache.manager = new_manager;
@@ -1649,20 +1628,14 @@ async fn user_uninstall_app_handler(
     let u_name = user.username.clone();
     let app_name = name.clone();
 
-    let res = match tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.uninstall_user_app(&u_name, &app_name)?;
         Ok(manager_clone)
     })
     .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            error!("Blocking task join error in uninstall_user_app: {}", e);
-            Err(anyhow::anyhow!(
-                "Internal server error: failed to join background task"
-            ))
-        }
-    };
+    .unwrap_or_else(|e| {
+        Err(anyhow::Error::from(e).context("Blocking task join error in uninstall_user_app"))
+    });
 
     if let Ok(new_manager) = res {
         cache.manager = new_manager;
@@ -1801,20 +1774,14 @@ async fn user_passwd_handler(
     let u_name = user.username.clone();
     let new_pass = payload.password.clone();
 
-    let res = match tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<UserManager> {
         manager_clone.update_password(&u_name, &new_pass)?;
         Ok(manager_clone)
     })
     .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            error!("Blocking task join error in update_password: {}", e);
-            Err(anyhow::anyhow!(
-                "Internal server error: failed to join background task"
-            ))
-        }
-    };
+    .unwrap_or_else(|e| {
+        Err(anyhow::Error::from(e).context("Blocking task join error in update_password"))
+    });
 
     if let Ok(new_manager) = res {
         cache.manager = new_manager;
