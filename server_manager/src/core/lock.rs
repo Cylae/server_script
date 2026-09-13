@@ -1,21 +1,7 @@
 use anyhow::{Context, Result};
+use fs3::FileExt;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-
-#[cfg(not(unix))]
-fn warn_no_lock() {
-    static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-        log::warn!(
-            "server_manager requires a POSIX/Unix system. \
-             Advisory file locking (flock) is not available on this target, \
-             which silently breaks the mutual-exclusion guarantee."
-        );
-    }
-}
-
-#[cfg(unix)]
-use std::os::unix::io::AsRawFd;
 
 /// Advisory inter-process lock to guard against concurrent mutating operations.
 pub struct ProcessLock {
@@ -35,6 +21,7 @@ impl ProcessLock {
 
         let mut options = OpenOptions::new();
         options.read(true).write(true).create(true).truncate(false);
+
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
@@ -42,37 +29,24 @@ impl ProcessLock {
                 .mode(0o600)
                 .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
         }
+
         let file = options
             .open(target)
             .with_context(|| format!("Failed to open lockfile {}", target.display()))?;
+
         anyhow::ensure!(file.metadata()?.is_file(), "Lock must be a regular file");
 
-        #[cfg(unix)]
-        {
-            let fd = file.as_raw_fd();
-            let mut flag = libc::LOCK_EX;
-            if non_blocking {
-                flag |= libc::LOCK_NB;
+        if non_blocking {
+            if let Err(err) = file.try_lock_exclusive() {
+                anyhow::bail!(
+                    "Advisory lock is already held by another process on {} (error: {})",
+                    target.display(),
+                    err
+                );
             }
-            // SAFETY: fd is valid and owned by file.
-            let res = unsafe { libc::flock(fd, flag) };
-            if res != 0 {
-                let err = std::io::Error::last_os_error();
-                if err.raw_os_error() == Some(libc::EWOULDBLOCK)
-                    || err.raw_os_error() == Some(libc::EAGAIN)
-                {
-                    anyhow::bail!(
-                        "Advisory lock is already held by another process on {}",
-                        target.display()
-                    );
-                }
-                return Err(err)
-                    .with_context(|| format!("Failed to acquire lock on {}", target.display()));
-            }
-        }
-        #[cfg(not(unix))]
-        {
-            warn_no_lock();
+        } else {
+            file.lock_exclusive()
+                .with_context(|| format!("Failed to acquire lock on {}", target.display()))?;
         }
 
         Ok(Self {
@@ -98,13 +72,6 @@ impl ProcessLock {
 
 impl Drop for ProcessLock {
     fn drop(&mut self) {
-        #[cfg(unix)]
-        {
-            let fd = self._file.as_raw_fd();
-            // SAFETY: fd is valid until file is dropped after this block.
-            unsafe {
-                libc::flock(fd, libc::LOCK_UN);
-            }
-        }
+        let _ = self._file.unlock();
     }
 }

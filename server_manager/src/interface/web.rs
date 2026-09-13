@@ -66,7 +66,10 @@ async fn get_csrf_token(session: &Session) -> String {
 async fn verify_csrf(session: &Session, submitted: Option<&str>) -> bool {
     let session_csrf: Option<String> = session.get("csrf_token").await.ok().flatten();
     match (session_csrf, submitted) {
-        (Some(expected), Some(actual)) if !expected.is_empty() => expected == actual,
+        (Some(expected), Some(actual)) if !expected.is_empty() => {
+            use subtle::ConstantTimeEq;
+            expected.as_bytes().ct_eq(actual.as_bytes()).unwrap_u8() == 1
+        }
         _ => false,
     }
 }
