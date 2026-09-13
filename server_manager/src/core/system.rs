@@ -251,7 +251,7 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     };
 
     // 1GB = 1048576 KB (blocks)
-    let blocks = quota_gb * 1024 * 1024;
+    let blocks = quota_gb.saturating_mul(1024 * 1024);
     let soft_blocks = blocks;
     let hard_blocks = blocks;
 

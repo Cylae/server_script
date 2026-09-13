@@ -266,9 +266,8 @@ impl UserManager {
 
         if let Some(user) = self.users.get_mut(username) {
             if Uid::effective().is_root() {
-                if let Some(gb) = quota_gb {
-                    let _ = system::set_system_quota(username, gb);
-                }
+                let gb = quota_gb.unwrap_or(0);
+                let _ = system::set_system_quota(username, gb);
             }
             user.role = role;
             user.quota_gb = quota_gb;
