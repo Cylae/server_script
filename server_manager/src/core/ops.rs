@@ -76,7 +76,7 @@ impl DockerOps for RealDockerOps {
     }
 
     fn compose_up(&self, compose_file: &Path) -> Result<()> {
-        let status = Command::new("docker")
+        let status = Command::new("/usr/bin/docker")
             .args(["compose", "-f", &compose_file.to_string_lossy(), "up", "-d"])
             .status()
             .context("Failed to spawn docker compose up")?;
@@ -87,7 +87,7 @@ impl DockerOps for RealDockerOps {
     }
 
     fn compose_down(&self, compose_file: &Path) -> Result<()> {
-        let status = Command::new("docker")
+        let status = Command::new("/usr/bin/docker")
             .args(["compose", "-f", &compose_file.to_string_lossy(), "down"])
             .status()
             .context("Failed to spawn docker compose down")?;
@@ -98,7 +98,7 @@ impl DockerOps for RealDockerOps {
     }
 
     fn compose_pull(&self, compose_file: &Path) -> Result<()> {
-        let status = Command::new("docker")
+        let status = Command::new("/usr/bin/docker")
             .args(["compose", "-f", &compose_file.to_string_lossy(), "pull"])
             .status()
             .context("Failed to spawn docker compose pull")?;
@@ -109,7 +109,7 @@ impl DockerOps for RealDockerOps {
     }
 
     fn prune_system(&self) -> Result<()> {
-        let status = Command::new("docker")
+        let status = Command::new("/usr/bin/docker")
             .args(["system", "prune", "-af", "--volumes"])
             .status()
             .context("Failed to spawn docker system prune")?;
@@ -125,7 +125,7 @@ pub struct RealFirewallBackend;
 #[async_trait]
 impl FirewallBackend for RealFirewallBackend {
     fn is_active(&self) -> Result<bool> {
-        let status = Command::new("ufw")
+        let status = Command::new("/usr/sbin/ufw")
             .arg("status")
             .output()
             .context("Failed to check ufw status")?;
@@ -135,7 +135,7 @@ impl FirewallBackend for RealFirewallBackend {
 
     fn allow_port(&self, port: u16, proto: &str) -> Result<()> {
         let port_rule = format!("{}/{}", port, proto);
-        let status = Command::new("ufw")
+        let status = Command::new("/usr/sbin/ufw")
             .args(["allow", &port_rule])
             .status()
             .context("Failed to execute ufw allow")?;
@@ -147,7 +147,7 @@ impl FirewallBackend for RealFirewallBackend {
 
     fn deny_port(&self, port: u16, proto: &str) -> Result<()> {
         let port_rule = format!("{}/{}", port, proto);
-        let status = Command::new("ufw")
+        let status = Command::new("/usr/sbin/ufw")
             .args(["deny", &port_rule])
             .status()
             .context("Failed to execute ufw deny")?;

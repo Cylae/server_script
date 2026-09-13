@@ -105,7 +105,7 @@ pub fn create_system_user(username: &str, password: &str) -> Result<()> {
 
     info!("Creating system user '{}'...", username);
     // useradd -m -s /bin/bash <username>
-    let status = Command::new("useradd")
+    let status = Command::new("/usr/sbin/useradd")
         .arg("-m")
         .arg("-s")
         .arg("/bin/bash")
@@ -148,7 +148,7 @@ pub fn delete_system_user(username: &str) -> Result<()> {
     }
 
     info!("Deleting system user '{}'...", username);
-    let status = Command::new("userdel")
+    let status = Command::new("/usr/sbin/userdel")
         .arg("-r")
         .arg(username)
         .status()
@@ -193,7 +193,7 @@ pub fn set_system_user_password(username: &str, password: &str) -> Result<()> {
     }
 
     info!("Setting password for system user '{}'...", username);
-    let mut child = Command::new("chpasswd")
+    let mut child = Command::new("/usr/sbin/chpasswd")
         .stdin(std::process::Stdio::piped())
         .spawn()
         .context("Failed to spawn chpasswd")?;
@@ -256,7 +256,7 @@ pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
     let hard_blocks = blocks;
 
     // setquota -u <user> <block-soft> <block-hard> <inode-soft> <inode-hard> <device>
-    let status = Command::new("setquota")
+    let status = Command::new("/usr/sbin/setquota")
         .arg("-u")
         .arg(username)
         .arg(soft_blocks.to_string())

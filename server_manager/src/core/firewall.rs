@@ -40,7 +40,7 @@ pub fn configure() -> Result<()> {
 }
 
 fn run_ufw(args: &[&str]) -> Result<()> {
-    let status = Command::new("ufw")
+    let status = Command::new("/usr/sbin/ufw")
         .args(args)
         .status()
         .context("Failed to execute ufw command")?;

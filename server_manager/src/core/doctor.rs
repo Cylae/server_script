@@ -209,7 +209,7 @@ pub fn check_docker_daemon() -> DoctorCheckResult {
         };
     }
 
-    if let Ok(output) = Command::new("docker").arg("--version").output() {
+    if let Ok(output) = Command::new("/usr/bin/docker").arg("--version").output() {
         if output.status.success() {
             let ver = String::from_utf8_lossy(&output.stdout).trim().to_string();
             return DoctorCheckResult {
@@ -232,7 +232,7 @@ pub fn check_docker_daemon() -> DoctorCheckResult {
 }
 
 pub fn check_compose_tool() -> DoctorCheckResult {
-    if let Ok(output) = Command::new("docker")
+    if let Ok(output) = Command::new("/usr/bin/docker")
         .arg("compose")
         .arg("version")
         .output()
@@ -248,7 +248,7 @@ pub fn check_compose_tool() -> DoctorCheckResult {
         }
     }
 
-    if let Ok(output) = Command::new("docker-compose").arg("--version").output() {
+    if let Ok(output) = Command::new("/usr/bin/docker").arg("--version").output() {
         if output.status.success() {
             let ver = String::from_utf8_lossy(&output.stdout).trim().to_string();
             return DoctorCheckResult {
@@ -269,7 +269,7 @@ pub fn check_compose_tool() -> DoctorCheckResult {
 }
 
 pub fn check_firewall() -> DoctorCheckResult {
-    if let Ok(output) = Command::new("ufw").arg("status").output() {
+    if let Ok(output) = Command::new("/usr/sbin/ufw").arg("status").output() {
         if output.status.success() {
             let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let first_line = status.lines().next().unwrap_or("unknown");

@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use log::{info, warn};
+use log::{error, info, warn};
 use std::fmt::Write;
 use std::fs;
 use std::io::{self, Write as IoWrite};
@@ -181,7 +181,7 @@ async fn run_clean() -> Result<()> {
     info!("Cleaning system caches and unused Docker resources...");
 
     info!("Running Docker system prune (removing stopped containers & dangling images)...");
-    let prune_status = Command::new("docker")
+    let prune_status = Command::new("/usr/bin/docker")
         .args(["system", "prune", "-f"])
         .status();
 
@@ -317,7 +317,7 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Applying changes via Docker Compose...");
-    let status = Command::new("docker")
+    let status = Command::new("/usr/bin/docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
         .status()
         .context("Failed to run docker compose up")?;
@@ -370,7 +370,7 @@ async fn run_install() -> Result<()> {
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Launching Services via Docker Compose...");
-    let status = Command::new("docker")
+    let status = Command::new("/usr/bin/docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
         .status()
         .context("Failed to run docker compose up")?;
@@ -471,7 +471,9 @@ fn print_deployment_summary(secrets: &secrets::Secrets) {
     println!("{}", summary);
 
     if nix::unistd::Uid::effective().is_root() {
-        if let Err(e) = std::fs::write("/root/credentials.txt", &summary) {
+        if let Err(e) =
+            crate::core::atomic_io::atomic_write_str("/root/credentials.txt", &summary, 0o600)
+        {
             error!("Failed to save credentials to /root/credentials.txt: {}", e);
         } else {
             #[cfg(unix)]
@@ -529,7 +531,7 @@ async fn run_status() -> Result<()> {
         format!("{} / {} Services Enabled", enabled_count, total_services)
     );
 
-    if let Ok(true) = tokio::process::Command::new("docker")
+    if let Ok(true) = tokio::process::Command::new("/usr/bin/docker")
         .arg("ps")
         .status()
         .await
@@ -569,7 +571,7 @@ async fn run_update() -> Result<()> {
     }
 
     info!("Pulling latest Docker images...");
-    let pull_status = tokio::process::Command::new("docker")
+    let pull_status = tokio::process::Command::new("/usr/bin/docker")
         .args(["compose", "pull"])
         .status()
         .await
@@ -580,7 +582,7 @@ async fn run_update() -> Result<()> {
     }
 
     info!("Re-deploying updated services...");
-    let up_status = tokio::process::Command::new("docker")
+    let up_status = tokio::process::Command::new("/usr/bin/docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
         .status()
         .await
@@ -611,7 +613,7 @@ async fn run_apply() -> Result<()> {
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Applying changes via Docker Compose...");
-    let status = tokio::process::Command::new("docker")
+    let status = tokio::process::Command::new("/usr/bin/docker")
         .args(["compose", "up", "-d", "--remove-orphans"])
         .status()
         .await
