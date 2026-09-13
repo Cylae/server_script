@@ -1,5 +1,6 @@
-use anyhow::Result;
-use log::{info, warn};
+use crate::core::atomic_io;
+use anyhow::{bail, Context, Result};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -60,7 +61,14 @@ pub fn check_for_updates() -> Result<UpdateInfo> {
     })
 }
 
-/// Executes software self-update by pulling latest source changes and rebuilding/updating binary.
+/// Executes software self-update by pulling latest source changes, rebuilding,
+/// and atomically installing the new binary over the currently running one.
+///
+/// CORRECTNESS/SECURITY (fixes A10): every prior failure mode here — a failed
+/// `git pull`, a missing/failing `cargo build`, or never installing the built
+/// binary — was swallowed, and the function unconditionally reported success.
+/// Each step below now fails closed (`bail!`) on error, and the function only
+/// returns `Ok` once the new binary has actually been installed.
 pub fn self_update() -> Result<String> {
     info!("Starting software self-update procedure...");
 
@@ -70,54 +78,90 @@ pub fn self_update() -> Result<String> {
         std::path::Path::new(".")
     } else {
         return Ok(format!(
-            "Software is up-to-date (v{}). Standalone binary installation mode active.",
+            "Software is up-to-date (v{}). Standalone binary installation mode active; \
+             self-update is unavailable outside a git checkout.",
             CURRENT_VERSION
         ));
     };
 
     info!("Updating repository at {:?}...", repo_dir);
 
-    // git fetch & pull
+    // git fetch & pull — a failure here means we would rebuild stale (or, in a
+    // conflicted rebase, inconsistent) source, so it must abort the update.
     let pull_status = Command::new("git")
         .current_dir(repo_dir)
         .args(["pull", "--rebase"])
-        .status();
+        .status()
+        .context("Failed to execute git pull")?;
 
-    match pull_status {
-        Ok(status) if status.success() => {
-            info!("Git pull successful.");
-        }
-        Ok(status) => {
-            warn!(
-                "Git pull exited with status {:?}. Attempting build with current code state.",
-                status.code()
-            );
-        }
-        Err(e) => {
-            warn!(
-                "Failed to execute git pull: {}. Continuing with existing files.",
-                e
-            );
-        }
+    if !pull_status.success() {
+        bail!(
+            "git pull --rebase exited with status {:?}; aborting self-update to avoid building \
+             from a stale or conflicted working tree. Resolve the repository state manually.",
+            pull_status.code()
+        );
+    }
+    info!("Git pull successful.");
+
+    // A rebuild requires cargo; without it we cannot safely produce a new binary.
+    which::which("cargo").context(
+        "cargo is not available on PATH; cannot rebuild for self-update. Install the Rust \
+         toolchain or update via a packaged release instead.",
+    )?;
+
+    info!("Compiling release binary with cargo...");
+    let build_status = Command::new("cargo")
+        .current_dir(repo_dir)
+        .args(["build", "--release"])
+        .status()
+        .context("Failed to execute cargo build --release")?;
+
+    if !build_status.success() {
+        bail!(
+            "cargo build --release exited with status {:?}; the currently installed binary was \
+             left untouched.",
+            build_status.code()
+        );
+    }
+    info!("Cargo release build completed successfully.");
+
+    // Install the freshly built binary over the one currently running.
+    let built_binary = repo_dir
+        .join("server_manager/target/release/server_manager");
+    let built_binary = if built_binary.exists() {
+        built_binary
+    } else {
+        repo_dir.join("target/release/server_manager")
+    };
+    if !built_binary.exists() {
+        bail!(
+            "Build reported success but the expected binary was not found at {:?}; refusing to \
+             report a completed update.",
+            built_binary
+        );
     }
 
-    // Attempt cargo build if cargo is available
-    if which::which("cargo").is_ok() {
-        info!("Compiling release binary with cargo...");
-        let build_status = Command::new("cargo")
-            .current_dir(repo_dir)
-            .args(["build", "--release"])
-            .status();
+    let current_exe = std::env::current_exe()
+        .context("Failed to determine path of the currently running binary")?;
+    let new_binary_bytes = std::fs::read(&built_binary)
+        .with_context(|| format!("Failed to read newly built binary at {:?}", built_binary))?;
 
-        if let Ok(status) = build_status {
-            if status.success() {
-                info!("Cargo release build completed successfully!");
-            }
-        }
-    }
+    // Atomic write + rename means an in-flight `server_manager` process keeps
+    // running against its original (now-unlinked) inode; the new binary takes
+    // effect on next invocation, with no window where the path is missing.
+    atomic_io::atomic_write(&current_exe, &new_binary_bytes, 0o755).with_context(|| {
+        format!(
+            "Failed to atomically install new binary to {:?}; the previously installed binary \
+             was left untouched.",
+            current_exe
+        )
+    })?;
+
+    info!("New binary installed at {:?}.", current_exe);
 
     Ok(format!(
-        "Software update completed successfully for v{}!",
+        "Software update completed successfully for v{}! Restart server_manager to run the new \
+         version.",
         CURRENT_VERSION
     ))
 }

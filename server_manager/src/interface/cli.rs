@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use log::{error, info, warn};
 use std::fmt::Write;
@@ -327,7 +327,12 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
             if enable { "enabled" } else { "disabled" }
         );
     } else {
-        error!("Failed to apply changes via Docker Compose.");
+        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
+        bail!(
+            "Failed to apply changes via Docker Compose for service '{}' (exit status: {:?}).",
+            service_name,
+            status.code()
+        );
     }
 
     Ok(())
@@ -372,7 +377,11 @@ async fn run_install() -> Result<()> {
         info!("Server Manager Stack Deployed Successfully! 🚀");
         print_deployment_summary(&secrets);
     } else {
-        error!("Docker Compose failed.");
+        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
+        bail!(
+            "Docker Compose failed during installation (exit status: {:?}).",
+            status.code()
+        );
     }
 
     Ok(())
@@ -578,7 +587,11 @@ async fn run_update() -> Result<()> {
     if up_status.success() {
         info!("Server Manager Stack updated successfully! 🚀");
     } else {
-        error!("Failed to re-deploy stack via Docker Compose.");
+        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
+        bail!(
+            "Failed to re-deploy stack via Docker Compose during update (exit status: {:?}).",
+            up_status.code()
+        );
     }
 
     Ok(())
@@ -605,7 +618,11 @@ async fn run_apply() -> Result<()> {
     if status.success() {
         info!("Server Manager Configuration Applied Successfully! 🚀");
     } else {
-        error!("Failed to apply changes via Docker Compose.");
+        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
+        bail!(
+            "Failed to apply changes via Docker Compose (exit status: {:?}).",
+            status.code()
+        );
     }
 
     Ok(())

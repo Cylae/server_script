@@ -31,7 +31,7 @@ programmatically by contract tests (`server_manager/tests/contract_port_matrix.r
 | Infrastructure | mariadb | - | - | - | - | Internal Only | Internal Relational SQL Database |
 | Infrastructure | redis | - | - | - | - | Internal Only | Internal In-Memory Cache |
 | Infrastructure | nginx-proxy | 80 | 80 | TCP | 0.0.0.0:80 | Public | Reverse Proxy & SSL Management |
-| Infrastructure | nginx-proxy | 81 | 81 | TCP | 0.0.0.0:81 | Public | Reverse Proxy & SSL Management |
+| Infrastructure | nginx-proxy | 81 | 81 | TCP | 127.0.0.1:81 | Localhost Only | Reverse Proxy & SSL Management |
 | Infrastructure | nginx-proxy | 443 | 443 | TCP | 0.0.0.0:443 | Public | Reverse Proxy & SSL Management |
 | Infrastructure | dnscrypt-proxy | 5300 | 5053 | TCP | 0.0.0.0:5300 | Public | Secure DNS Over HTTPS/TLS Proxy |
 | Infrastructure | dnscrypt-proxy | 5300 | 5053 | UDP | 0.0.0.0:5300 | Public | Secure DNS Over HTTPS/TLS Proxy |

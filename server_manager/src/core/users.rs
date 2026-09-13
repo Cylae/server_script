@@ -127,15 +127,25 @@ impl UserManager {
             UserManager::default()
         };
 
-        // Ensure default admin exists if no users
+        // Ensure default admin exists if no users.
+        //
+        // SECURITY (fixes A01): this must never fall back to a hardcoded/known
+        // password. If the secrets subsystem cannot be loaded or created, or if
+        // it somehow yields no admin password, provisioning fails closed with a
+        // clear error rather than silently creating an account with a known
+        // default credential.
         if manager.users.is_empty() {
             info!("No users found. Creating default 'admin' user.");
-            let initial_pass = match Secrets::load_or_create() {
-                Ok(s) => s
-                    .server_manager_admin_password
-                    .unwrap_or_else(|| "admin".to_string()),
-                Err(_) => "admin".to_string(),
-            };
+            let secrets = Secrets::load_or_create().context(
+                "Failed to load or create secrets.yaml while provisioning the default admin user; \
+                 refusing to fall back to a known default password",
+            )?;
+            let initial_pass = secrets.server_manager_admin_password.ok_or_else(|| {
+                anyhow!(
+                    "secrets.yaml was loaded but contains no server_manager_admin_password; \
+                     refusing to create the default admin user with a known default credential"
+                )
+            })?;
 
             let pass_hash = hash_password(&initial_pass)?;
             manager.users.insert(
@@ -149,13 +159,7 @@ impl UserManager {
                 },
             );
             manager.save()?;
-            if initial_pass == "admin" {
-                info!(
-                    "Default user 'admin' created with password 'admin'. CHANGE THIS IMMEDIATELY!"
-                );
-            } else {
-                info!("Default user 'admin' created with secret password from secrets.yaml.");
-            }
+            info!("Default user 'admin' created with the generated secret password from secrets.yaml.");
         }
 
         Ok(manager)
@@ -233,6 +237,33 @@ impl UserManager {
         quota_gb: Option<u64>,
     ) -> Result<()> {
         crate::core::validate::validate_username(username)?;
+
+        // SECURITY (fixes A04): demotion was previously unguarded entirely,
+        // so the sole Admin account could demote itself (or be demoted) to
+        // Operator/Observer/Auditor, permanently locking every user out of
+        // admin-only capabilities (user management, secret visibility,
+        // triggering updates) with no remaining account able to reverse it.
+        if role != Role::Admin {
+            let is_currently_admin = self
+                .users
+                .get(username)
+                .map(|u| u.role == Role::Admin)
+                .unwrap_or(false);
+            if is_currently_admin {
+                let remaining_admins = self
+                    .users
+                    .values()
+                    .filter(|u| u.username != username && u.role == Role::Admin)
+                    .count();
+                if remaining_admins == 0 {
+                    return Err(anyhow!(
+                        "Cannot change '{}' away from Admin: at least one user with Admin role must remain",
+                        username
+                    ));
+                }
+            }
+        }
+
         if let Some(user) = self.users.get_mut(username) {
             if Uid::effective().is_root() {
                 if let Some(gb) = quota_gb {
@@ -260,11 +291,29 @@ impl UserManager {
 
     pub fn delete_user(&mut self, username: &str) -> Result<()> {
         crate::core::validate::validate_username(username)?;
-        if !self.users.contains_key(username) {
-            return Err(anyhow!("User not found"));
-        }
-        if username == "admin" && self.users.len() == 1 {
-            return Err(anyhow!("Cannot delete the last admin user"));
+        let target = self
+            .users
+            .get(username)
+            .ok_or_else(|| anyhow!("User not found"))?;
+
+        // SECURITY (fixes A04): the previous check compared the literal
+        // username "admin" and the *total* user count, so it neither
+        // protected an admin account under any other name, nor accounted for
+        // multiple non-admin accounts coexisting with a single admin. The
+        // real invariant is: at least one user with Role::Admin must always
+        // remain.
+        if target.role == Role::Admin {
+            let remaining_admins = self
+                .users
+                .values()
+                .filter(|u| u.username != username && u.role == Role::Admin)
+                .count();
+            if remaining_admins == 0 {
+                return Err(anyhow!(
+                    "Cannot delete '{}': at least one user with Admin role must remain",
+                    username
+                ));
+            }
         }
 
         // System User Deletion

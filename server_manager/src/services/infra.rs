@@ -195,15 +195,39 @@ impl Service for NginxProxyService {
     fn ports(&self) -> Vec<String> {
         vec![
             "80:80".to_string(),
-            "81:81".to_string(),
+            // SECURITY (fixes A13): the admin UI on 81 was bound to all
+            // interfaces (0.0.0.0), publicly exposing the reverse-proxy's
+            // own admin panel — despite README.md documenting it as
+            // localhost-only, matching every other admin interface in this
+            // catalog (Portainer, Netdata, etc.).
+            "127.0.0.1:81:81".to_string(),
             "443:443".to_string(),
         ]
     }
 
     fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> {
-        let services = vec!["apache2", "nginx", "httpd"];
+        // SECURITY (fixes A08): unconditionally stopping/disabling apache2,
+        // nginx, and httpd system-wide affects services this stack does not
+        // own, violating host preservation for any host that runs one of
+        // these for an unrelated purpose. Only act if the service unit is
+        // actually present and active — never touch a service that isn't
+        // currently running.
+        let services = ["apache2", "nginx", "httpd"];
         for svc in services {
-            // Stop and disable conflicting web servers
+            let is_active = Command::new("systemctl")
+                .args(["is-active", "--quiet", svc])
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            if !is_active {
+                continue;
+            }
+            log::warn!(
+                "Detected conflicting web server '{}' occupying port 80/443; stopping and disabling it \
+                 to allow Nginx Proxy Manager to bind. This is a host-level change outside this stack's \
+                 own services.",
+                svc
+            );
             let _ = Command::new("systemctl").args(["stop", svc]).status();
             let _ = Command::new("systemctl").args(["disable", svc]).status();
         }

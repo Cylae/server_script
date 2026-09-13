@@ -164,6 +164,20 @@ pub fn delete_system_user(username: &str) -> Result<()> {
 pub fn set_system_user_password(username: &str, password: &str) -> Result<()> {
     validate_username(username)?;
 
+    // SECURITY (fixes A03): `chpasswd` parses stdin as newline-delimited
+    // `user:pass` records. A password containing '\n' or '\0' could inject an
+    // additional, attacker-controlled record (e.g. resetting another
+    // account's password); a password containing ':' is ambiguous input for
+    // the same parser. Reject all three outright rather than trying to
+    // escape them.
+    if password.contains('\n') || password.contains('\0') || password.contains(':') {
+        bail!(
+            "Refusing to set password for '{}': password contains a newline, NUL, or ':' \
+             character, which could inject additional chpasswd records.",
+            username
+        );
+    }
+
     // Security check: Don't modify system users (UID < 1000)
     // We allow if user was just created (which we can't easily track here statelessly),
     // but `create_system_user` calls this.
@@ -187,7 +201,7 @@ pub fn set_system_user_password(username: &str, password: &str) -> Result<()> {
 
     {
         let stdin = child.stdin.as_mut().context("Failed to open stdin")?;
-        stdin.write_all(format!("{}:{}", username, password).as_bytes())?;
+        stdin.write_all(format!("{}:{}\n", username, password).as_bytes())?;
     }
 
     let status = child.wait()?;
