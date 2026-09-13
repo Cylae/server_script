@@ -92,11 +92,19 @@ impl Secrets {
 
     pub fn load_or_create() -> Result<Self> {
         let path = Self::get_secrets_path();
+        Self::load_or_create_at(&path)
+    }
+
+    pub fn load_or_create_at(path: &Path) -> Result<Self> {
+        let _lock = crate::core::lock::ProcessLock::acquire(
+            path.with_extension("transaction.lock"),
+            false,
+        )?;
         let mut secrets: Secrets = if path.exists() {
-            let content = fs::read_to_string(&path)
+            let content = fs::read_to_string(path)
                 .with_context(|| format!("Failed to read {}", path.display()))?;
             serde_yaml_ng::from_str(&content)
-                .with_context(|| format!("Failed to parse {}", path.display()))?
+                .map_err(|_| anyhow::anyhow!("Invalid secrets YAML; values withheld"))?
         } else {
             Secrets::default()
         };
@@ -149,10 +157,10 @@ impl Secrets {
 
         if changed {
             info!("Generated new secrets.");
-            let content = serde_yaml_ng::to_string(&secrets)?;
-            atomic_io::atomic_write_str(&path, &content, 0o600)
-                .with_context(|| format!("Failed to write {}", path.display()))?;
         }
+        let content = serde_yaml_ng::to_string(&secrets)?;
+        atomic_io::atomic_write_str(path, &content, 0o600)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
 
         Ok(secrets)
     }

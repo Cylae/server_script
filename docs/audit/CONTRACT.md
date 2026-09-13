@@ -30,7 +30,7 @@ This document freezes the established user-facing contract of `server_manager`. 
 | `/opt/server_manager/config.yaml` | YAML | `0644` | System configuration (domain, port bindings, profile, enabled services). |
 | `/opt/server_manager/secrets.yaml` | YAML | `0600` | Administrative credentials, database passwords, API tokens. |
 | `/opt/server_manager/users.yaml` | YAML | `0600` | User account database (usernames, password hashes, roles, quotas, installed apps). |
-| `/opt/server_manager/docker-compose.yml` | YAML | `0644` | Generated Docker Compose stack definition. |
+| `/opt/server_manager/docker-compose.yml` | YAML | `0600` | Generated Docker Compose stack definition. |
 
 ---
 

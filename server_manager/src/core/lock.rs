@@ -18,16 +18,22 @@ impl ProcessLock {
         let target = path.as_ref();
         let parent = target.parent().unwrap_or_else(|| Path::new("."));
         if !parent.as_os_str().is_empty() {
-            let _ = std::fs::create_dir_all(parent);
+            std::fs::create_dir_all(parent).context("Failed to create lock directory")?;
         }
 
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
+        let mut options = OpenOptions::new();
+        options.read(true).write(true).create(true).truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options
+                .mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+        }
+        let file = options
             .open(target)
             .with_context(|| format!("Failed to open lockfile {}", target.display()))?;
+        anyhow::ensure!(file.metadata()?.is_file(), "Lock must be a regular file");
 
         #[cfg(unix)]
         {

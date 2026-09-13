@@ -664,7 +664,7 @@ async fn generate_compose(
     info!("Generating docker-compose.yml based on hardware profile...");
     let yaml_output = crate::generate_compose_yaml(hw, secrets, config)?;
 
-    crate::core::atomic_io::atomic_write_str("docker-compose.yml", &yaml_output, 0o644)
+    crate::core::atomic_io::atomic_write_str("docker-compose.yml", &yaml_output, 0o600)
         .context("Failed to write docker-compose.yml")?;
     info!("docker-compose.yml generated.");
 
