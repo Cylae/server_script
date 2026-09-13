@@ -45,9 +45,7 @@ impl Config {
         Self::load_from(&Self::get_config_path())
     }
     pub async fn load_async() -> Result<Self> {
-        tokio::task::spawn_blocking(Self::load)
-            .await
-            .context("Failed to join blocking task")?
+        tokio::task::spawn_blocking(Self::load).await?
     }
 
     pub fn save_to(&self, path: &Path) -> Result<()> {
@@ -93,9 +91,7 @@ impl Config {
     {
         let path = Self::get_config_path();
         let name = name.to_owned();
-        tokio::task::spawn_blocking(move || Self::update_service_at(&path, &name, update))
-            .await
-            .context("Failed to join blocking task")?
+        tokio::task::spawn_blocking(move || Self::update_service_at(&path, &name, update)).await?
     }
     pub async fn enable_service_async(name: &str) -> Result<()> {
         Self::update_service_async(name, |cfg, name| cfg.disabled_services.remove(name)).await
