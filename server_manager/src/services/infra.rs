@@ -4,7 +4,6 @@ use crate::core::secrets::Secrets;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::fs;
 use std::path::Path;
 use std::process::Command;
 
@@ -69,7 +68,8 @@ impl Service for MariaDBService {
 
         sql.push_str("FLUSH PRIVILEGES;\n");
 
-        fs::write(init_dir.join("init.sql"), sql).context("Failed to write init.sql")?;
+        crate::core::atomic_io::atomic_write_str(init_dir.join("init.sql"), &sql, 0o640)
+            .context("Failed to write init.sql")?;
 
         // Optimization: Generate custom.cnf
         let (buffer_pool, log_file_size, max_connections) = match hw.profile {
@@ -91,7 +91,7 @@ max_connections={}
         let config_dir = init_dir
             .parent()
             .context("Failed to determine parent directory for custom.cnf")?;
-        fs::write(config_dir.join("custom.cnf"), custom_cnf)
+        crate::core::atomic_io::atomic_write_str(config_dir.join("custom.cnf"), &custom_cnf, 0o644)
             .context("Failed to write custom.cnf")?;
 
         Ok(())

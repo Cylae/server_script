@@ -2,7 +2,6 @@ use crate::core::hardware::HardwareInfo;
 use anyhow::{bail, Context, Result};
 use log::{error, info, warn};
 use nix::unistd::{Uid, User};
-use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -310,7 +309,8 @@ net.core.wmem_max=1048576
     );
 
     let path = Path::new("/etc/sysctl.d/99-server-manager-optimization.conf");
-    fs::write(path, config).context("Failed to write sysctl config")?;
+    crate::core::atomic_io::atomic_write_str(path, &config, 0o644)
+        .context("Failed to write sysctl config")?;
 
     let status = Command::new("sysctl")
         .arg("--system")

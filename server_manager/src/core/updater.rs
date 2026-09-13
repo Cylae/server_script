@@ -126,8 +126,7 @@ pub fn self_update() -> Result<String> {
     info!("Cargo release build completed successfully.");
 
     // Install the freshly built binary over the one currently running.
-    let built_binary = repo_dir
-        .join("server_manager/target/release/server_manager");
+    let built_binary = repo_dir.join("server_manager/target/release/server_manager");
     let built_binary = if built_binary.exists() {
         built_binary
     } else {

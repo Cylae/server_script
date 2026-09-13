@@ -2,6 +2,13 @@ use anyhow::{Context, Result};
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
+#[cfg(not(unix))]
+compile_error!(
+    "server_manager requires a POSIX/Unix system. \
+     Advisory file locking (flock) is not available on this target, \
+     which would silently break the mutual-exclusion guarantee."
+);
+
 #[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 

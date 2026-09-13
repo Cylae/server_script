@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use log::{error, info, warn};
+use log::{info, warn};
 use std::fmt::Write;
 use std::fs;
 use std::io::{self, Write as IoWrite};
@@ -293,8 +293,10 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 
     let services = services::get_all_services();
     if !services.iter().any(|s| s.name() == service_name) {
-        error!("Service '{}' not found!", service_name);
-        return Ok(());
+        return Err(anyhow::anyhow!(
+            "Service '{}' not found in the service catalog.",
+            service_name
+        ));
     }
 
     if enable {

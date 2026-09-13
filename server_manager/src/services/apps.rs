@@ -273,8 +273,12 @@ $AUTOCONFIG = array(
             db_pass, admin_pass
         );
 
-        fs::write(config_dir.join("autoconfig.php"), php_config)
-            .context("Failed to write autoconfig.php")?;
+        crate::core::atomic_io::atomic_write_str(
+            config_dir.join("autoconfig.php"),
+            &php_config,
+            0o600,
+        )
+        .context("Failed to write autoconfig.php")?;
         Ok(())
     }
 

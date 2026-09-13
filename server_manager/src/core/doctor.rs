@@ -272,7 +272,7 @@ pub fn check_firewall() -> DoctorCheckResult {
     if let Ok(output) = Command::new("ufw").arg("status").output() {
         if output.status.success() {
             let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let first_line = status.lines().next().unwrap_or("active");
+            let first_line = status.lines().next().unwrap_or("unknown");
             return DoctorCheckResult {
                 name: "Firewall (UFW)".to_string(),
                 status: CheckStatus::Ok,
