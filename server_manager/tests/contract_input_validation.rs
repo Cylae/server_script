@@ -121,3 +121,10 @@ fn test_validate_safe_path_extended_traversal() {
     assert!(validate_safe_path(Path::new("..")).is_err());
     assert!(validate_safe_path(Path::new(".")).is_ok());
 }
+
+#[test]
+fn test_validate_safe_path_control_chars() {
+    assert!(validate_safe_path(Path::new("file\0.txt")).is_err());
+    assert!(validate_safe_path(Path::new("file\r\n.txt")).is_err());
+    assert!(validate_safe_path(Path::new("file\x07.txt")).is_err());
+}
