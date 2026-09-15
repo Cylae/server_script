@@ -181,7 +181,12 @@ pub trait Service: Send + Sync {
     }
 
     /// Performs system initialization (e.g., stopping conflicting services). May require root.
-    fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> {
+    fn initialize(
+        &self,
+        _hw: &HardwareInfo,
+        _secrets: &Secrets,
+        _system_ops: &dyn crate::core::ops::SystemOps,
+    ) -> Result<()> {
         Ok(())
     }
 

@@ -12,7 +12,7 @@ impl Service for VaultwardenService {
         "vaultwarden"
     }
     fn image(&self) -> &'static str {
-        "vaultwarden/server:latest"
+        "vaultwarden/server:1.33.2"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -46,7 +46,7 @@ impl Service for FilebrowserService {
         "filebrowser"
     }
     fn image(&self) -> &'static str {
-        "filebrowser/filebrowser:latest"
+        "filebrowser/filebrowser:v2.32.0"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -72,7 +72,7 @@ impl Service for YourlsService {
         "yourls"
     }
     fn image(&self) -> &'static str {
-        "yourls:latest"
+        "yourls:1.9.2"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -118,7 +118,7 @@ impl Service for GLPIService {
         "glpi"
     }
     fn image(&self) -> &'static str {
-        "diouxx/glpi:latest"
+        "diouxx/glpi:10.0.16"
     } // Common community image, official docker-library is scarce
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -143,7 +143,7 @@ impl Service for GiteaService {
         "gitea"
     }
     fn image(&self) -> &'static str {
-        "gitea/gitea:latest"
+        "gitea/gitea:1.23.4"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -191,7 +191,7 @@ impl Service for RoundcubeService {
         "roundcube"
     }
     fn image(&self) -> &'static str {
-        "roundcube/roundcubemail:latest"
+        "roundcube/roundcubemail:1.6.10-fpm"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -228,7 +228,7 @@ impl Service for NextcloudService {
         "nextcloud"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/nextcloud:latest"
+        "lscr.io/linuxserver/nextcloud:30.0.6"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -317,7 +317,7 @@ impl Service for MailService {
         "mailserver"
     }
     fn image(&self) -> &'static str {
-        "mailserver/docker-mailserver:latest"
+        "mailserver/docker-mailserver:14.0.0"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps
@@ -378,7 +378,7 @@ impl Service for SyncthingService {
         "syncthing"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/syncthing:latest"
+        "lscr.io/linuxserver/syncthing:1.29.2"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Apps

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 pub struct MariaDBService;
 impl Service for MariaDBService {
@@ -14,7 +13,7 @@ impl Service for MariaDBService {
         "mariadb"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/mariadb:latest"
+        "lscr.io/linuxserver/mariadb:11.4.5"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Infrastructure
@@ -185,7 +184,7 @@ impl Service for NginxProxyService {
         "nginx-proxy"
     }
     fn image(&self) -> &'static str {
-        "jc21/nginx-proxy-manager:latest"
+        "jc21/nginx-proxy-manager:2.12.1"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Infrastructure
@@ -206,7 +205,12 @@ impl Service for NginxProxyService {
         ]
     }
 
-    fn initialize(&self, _hw: &HardwareInfo, _secrets: &Secrets) -> Result<()> {
+    fn initialize(
+        &self,
+        _hw: &HardwareInfo,
+        _secrets: &Secrets,
+        system_ops: &dyn crate::core::ops::SystemOps,
+    ) -> Result<()> {
         // SECURITY (fixes A08): unconditionally stopping/disabling apache2,
         // nginx, and httpd system-wide affects services this stack does not
         // own, violating host preservation for any host that runs one of
@@ -214,18 +218,11 @@ impl Service for NginxProxyService {
         // actually present and active — never touch a service that isn't
         // currently running.
         //
-        // ARCHITECTURE (F04): These calls should ideally go through the
-        // `SystemOps::is_service_active` / `stop_system_service` trait methods,
-        // but the `Service::initialize` signature does not currently accept an
-        // `&dyn SystemOps`. Using absolute paths here as an interim measure.
+        // ARCHITECTURE (F04 solved): Trait abstraction enforced. All privileged host
+        // operations route strictly through `SystemOps`.
         let services = ["apache2", "nginx", "httpd"];
         for svc in services {
-            let is_active = Command::new("/usr/bin/systemctl")
-                .args(["is-active", "--quiet", svc])
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false);
-            if !is_active {
+            if !system_ops.is_service_active(svc) {
                 continue;
             }
             log::warn!(
@@ -234,8 +231,7 @@ impl Service for NginxProxyService {
                  own services.",
                 svc
             );
-            let _ = Command::new("/usr/bin/systemctl").args(["stop", svc]).status();
-            let _ = Command::new("/usr/bin/systemctl").args(["disable", svc]).status();
+            system_ops.stop_system_service(svc)?;
         }
         Ok(())
     }
@@ -267,7 +263,7 @@ impl Service for DNSCryptService {
         "dnscrypt-proxy"
     }
     fn image(&self) -> &'static str {
-        "klutchell/dnscrypt-proxy:latest"
+        "klutchell/dnscrypt-proxy:2.1.5"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Infrastructure
@@ -302,7 +298,7 @@ impl Service for WireguardService {
         "wireguard"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/wireguard:latest"
+        "lscr.io/linuxserver/wireguard:1.0.20210914"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Infrastructure
@@ -346,7 +342,7 @@ impl Service for PortainerService {
         "portainer"
     }
     fn image(&self) -> &'static str {
-        "portainer/portainer-ce:latest"
+        "portainer/portainer-ce:2.21.5"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Infrastructure
@@ -359,6 +355,7 @@ impl Service for PortainerService {
     }
     fn volumes(&self, _hw: &HardwareInfo) -> Vec<String> {
         vec![
+            // Portainer requires access to the Docker socket to manage containers on behalf of the administrator (REQ-SEC-010).
             "/var/run/docker.sock:/var/run/docker.sock".to_string(),
             "./config/portainer:/data".to_string(),
         ]
@@ -387,7 +384,7 @@ impl Service for NetdataService {
         "netdata"
     }
     fn image(&self) -> &'static str {
-        "netdata/netdata:latest"
+        "netdata/netdata:v2.2.1"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Infrastructure

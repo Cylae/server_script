@@ -1,7 +1,7 @@
 version: null
 services:
   bazarr:
-    image: lscr.io/linuxserver/bazarr:latest
+    image: lscr.io/linuxserver/bazarr:1.4.5
     container_name: bazarr
     restart: unless-stopped
     ports:
@@ -34,7 +34,7 @@ services:
         max-file: '3'
         max-size: 10m
   dnscrypt-proxy:
-    image: klutchell/dnscrypt-proxy:latest
+    image: klutchell/dnscrypt-proxy:2.1.5
     container_name: dnscrypt-proxy
     restart: unless-stopped
     ports:
@@ -54,7 +54,7 @@ services:
         max-file: '3'
         max-size: 10m
   filebrowser:
-    image: filebrowser/filebrowser:latest
+    image: filebrowser/filebrowser:v2.32.0
     container_name: filebrowser
     restart: unless-stopped
     ports:
@@ -71,7 +71,7 @@ services:
         max-file: '3'
         max-size: 10m
   gitea:
-    image: gitea/gitea:latest
+    image: gitea/gitea:1.23.4
     container_name: gitea
     restart: unless-stopped
     ports:
@@ -97,7 +97,7 @@ services:
         max-file: '3'
         max-size: 10m
   glpi:
-    image: diouxx/glpi:latest
+    image: diouxx/glpi:10.0.16
     container_name: glpi
     restart: unless-stopped
     ports:
@@ -114,7 +114,7 @@ services:
         max-file: '3'
         max-size: 10m
   jackett:
-    image: lscr.io/linuxserver/jackett:latest
+    image: lscr.io/linuxserver/jackett:0.22.1237
     container_name: jackett
     restart: unless-stopped
     ports:
@@ -147,7 +147,7 @@ services:
         max-file: '3'
         max-size: 10m
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
+    image: lscr.io/linuxserver/jellyfin:10.10.6
     container_name: jellyfin
     restart: unless-stopped
     ports:
@@ -180,7 +180,7 @@ services:
         max-file: '3'
         max-size: 10m
   jellyseerr:
-    image: fallenbagel/jellyseerr:latest
+    image: fallenbagel/jellyseerr:1.7.0
     container_name: jellyseerr
     restart: unless-stopped
     ports:
@@ -199,7 +199,7 @@ services:
         max-file: '3'
         max-size: 10m
   mailserver:
-    image: mailserver/docker-mailserver:latest
+    image: mailserver/docker-mailserver:14.0.0
     container_name: mailserver
     restart: unless-stopped
     ports:
@@ -233,7 +233,7 @@ services:
         max-file: '3'
         max-size: 10m
   mariadb:
-    image: lscr.io/linuxserver/mariadb:latest
+    image: lscr.io/linuxserver/mariadb:11.4.5
     container_name: mariadb
     restart: unless-stopped
     environment:
@@ -257,7 +257,7 @@ services:
         max-file: '3'
         max-size: 10m
   netdata:
-    image: netdata/netdata:latest
+    image: netdata/netdata:v2.2.1
     container_name: netdata
     restart: unless-stopped
     ports:
@@ -282,7 +282,7 @@ services:
         max-file: '3'
         max-size: 10m
   nextcloud:
-    image: lscr.io/linuxserver/nextcloud:latest
+    image: lscr.io/linuxserver/nextcloud:30.0.6
     container_name: nextcloud
     restart: unless-stopped
     ports:
@@ -309,7 +309,7 @@ services:
         max-file: '3'
         max-size: 10m
   nginx-proxy:
-    image: jc21/nginx-proxy-manager:latest
+    image: jc21/nginx-proxy-manager:2.12.1
     container_name: nginx-proxy
     restart: unless-stopped
     ports:
@@ -331,7 +331,7 @@ services:
         max-file: '3'
         max-size: 10m
   overseerr:
-    image: lscr.io/linuxserver/overseerr:latest
+    image: lscr.io/linuxserver/overseerr:1.33.2
     container_name: overseerr
     restart: unless-stopped
     ports:
@@ -350,7 +350,7 @@ services:
         max-file: '3'
         max-size: 10m
   plex:
-    image: lscr.io/linuxserver/plex:latest
+    image: lscr.io/linuxserver/plex:1.41.4
     container_name: plex
     restart: unless-stopped
     ports:
@@ -385,7 +385,7 @@ services:
         max-file: '3'
         max-size: 10m
   portainer:
-    image: portainer/portainer-ce:latest
+    image: portainer/portainer-ce:2.21.5
     container_name: portainer
     restart: unless-stopped
     ports:
@@ -407,7 +407,7 @@ services:
         max-file: '3'
         max-size: 10m
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
+    image: lscr.io/linuxserver/prowlarr:1.30.2
     container_name: prowlarr
     restart: unless-stopped
     ports:
@@ -440,7 +440,7 @@ services:
         max-file: '3'
         max-size: 10m
   qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
+    image: lscr.io/linuxserver/qbittorrent:4.6.5
     container_name: qbittorrent
     restart: unless-stopped
     ports:
@@ -462,7 +462,7 @@ services:
         max-file: '3'
         max-size: 10m
   radarr:
-    image: lscr.io/linuxserver/radarr:latest
+    image: lscr.io/linuxserver/radarr:5.19.3
     container_name: radarr
     restart: unless-stopped
     ports:
@@ -512,7 +512,7 @@ services:
         max-file: '3'
         max-size: 10m
   roundcube:
-    image: roundcube/roundcubemail:latest
+    image: roundcube/roundcubemail:1.6.10-fpm
     container_name: roundcube
     restart: unless-stopped
     ports:
@@ -535,7 +535,7 @@ services:
         max-file: '3'
         max-size: 10m
   sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
+    image: lscr.io/linuxserver/sonarr:4.0.13
     container_name: sonarr
     restart: unless-stopped
     ports:
@@ -568,7 +568,7 @@ services:
         max-file: '3'
         max-size: 10m
   syncthing:
-    image: lscr.io/linuxserver/syncthing:latest
+    image: lscr.io/linuxserver/syncthing:1.29.2
     container_name: syncthing
     restart: unless-stopped
     ports:
@@ -590,7 +590,7 @@ services:
         max-file: '3'
         max-size: 10m
   tautulli:
-    image: lscr.io/linuxserver/tautulli:latest
+    image: lscr.io/linuxserver/tautulli:2.14.4
     container_name: tautulli
     restart: unless-stopped
     ports:
@@ -630,7 +630,7 @@ services:
         max-file: '3'
         max-size: 10m
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:1.33.2
     container_name: vaultwarden
     restart: unless-stopped
     ports:
@@ -647,7 +647,7 @@ services:
         max-file: '3'
         max-size: 10m
   wireguard:
-    image: lscr.io/linuxserver/wireguard:latest
+    image: lscr.io/linuxserver/wireguard:1.0.20210914
     container_name: wireguard
     restart: unless-stopped
     ports:
@@ -672,7 +672,7 @@ services:
         max-file: '3'
         max-size: 10m
   yourls:
-    image: yourls:latest
+    image: yourls:1.9.2
     container_name: yourls
     restart: unless-stopped
     ports:

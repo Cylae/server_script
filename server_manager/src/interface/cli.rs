@@ -1,10 +1,10 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use log::{error, info, warn};
 use std::fmt::Write;
 use std::fs;
 use std::io::{self, Write as IoWrite};
-use std::process::Command;
+use crate::core::ops::{DockerOps, RealDockerOps, RealSystemOps, SystemOps};
 
 use crate::core::{config, docker, firewall, hardware, secrets, system, users};
 use crate::services;
@@ -181,22 +181,18 @@ async fn run_clean() -> Result<()> {
     info!("Cleaning system caches and unused Docker resources...");
 
     info!("Running Docker system prune (removing stopped containers & dangling images)...");
-    let prune_status = Command::new("/usr/bin/docker")
-        .args(["system", "prune", "-f"])
-        .status();
-
-    if let Ok(status) = prune_status {
-        if status.success() {
-            info!("Docker system prune completed successfully.");
-        } else {
-            warn!("Docker system prune exited with non-zero status.");
-        }
+    let docker_ops = RealDockerOps;
+    if let Err(e) = docker_ops.prune_system() {
+        warn!("Docker system prune failed: {}", e);
+    } else {
+        info!("Docker system prune completed successfully.");
     }
 
     info!("Vacuuming systemd journal logs (> 100M)...");
-    let _ = Command::new("journalctl")
-        .args(["--vacuum-size=100M"])
-        .status();
+    let system_ops = RealSystemOps;
+    if let Err(e) = system_ops.vacuum_journal("100M") {
+        warn!("Vacuuming journal logs failed: {}", e);
+    }
 
     info!("Cleaning temporary files in /tmp/server_manager...");
     let temp_dir = std::path::Path::new("/tmp/server_manager");
@@ -311,31 +307,28 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
 
     let secrets = secrets::Secrets::load_or_create()?;
     let hw = hardware::HardwareInfo::detect();
+    let system_ops = RealSystemOps;
+    let docker_ops = RealDockerOps;
 
     configure_services(&hw, &secrets, &config)?;
-    initialize_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config, &system_ops)?;
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Applying changes via Docker Compose...");
-    let status = Command::new("/usr/bin/docker")
-        .args(["compose", "up", "-d", "--remove-orphans"])
-        .status()
-        .context("Failed to run docker compose up")?;
+    docker_ops
+        .compose_up_remove_orphans()
+        .with_context(|| {
+            format!(
+                "Failed to apply changes via Docker Compose for service '{}'",
+                service_name
+            )
+        })?;
 
-    if status.success() {
-        info!(
-            "Service '{}' {} successfully!",
-            service_name,
-            if enable { "enabled" } else { "disabled" }
-        );
-    } else {
-        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
-        bail!(
-            "Failed to apply changes via Docker Compose for service '{}' (exit status: {:?}).",
-            service_name,
-            status.code()
-        );
-    }
+    info!(
+        "Service '{}' {} successfully!",
+        service_name,
+        if enable { "enabled" } else { "disabled" }
+    );
 
     Ok(())
 }
@@ -364,27 +357,21 @@ async fn run_install() -> Result<()> {
 
     docker::install()?;
 
+    let system_ops = RealSystemOps;
+    let docker_ops = RealDockerOps;
+
     configure_services(&hw, &secrets, &config)?;
-    initialize_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config, &system_ops)?;
 
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Launching Services via Docker Compose...");
-    let status = Command::new("/usr/bin/docker")
-        .args(["compose", "up", "-d", "--remove-orphans"])
-        .status()
-        .context("Failed to run docker compose up")?;
+    docker_ops
+        .compose_up_remove_orphans()
+        .context("Docker Compose failed during installation")?;
 
-    if status.success() {
-        info!("Server Manager Stack Deployed Successfully! 🚀");
-        print_deployment_summary(&secrets);
-    } else {
-        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
-        bail!(
-            "Docker Compose failed during installation (exit status: {:?}).",
-            status.code()
-        );
-    }
+    info!("Server Manager Stack Deployed Successfully! 🚀");
+    print_deployment_summary(&secrets);
 
     Ok(())
 }
@@ -531,12 +518,8 @@ async fn run_status() -> Result<()> {
         format!("{} / {} Services Enabled", enabled_count, total_services)
     );
 
-    if let Ok(true) = tokio::process::Command::new("/usr/bin/docker")
-        .arg("ps")
-        .status()
-        .await
-        .map(|s| s.success())
-    {
+    let docker_ops = RealDockerOps;
+    if docker_ops.is_daemon_running() {
         println!("║ Docker Daemon:   Active 🟢                                  ║");
     } else {
         println!("║ Docker Daemon:   Inactive 🔴                                ║");
@@ -570,33 +553,18 @@ async fn run_update() -> Result<()> {
         std::env::set_current_dir("/opt/server_manager")?;
     }
 
+    let docker_ops = RealDockerOps;
     info!("Pulling latest Docker images...");
-    let pull_status = tokio::process::Command::new("/usr/bin/docker")
-        .args(["compose", "pull"])
-        .status()
-        .await
-        .context("Failed to run docker compose pull")?;
-
-    if !pull_status.success() {
-        log::warn!("Some images failed to pull or docker compose pull returned non-zero status.");
+    if let Err(e) = docker_ops.compose_pull_current() {
+        log::warn!("Some images failed to pull or docker compose pull returned non-zero status: {}", e);
     }
 
     info!("Re-deploying updated services...");
-    let up_status = tokio::process::Command::new("/usr/bin/docker")
-        .args(["compose", "up", "-d", "--remove-orphans"])
-        .status()
-        .await
-        .context("Failed to run docker compose up")?;
+    docker_ops
+        .compose_up_remove_orphans()
+        .context("Failed to re-deploy stack via Docker Compose during update")?;
 
-    if up_status.success() {
-        info!("Server Manager Stack updated successfully! 🚀");
-    } else {
-        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
-        bail!(
-            "Failed to re-deploy stack via Docker Compose during update (exit status: {:?}).",
-            up_status.code()
-        );
-    }
+    info!("Server Manager Stack updated successfully! 🚀");
 
     Ok(())
 }
@@ -607,27 +575,19 @@ async fn run_apply() -> Result<()> {
     let secrets = secrets::Secrets::load_or_create()?;
     let config = config::Config::load_async().await?;
     let hw = hardware::HardwareInfo::detect();
+    let system_ops = RealSystemOps;
+    let docker_ops = RealDockerOps;
 
     configure_services(&hw, &secrets, &config)?;
-    initialize_services(&hw, &secrets, &config)?;
+    initialize_services(&hw, &secrets, &config, &system_ops)?;
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Applying changes via Docker Compose...");
-    let status = tokio::process::Command::new("/usr/bin/docker")
-        .args(["compose", "up", "-d", "--remove-orphans"])
-        .status()
-        .await
-        .context("Failed to run docker compose up")?;
+    docker_ops
+        .compose_up_remove_orphans()
+        .context("Failed to apply changes via Docker Compose")?;
 
-    if status.success() {
-        info!("Server Manager Configuration Applied Successfully! 🚀");
-    } else {
-        // SECURITY/CORRECTNESS (fixes A09): a failed deployment must not exit 0.
-        bail!(
-            "Failed to apply changes via Docker Compose (exit status: {:?}).",
-            status.code()
-        );
-    }
+    info!("Server Manager Configuration Applied Successfully! 🚀");
 
     Ok(())
 }
@@ -663,6 +623,7 @@ fn initialize_services(
     hw: &hardware::HardwareInfo,
     secrets: &secrets::Secrets,
     config: &config::Config,
+    system_ops: &dyn SystemOps,
 ) -> Result<()> {
     info!("Initializing services (system setup)...");
     let services = services::get_all_services();
@@ -671,7 +632,7 @@ fn initialize_services(
             continue;
         }
         service
-            .initialize(hw, secrets)
+            .initialize(hw, secrets, system_ops)
             .with_context(|| format!("Failed to initialize service: {}", service.name()))?;
     }
     Ok(())

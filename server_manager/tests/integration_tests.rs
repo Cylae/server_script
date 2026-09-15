@@ -50,10 +50,10 @@ fn test_generate_compose_structure() {
     assert!(compose.services.contains_key("syncthing"));
 
     let plex = compose.services.get("plex").expect("Value should exist");
-    assert_eq!(plex.image, "lscr.io/linuxserver/plex:latest");
+    assert_eq!(plex.image, "lscr.io/linuxserver/plex:1.41.4");
 
     let yourls = compose.services.get("yourls").expect("Value should exist");
-    assert_eq!(yourls.image, "yourls:latest");
+    assert_eq!(yourls.image, "yourls:1.9.2");
 
     let syncthing = compose
         .services

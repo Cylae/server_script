@@ -166,20 +166,23 @@ pub fn self_update() -> Result<String> {
 }
 
 fn is_newer_version(latest: &str, current: &str) -> bool {
-    let parse_ver = |v: &str| -> Vec<u32> {
-        v.trim_start_matches('v')
-            .split('.')
-            .filter_map(|s| s.parse::<u32>().ok())
-            .collect()
+    let parse_ver = |v: &str| -> Option<Vec<u32>> {
+        let trimmed = v.trim_start_matches('v');
+        if trimmed.is_empty() {
+            return None;
+        }
+        let parts: Result<Vec<u32>, _> = trimmed.split('.').map(|s| s.parse::<u32>()).collect();
+        let parts = parts.ok()?;
+        if parts.is_empty() || parts.len() > 4 {
+            None
+        } else {
+            Some(parts)
+        }
     };
 
-    let l_parts = parse_ver(latest);
-    let c_parts = parse_ver(current);
-
-    if l_parts.len() == 3 && c_parts.len() == 3 {
-        l_parts > c_parts
-    } else {
-        latest != current && !latest.is_empty()
+    match (parse_ver(latest), parse_ver(current)) {
+        (Some(l_parts), Some(c_parts)) => l_parts > c_parts,
+        _ => false, // Fail closed on malformed strings or downgrades
     }
 }
 
@@ -194,6 +197,11 @@ mod tests {
         assert!(is_newer_version("2.0.0", "1.0.9"));
         assert!(!is_newer_version("1.0.9", "1.0.9"));
         assert!(!is_newer_version("1.0.8", "1.0.9"));
+        assert!(!is_newer_version("0.9.0", "1.0.9"));
+        assert!(!is_newer_version("invalid", "1.0.9"));
+        assert!(!is_newer_version("1.0.9", "invalid"));
+        assert!(!is_newer_version("", "1.0.9"));
+        assert!(is_newer_version("v1.2.0", "v1.1.0"));
     }
 
     #[test]

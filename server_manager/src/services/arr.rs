@@ -62,35 +62,35 @@ macro_rules! define_arr_service {
 define_arr_service!(
     SonarrService,
     "sonarr",
-    "lscr.io/linuxserver/sonarr:latest",
+    "lscr.io/linuxserver/sonarr:4.0.13",
     8989,
     "Smart TV Series Manager"
 );
 define_arr_service!(
     RadarrService,
     "radarr",
-    "lscr.io/linuxserver/radarr:latest",
+    "lscr.io/linuxserver/radarr:5.19.3",
     7878,
     "Movie Manager"
 );
 define_arr_service!(
     ProwlarrService,
     "prowlarr",
-    "lscr.io/linuxserver/prowlarr:latest",
+    "lscr.io/linuxserver/prowlarr:1.30.2",
     9696,
     "Torrent & Usenet Indexer Sync"
 );
 define_arr_service!(
     JackettService,
     "jackett",
-    "lscr.io/linuxserver/jackett:latest",
+    "lscr.io/linuxserver/jackett:0.22.1237",
     9117,
     "Indexer Proxy"
 );
 define_arr_service!(
     BazarrService,
     "bazarr",
-    "lscr.io/linuxserver/bazarr:latest",
+    "lscr.io/linuxserver/bazarr:1.4.5",
     6767,
     "Subtitle Management"
 );

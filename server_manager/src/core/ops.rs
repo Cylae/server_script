@@ -18,6 +18,8 @@ pub trait SystemOps: Send + Sync {
     fn is_service_active(&self, service_name: &str) -> bool;
     /// Stops and disables a systemd service unit.
     fn stop_system_service(&self, service_name: &str) -> Result<()>;
+    /// Vacuums systemd journal logs to the specified size (e.g., "100M").
+    fn vacuum_journal(&self, retention: &str) -> Result<()>;
 }
 
 /// Trait abstraction for Docker & Docker Compose operations.
@@ -31,6 +33,10 @@ pub trait DockerOps: Send + Sync {
     fn prune_system(&self) -> Result<()>;
     /// Runs `docker compose up -d --remove-orphans` in the current directory.
     fn compose_up_remove_orphans(&self) -> Result<()>;
+    /// Checks whether the Docker daemon is responding.
+    fn is_daemon_running(&self) -> bool;
+    /// Pulls Docker images for the compose stack in the current directory.
+    fn compose_pull_current(&self) -> Result<()>;
 }
 
 /// Trait abstraction for Firewall operations.
@@ -83,6 +89,23 @@ impl SystemOps for RealSystemOps {
         let _ = Command::new("/usr/bin/systemctl")
             .args(["disable", service_name])
             .status();
+        Ok(())
+    }
+
+    fn vacuum_journal(&self, retention: &str) -> Result<()> {
+        let arg = format!("--vacuum-size={}", retention);
+        let path = if Path::new("/usr/bin/journalctl").exists() {
+            "/usr/bin/journalctl"
+        } else {
+            "journalctl"
+        };
+        let status = Command::new(path)
+            .arg(&arg)
+            .status()
+            .context("Failed to vacuum journal")?;
+        if !status.success() {
+            bail!("journalctl --vacuum-size failed with status: {}", status);
+        }
         Ok(())
     }
 }
@@ -155,6 +178,25 @@ impl DockerOps for RealDockerOps {
             .context("Failed to spawn docker compose up --remove-orphans")?;
         if !status.success() {
             bail!("docker compose up --remove-orphans failed with status: {}", status);
+        }
+        Ok(())
+    }
+
+    fn is_daemon_running(&self) -> bool {
+        Command::new("/usr/bin/docker")
+            .arg("ps")
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
+    fn compose_pull_current(&self) -> Result<()> {
+        let status = Command::new("/usr/bin/docker")
+            .args(["compose", "pull"])
+            .status()
+            .context("Failed to spawn docker compose pull")?;
+        if !status.success() {
+            bail!("docker compose pull failed with status: {}", status);
         }
         Ok(())
     }
@@ -270,6 +312,14 @@ impl SystemOps for MockSystemOps {
             .map(|mut c| c.push(format!("stop_system_service:{}", service_name)));
         Ok(())
     }
+
+    fn vacuum_journal(&self, retention: &str) -> Result<()> {
+        let _ = self
+            .calls
+            .lock()
+            .map(|mut c| c.push(format!("vacuum_journal:{}", retention)));
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -327,6 +377,22 @@ impl DockerOps for MockDockerOps {
             .calls
             .lock()
             .map(|mut c| c.push("compose_up_remove_orphans".to_string()));
+        Ok(())
+    }
+
+    fn is_daemon_running(&self) -> bool {
+        let _ = self
+            .calls
+            .lock()
+            .map(|mut c| c.push("is_daemon_running".to_string()));
+        true
+    }
+
+    fn compose_pull_current(&self) -> Result<()> {
+        let _ = self
+            .calls
+            .lock()
+            .map(|mut c| c.push("compose_pull_current".to_string()));
         Ok(())
     }
 }

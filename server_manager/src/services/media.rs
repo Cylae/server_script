@@ -10,7 +10,7 @@ impl Service for PlexService {
         "plex"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/plex:latest"
+        "lscr.io/linuxserver/plex:1.41.4"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Media
@@ -95,7 +95,7 @@ impl Service for JellyfinService {
         "jellyfin"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/jellyfin:latest"
+        "lscr.io/linuxserver/jellyfin:10.10.6"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Media
@@ -172,7 +172,7 @@ impl Service for JellyseerrService {
         "jellyseerr"
     }
     fn image(&self) -> &'static str {
-        "fallenbagel/jellyseerr:latest"
+        "fallenbagel/jellyseerr:1.7.0"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Media
@@ -203,7 +203,7 @@ impl Service for TautulliService {
         "tautulli"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/tautulli:latest"
+        "lscr.io/linuxserver/tautulli:2.14.4"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Media
@@ -236,7 +236,7 @@ impl Service for OverseerrService {
         "overseerr"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/overseerr:latest"
+        "lscr.io/linuxserver/overseerr:1.33.2"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Media

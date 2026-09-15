@@ -242,7 +242,7 @@ async fn test_http_security_headers_middleware() {
         .body(Body::empty())
         .expect("Valid request");
 
-    let response = app.oneshot(req).await.expect("App should respond");
+    let response = app.clone().oneshot(req).await.expect("App should respond");
     assert_eq!(response.status(), StatusCode::OK);
 
     let headers = response.headers();
@@ -266,11 +266,13 @@ async fn test_http_security_headers_middleware() {
         headers.get("referrer-policy").and_then(|v| v.to_str().ok()),
         Some("strict-origin-when-cross-origin")
     );
+    assert!(
+        headers.get("strict-transport-security").is_none(),
+        "Plain HTTP deployment must not emit HSTS header to avoid breaking HTTP-only setups"
+    );
     assert_eq!(
-        headers
-            .get("strict-transport-security")
-            .and_then(|v| v.to_str().ok()),
-        Some("max-age=31536000; includeSubDomains")
+        headers.get("cache-control").and_then(|v| v.to_str().ok()),
+        Some("no-store, no-cache, must-revalidate")
     );
     assert!(
         headers
@@ -279,6 +281,22 @@ async fn test_http_security_headers_middleware() {
             .unwrap_or("")
             .contains("default-src 'self'"),
         "CSP header must restrict default sources to 'self'"
+    );
+
+    // Test with HTTPS forwarded header: HSTS must be emitted
+    let https_req = Request::builder()
+        .uri("/login")
+        .method("GET")
+        .header("x-forwarded-proto", "https")
+        .body(Body::empty())
+        .expect("Valid request");
+    let https_resp = app.clone().oneshot(https_req).await.expect("App should respond");
+    assert_eq!(
+        https_resp
+            .headers()
+            .get("strict-transport-security")
+            .and_then(|v| v.to_str().ok()),
+        Some("max-age=31536000; includeSubDomains")
     );
 }
 

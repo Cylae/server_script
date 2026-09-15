@@ -42,7 +42,13 @@ pub fn install_dependencies() -> Result<()> {
     ];
 
     info!("Updating package lists...");
-    let update_status = Command::new("apt-get")
+    let apt_path = if std::path::Path::new("/usr/bin/apt-get").exists() {
+        "/usr/bin/apt-get"
+    } else {
+        "apt-get"
+    };
+    let update_status = Command::new(apt_path)
+        .env("DEBIAN_FRONTEND", "noninteractive")
         .arg("update")
         .status()
         .context("Failed to execute apt-get update")?;
@@ -52,7 +58,8 @@ pub fn install_dependencies() -> Result<()> {
     }
 
     info!("Installing dependencies: {:?}", pkgs);
-    let status = Command::new("apt-get")
+    let status = Command::new(apt_path)
+        .env("DEBIAN_FRONTEND", "noninteractive")
         .arg("install")
         .arg("-y")
         .args(&pkgs)
@@ -64,7 +71,12 @@ pub fn install_dependencies() -> Result<()> {
     }
 
     // Enable and start Fail2ban for brute-force attack prevention
-    let _ = Command::new("systemctl")
+    let systemctl_path = if std::path::Path::new("/usr/bin/systemctl").exists() {
+        "/usr/bin/systemctl"
+    } else {
+        "systemctl"
+    };
+    let _ = Command::new(systemctl_path)
         .args(["enable", "--now", "fail2ban"])
         .status();
 
@@ -72,16 +84,7 @@ pub fn install_dependencies() -> Result<()> {
 }
 
 fn validate_username(username: &str) -> Result<()> {
-    if username.is_empty() {
-        bail!("Username cannot be empty");
-    }
-    // Allow alphanumeric, dashes, underscores. No spaces.
-    if !username
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-    {
-        bail!("Username contains invalid characters. Use alphanumeric, '-' or '_'.");
-    }
+    crate::core::validate::validate_username(username)?;
     Ok(())
 }
 
@@ -104,11 +107,12 @@ pub fn create_system_user(username: &str, password: &str) -> Result<()> {
     }
 
     info!("Creating system user '{}'...", username);
-    // useradd -m -s /bin/bash <username>
+    // useradd -m -s /bin/bash -- <username>
     let status = Command::new("/usr/sbin/useradd")
         .arg("-m")
         .arg("-s")
         .arg("/bin/bash")
+        .arg("--")
         .arg(username)
         .status()
         .context("Failed to run useradd")?;
@@ -150,6 +154,7 @@ pub fn delete_system_user(username: &str) -> Result<()> {
     info!("Deleting system user '{}'...", username);
     let status = Command::new("/usr/sbin/userdel")
         .arg("-r")
+        .arg("--")
         .arg(username)
         .status()
         .context("Failed to run userdel")?;
@@ -231,6 +236,7 @@ fn get_home_device() -> Result<String> {
 }
 
 pub fn set_system_quota(username: &str, quota_gb: u64) -> Result<()> {
+    validate_username(username)?;
     info!("Setting quota for user '{}': {} GB", username, quota_gb);
 
     // Check if quota command exists
@@ -343,5 +349,45 @@ mod tests {
                 assert_eq!(e.to_string(), "This application must be run as root.");
             }
         }
+    }
+
+    #[test]
+    fn test_username_validation() {
+        assert!(validate_username("alice").is_ok());
+        assert!(validate_username("bob_123").is_ok());
+        assert!(validate_username("_admin").is_ok());
+
+        assert!(validate_username("").is_err());
+        assert!(validate_username("-bad").is_err());
+        assert!(validate_username("1bad").is_err());
+        assert!(validate_username("bad user").is_err());
+        assert!(validate_username("user;rm").is_err());
+    }
+
+    #[test]
+    fn test_password_sanitization_rejections() {
+        // Must reject newlines (record injection)
+        assert!(set_system_user_password("alice", "pass\nword").is_err());
+        // Must reject NUL byte
+        assert!(set_system_user_password("alice", "pass\0word").is_err());
+        // Must reject colon (delimiter injection)
+        assert!(set_system_user_password("alice", "pass:word").is_err());
+        // Must reject invalid username
+        assert!(set_system_user_password("-invalid", "validpassword").is_err());
+    }
+
+    #[test]
+    fn test_user_operations_reject_invalid_usernames() {
+        assert!(create_system_user("-alice", "password123").is_err());
+        assert!(create_system_user("bad user", "password123").is_err());
+        assert!(delete_system_user("-alice").is_err());
+        assert!(delete_system_user("bad user").is_err());
+        assert!(set_system_quota("-alice", 10).is_err());
+        assert!(set_system_quota("bad user", 10).is_err());
+    }
+
+    #[test]
+    fn test_get_uid_nonexistent() {
+        assert!(get_uid("nonexistent_user_xyz_12345").is_err());
     }
 }

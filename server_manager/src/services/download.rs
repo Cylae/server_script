@@ -10,7 +10,7 @@ impl Service for QBittorrentService {
         "qbittorrent"
     }
     fn image(&self) -> &'static str {
-        "lscr.io/linuxserver/qbittorrent:latest"
+        "lscr.io/linuxserver/qbittorrent:4.6.5"
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::Download

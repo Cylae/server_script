@@ -2,6 +2,7 @@ use crate::core::config::Config;
 use crate::core::journal::{Journal, StepStatus};
 use crate::core::users::{Role, UserManager};
 use crate::services;
+use anyhow::Context;
 use axum::{
     extract::{Form, Path, State},
     http::StatusCode,
@@ -191,8 +192,11 @@ impl AppState {
 
 pub fn build_app(app_state: Arc<AppState>) -> Router {
     let session_store = MemoryStore::default();
+    let secure_cookies = std::env::var("SERVER_MANAGER_SECURE_COOKIES")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Localhost/LAN http by default
+        .with_secure(secure_cookies)
         .with_http_only(true)
         .with_same_site(SameSite::Strict)
         .with_expiry(Expiry::OnInactivity(Duration::hours(24)));
@@ -239,12 +243,12 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let initial_config = Config::load().unwrap_or_default();
+    let initial_config = Config::load().context("Failed to load initial configuration from disk")?;
     let initial_config_mtime = std::fs::metadata("config.yaml")
         .ok()
         .and_then(|m| m.modified().ok());
 
-    let initial_users = UserManager::load().unwrap_or_default();
+    let initial_users = UserManager::load().context("Failed to load initial users database from disk")?;
     let initial_users_mtime = std::fs::metadata("users.yaml")
         .ok()
         .and_then(|m| m.modified().ok())
@@ -354,6 +358,16 @@ async fn security_headers_middleware(
     request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
+    let is_https = request
+        .headers()
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.eq_ignore_ascii_case("https"))
+        .unwrap_or(false)
+        || std::env::var("SERVER_MANAGER_ENABLE_HSTS")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     headers.insert(
@@ -372,9 +386,15 @@ async fn security_headers_middleware(
         axum::http::header::REFERRER_POLICY,
         axum::http::HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
+    if is_https {
+        headers.insert(
+            axum::http::header::STRICT_TRANSPORT_SECURITY,
+            axum::http::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        );
+    }
     headers.insert(
-        axum::http::header::STRICT_TRANSPORT_SECURITY,
-        axum::http::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store, no-cache, must-revalidate"),
     );
     headers.insert(
         axum::http::header::CONTENT_SECURITY_POLICY,
@@ -486,6 +506,9 @@ async fn login_handler(
             role: user.role,
         };
         session.clear().await;
+        if let Err(e) = session.cycle_id().await {
+            error!("Failed to cycle session ID on login: {}", e);
+        }
         let csrf_token = format!(
             "{:016x}{:016x}",
             rand::random::<u64>(),

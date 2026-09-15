@@ -55,6 +55,7 @@ pub fn atomic_write<P: AsRef<Path>>(path: P, content: &[u8], mode: u32) -> Resul
         file.write_all(content).context("Failed to write output")?;
         file.sync_all().context("Failed to fsync output")?;
         fs::rename(&tmp_path, dest).context("Failed to atomically replace output")?;
+        #[cfg(unix)]
         fs::File::open(parent)?
             .sync_all()
             .context("Failed to fsync output directory")?;

@@ -206,7 +206,7 @@ fn test_compose_golden_files_match() {
             let _ = fs::create_dir_all(parent);
         }
 
-        if !golden_path.exists() {
+        if !golden_path.exists() || std::env::var("UPDATE_GOLDEN").is_ok() {
             fs::write(&golden_path, &generated).unwrap_or_else(|e| {
                 panic!(
                     "Failed to write initial golden file {}: {}",
