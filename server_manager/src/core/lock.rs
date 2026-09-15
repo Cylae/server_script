@@ -56,14 +56,19 @@ impl ProcessLock {
         })
     }
 
-    /// Acquires the default server_manager advisory lock.
-    pub fn acquire_default() -> Result<Self> {
+    /// Acquires the default server_manager advisory lock with configurable blocking mode.
+    pub fn acquire_default_blocking(non_blocking: bool) -> Result<Self> {
         let lock_path = if Path::new("/var/lock").exists() {
             PathBuf::from("/var/lock/server_manager.lock")
         } else {
             std::env::temp_dir().join("server_manager.lock")
         };
-        Self::acquire(&lock_path, true)
+        Self::acquire(&lock_path, non_blocking)
+    }
+
+    /// Acquires the default server_manager advisory lock in non-blocking mode.
+    pub fn acquire_default() -> Result<Self> {
+        Self::acquire_default_blocking(true)
     }
 
     pub fn path(&self) -> &Path {

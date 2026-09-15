@@ -158,11 +158,17 @@ impl DockerOps for RealDockerOps {
     fn prune_system(&self) -> Result<()> {
         // SECURITY (F05, REQ-OPS-004): Previous implementation used `-af --volumes`
         // which removes ALL unused images and ALL anonymous volumes, including
-        // those belonging to other workloads on the same host. Using only `-f`
-        // limits cleanup to stopped containers and dangling (untagged) images,
-        // preserving the non-destructive host guarantee.
+        // those belonging to other workloads on the same host. Using `-f`
+        // with a project label filter limits cleanup strictly to resources
+        // owned by server_manager, preserving the non-destructive host guarantee.
         let status = Command::new("/usr/bin/docker")
-            .args(["system", "prune", "-f"])
+            .args([
+                "system",
+                "prune",
+                "-f",
+                "--filter",
+                "label=com.docker.compose.project=server_manager",
+            ])
             .status()
             .context("Failed to spawn docker system prune")?;
         if !status.success() {

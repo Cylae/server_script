@@ -217,7 +217,14 @@ pub fn set_system_user_password(username: &str, password: &str) -> Result<()> {
 
 fn get_home_device() -> Result<String> {
     // df -P /home | tail -1 | awk '{print $1}'
-    let output = Command::new("df")
+    let df_path = if std::path::Path::new("/bin/df").exists() {
+        "/bin/df"
+    } else if std::path::Path::new("/usr/bin/df").exists() {
+        "/usr/bin/df"
+    } else {
+        "df"
+    };
+    let output = Command::new(df_path)
         .arg("-P")
         .arg("/home")
         .output()
@@ -318,7 +325,14 @@ net.core.wmem_max=1048576
     crate::core::atomic_io::atomic_write_str(path, &config, 0o644)
         .context("Failed to write sysctl config")?;
 
-    let status = Command::new("sysctl")
+    let sysctl_path = if std::path::Path::new("/sbin/sysctl").exists() {
+        "/sbin/sysctl"
+    } else if std::path::Path::new("/usr/sbin/sysctl").exists() {
+        "/usr/sbin/sysctl"
+    } else {
+        "sysctl"
+    };
+    let status = Command::new(sysctl_path)
         .arg("--system")
         .status()
         .context("Failed to reload sysctl")?;

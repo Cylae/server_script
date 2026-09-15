@@ -29,7 +29,12 @@ pub fn check_for_updates() -> Result<UpdateInfo> {
     if std::path::Path::new(".git").exists()
         || std::path::Path::new("/opt/server_manager/.git").exists()
     {
-        if let Ok(git_output) = Command::new("git")
+        let git_path = if std::path::Path::new("/usr/bin/git").exists() {
+            "/usr/bin/git"
+        } else {
+            "git"
+        };
+        if let Ok(git_output) = Command::new(git_path)
             .args(["describe", "--tags", "--abbrev=0"])
             .output()
         {
@@ -86,31 +91,36 @@ pub fn self_update() -> Result<String> {
 
     info!("Updating repository at {:?}...", repo_dir);
 
-    // git fetch & pull — a failure here means we would rebuild stale (or, in a
-    // conflicted rebase, inconsistent) source, so it must abort the update.
-    let pull_status = Command::new("git")
+    // git fetch & pull — must be non-destructive (`--ff-only`) to uphold Rule 8 / §L0.2.
+    // A failure means we would rebuild stale or diverged source, so it aborts the update.
+    let git_path = if std::path::Path::new("/usr/bin/git").exists() {
+        "/usr/bin/git"
+    } else {
+        "git"
+    };
+    let pull_status = Command::new(git_path)
         .current_dir(repo_dir)
-        .args(["pull", "--rebase"])
+        .args(["pull", "--ff-only"])
         .status()
-        .context("Failed to execute git pull")?;
+        .context("Failed to execute git pull --ff-only")?;
 
     if !pull_status.success() {
         bail!(
-            "git pull --rebase exited with status {:?}; aborting self-update to avoid building \
-             from a stale or conflicted working tree. Resolve the repository state manually.",
+            "git pull --ff-only exited with status {:?}; aborting self-update to avoid building \
+             from a stale or diverged working tree. Resolve the repository state manually.",
             pull_status.code()
         );
     }
     info!("Git pull successful.");
 
     // A rebuild requires cargo; without it we cannot safely produce a new binary.
-    which::which("cargo").context(
+    let cargo_path = which::which("cargo").context(
         "cargo is not available on PATH; cannot rebuild for self-update. Install the Rust \
          toolchain or update via a packaged release instead.",
     )?;
 
     info!("Compiling release binary with cargo...");
-    let build_status = Command::new("cargo")
+    let build_status = Command::new(&cargo_path)
         .current_dir(repo_dir)
         .args(["build", "--release"])
         .status()

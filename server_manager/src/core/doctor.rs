@@ -334,7 +334,14 @@ pub fn check_port_conflicts() -> DoctorCheckResult {
 }
 
 pub fn check_disk_space() -> DoctorCheckResult {
-    if let Ok(output) = Command::new("df").arg("-Pk").arg(".").output() {
+    let df_path = if std::path::Path::new("/bin/df").exists() {
+        "/bin/df"
+    } else if std::path::Path::new("/usr/bin/df").exists() {
+        "/usr/bin/df"
+    } else {
+        "df"
+    };
+    if let Ok(output) = Command::new(df_path).arg("-Pk").arg(".").output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if let Some(line) = stdout.lines().nth(1) {
@@ -378,7 +385,14 @@ pub fn check_disk_space() -> DoctorCheckResult {
 }
 
 pub fn check_ntp_sync() -> DoctorCheckResult {
-    if let Ok(output) = Command::new("timedatectl").arg("status").output() {
+    let timedatectl_path = if std::path::Path::new("/usr/bin/timedatectl").exists() {
+        "/usr/bin/timedatectl"
+    } else if std::path::Path::new("/bin/timedatectl").exists() {
+        "/bin/timedatectl"
+    } else {
+        "timedatectl"
+    };
+    if let Ok(output) = Command::new(timedatectl_path).arg("status").output() {
         if output.status.success() {
             let status = String::from_utf8_lossy(&output.stdout);
             let synced =

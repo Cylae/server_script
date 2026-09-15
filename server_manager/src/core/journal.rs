@@ -180,17 +180,21 @@ impl Journal {
         let entries = self.read_entries()?;
         let op_entries: Vec<&JournalEntry> = entries.iter().filter(|e| e.op_id == op_id).collect();
 
-        let mut completed_steps: Vec<&JournalEntry> = op_entries
-            .iter()
-            .copied()
-            .filter(|e| e.status == StepStatus::Completed && e.compensatory_action.is_some())
-            .collect();
+        let mut steps_by_index: HashMap<usize, &JournalEntry> = HashMap::new();
+        for e in op_entries.iter().copied() {
+            if (e.status == StepStatus::Completed || e.status == StepStatus::InProgress)
+                && e.compensatory_action.is_some()
+            {
+                steps_by_index.insert(e.step_index, e);
+            }
+        }
 
+        let mut steps_to_compensate: Vec<&JournalEntry> = steps_by_index.into_values().collect();
         // Sort by step_index descending to roll back in reverse order (N-1 down to 0)
-        completed_steps.sort_by_key(|a| std::cmp::Reverse(a.step_index));
+        steps_to_compensate.sort_by_key(|a| std::cmp::Reverse(a.step_index));
 
         let mut compensated_count = 0;
-        for step in completed_steps {
+        for step in steps_to_compensate {
             if let Some(ref action) = step.compensatory_action {
                 info!(
                     "Executing rollback compensation for op={} step={}: {}",

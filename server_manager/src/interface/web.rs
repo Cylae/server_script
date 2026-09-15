@@ -1409,7 +1409,14 @@ fn run_cli_toggle(service: &str, enable: bool) {
 /// Performs the service enable/disable and compose regeneration in-process,
 /// replacing the previous subprocess spawn pattern.
 async fn toggle_service_in_process(service_name: &str, enable: bool) -> anyhow::Result<()> {
-    use crate::core::{config, hardware, secrets};
+    use crate::core::{config, hardware, lock::ProcessLock, secrets};
+
+    // Serialize service mutations with an advisory lock across processes and concurrent requests
+    let _lock = tokio::task::spawn_blocking(|| {
+        ProcessLock::acquire_default_blocking(false)
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("Task join error acquiring lock: {}", e))??;
 
     let mut config = config::Config::load_async().await?;
     if enable {
