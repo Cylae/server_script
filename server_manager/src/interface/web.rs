@@ -17,7 +17,6 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use sysinfo::{CpuExt, DiskExt, System, SystemExt};
 use time::Duration;
-use tokio::process::Command;
 use tokio::sync::RwLock;
 use tower_sessions::{cookie::SameSite, Expiry, MemoryStore, Session, SessionManagerLayer};
 
@@ -1368,26 +1367,58 @@ fn run_cli_toggle(service: &str, enable: bool) {
         return;
     }
     let action = if enable { "enable" } else { "disable" };
-    info!("Web UI triggering: server_manager {} {}", action, service);
+    info!("Web UI triggering: {} {}", action, service);
 
-    if let Ok(exe) = std::env::current_exe() {
-        match Command::new(exe).arg(action).arg(service).spawn() {
-            Ok(mut child) => {
-                // Spawn a background task to wait for the child process to exit.
-                // This prevents zombie processes by collecting the exit status.
-                tokio::spawn(async move {
-                    if let Err(e) = child.wait().await {
-                        error!("Failed to wait on child process: {}", e);
-                    }
-                });
-            }
-            Err(e) => {
-                error!("Failed to spawn command: {}", e);
-            }
+    // ARCHITECTURE (F02): Previous implementation spawned a child process via
+    // `Command::new(current_exe).arg(action).arg(service)`, violating the
+    // spec §4.1 invariant that interface code must not call Command::new.
+    // We now perform the toggle in-process through core abstractions.
+    let service_name = service.to_string();
+    tokio::spawn(async move {
+        if let Err(e) = toggle_service_in_process(&service_name, enable).await {
+            error!("Failed to {} service '{}': {}", action, service_name, e);
         }
+    });
+}
+
+/// Performs the service enable/disable and compose regeneration in-process,
+/// replacing the previous subprocess spawn pattern.
+async fn toggle_service_in_process(service_name: &str, enable: bool) -> anyhow::Result<()> {
+    use crate::core::{config, hardware, secrets};
+
+    let mut config = config::Config::load_async().await?;
+    if enable {
+        config.enable_service(service_name);
     } else {
-        error!("Failed to determine current executable path.");
+        config.disable_service(service_name);
     }
+    config.save()?;
+
+    let secrets = tokio::task::spawn_blocking(secrets::Secrets::load_or_create)
+        .await
+        .map_err(|e| anyhow::anyhow!("Task join error loading secrets: {}", e))??;
+    let hw = tokio::task::spawn_blocking(hardware::HardwareInfo::detect)
+        .await
+        .map_err(|e| anyhow::anyhow!("Task join error detecting hardware: {}", e))?;
+
+    let yaml_output = crate::generate_compose_yaml(&hw, &secrets, &config)?;
+    crate::core::atomic_io::atomic_write_str("docker-compose.yml", &yaml_output, 0o600)?;
+
+    // Run docker compose up in a blocking task since it's a synchronous Command
+    tokio::task::spawn_blocking(|| {
+        let docker = crate::core::ops::RealDockerOps;
+        use crate::core::ops::DockerOps;
+        docker.compose_up_remove_orphans()
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("Task join error in docker compose: {}", e))??;
+
+    info!(
+        "Service '{}' {} successfully via web UI.",
+        service_name,
+        if enable { "enabled" } else { "disabled" }
+    );
+    Ok(())
 }
 
 // Updates & Software Management Page
@@ -1534,23 +1565,29 @@ async fn trigger_system_update(
         return (StatusCode::FORBIDDEN, "Invalid or missing CSRF token").into_response();
     }
 
-    info!("Web UI triggering stack update: server_manager update");
-    if let Ok(exe) = std::env::current_exe() {
-        match Command::new(exe).arg("update").spawn() {
-            Ok(mut child) => {
-                tokio::spawn(async move {
-                    if let Err(e) = child.wait().await {
-                        error!("Failed to wait on update process: {}", e);
-                    }
-                });
+    // ARCHITECTURE (F02): Previous implementation spawned a child process via
+    // `Command::new(current_exe).arg("update")`. We now perform the stack
+    // update in-process through DockerOps trait abstractions.
+    info!("Web UI triggering stack update in-process");
+    tokio::spawn(async move {
+        let res = tokio::task::spawn_blocking(|| -> anyhow::Result<()> {
+            use crate::core::ops::DockerOps;
+            let docker = crate::core::ops::RealDockerOps;
+            let compose_path = std::path::Path::new("docker-compose.yml");
+            if let Err(e) = docker.compose_pull(compose_path) {
+                log::warn!("docker compose pull failed (continuing): {}", e);
             }
-            Err(e) => {
-                error!("Failed to spawn update command: {}", e);
-            }
+            docker.compose_up_remove_orphans()?;
+            Ok(())
+        })
+        .await;
+
+        match res {
+            Ok(Ok(())) => info!("Stack update completed successfully via web UI."),
+            Ok(Err(e)) => error!("Stack update failed: {}", e),
+            Err(e) => error!("Task join error during stack update: {}", e),
         }
-    } else {
-        error!("Failed to determine current executable path.");
-    }
+    });
 
     Redirect::to("/updates").into_response()
 }

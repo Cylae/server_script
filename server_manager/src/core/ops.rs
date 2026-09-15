@@ -14,6 +14,10 @@ pub trait SystemOps: Send + Sync {
     fn create_system_user(&self, username: &str, password: &str) -> Result<()>;
     fn delete_system_user(&self, username: &str) -> Result<()>;
     fn set_system_quota(&self, username: &str, quota_gb: u64) -> Result<()>;
+    /// Checks whether a systemd service unit is currently active.
+    fn is_service_active(&self, service_name: &str) -> bool;
+    /// Stops and disables a systemd service unit.
+    fn stop_system_service(&self, service_name: &str) -> Result<()>;
 }
 
 /// Trait abstraction for Docker & Docker Compose operations.
@@ -25,6 +29,8 @@ pub trait DockerOps: Send + Sync {
     fn compose_down(&self, compose_file: &Path) -> Result<()>;
     fn compose_pull(&self, compose_file: &Path) -> Result<()>;
     fn prune_system(&self) -> Result<()>;
+    /// Runs `docker compose up -d --remove-orphans` in the current directory.
+    fn compose_up_remove_orphans(&self) -> Result<()>;
 }
 
 /// Trait abstraction for Firewall operations.
@@ -60,6 +66,24 @@ impl SystemOps for RealSystemOps {
 
     fn set_system_quota(&self, username: &str, quota_gb: u64) -> Result<()> {
         crate::core::system::set_system_quota(username, quota_gb)
+    }
+
+    fn is_service_active(&self, service_name: &str) -> bool {
+        Command::new("/usr/bin/systemctl")
+            .args(["is-active", "--quiet", service_name])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
+    fn stop_system_service(&self, service_name: &str) -> Result<()> {
+        let _ = Command::new("/usr/bin/systemctl")
+            .args(["stop", service_name])
+            .status();
+        let _ = Command::new("/usr/bin/systemctl")
+            .args(["disable", service_name])
+            .status();
+        Ok(())
     }
 }
 
@@ -109,12 +133,28 @@ impl DockerOps for RealDockerOps {
     }
 
     fn prune_system(&self) -> Result<()> {
+        // SECURITY (F05, REQ-OPS-004): Previous implementation used `-af --volumes`
+        // which removes ALL unused images and ALL anonymous volumes, including
+        // those belonging to other workloads on the same host. Using only `-f`
+        // limits cleanup to stopped containers and dangling (untagged) images,
+        // preserving the non-destructive host guarantee.
         let status = Command::new("/usr/bin/docker")
-            .args(["system", "prune", "-af", "--volumes"])
+            .args(["system", "prune", "-f"])
             .status()
             .context("Failed to spawn docker system prune")?;
         if !status.success() {
             bail!("docker system prune failed with status: {}", status);
+        }
+        Ok(())
+    }
+
+    fn compose_up_remove_orphans(&self) -> Result<()> {
+        let status = Command::new("/usr/bin/docker")
+            .args(["compose", "up", "-d", "--remove-orphans"])
+            .status()
+            .context("Failed to spawn docker compose up --remove-orphans")?;
+        if !status.success() {
+            bail!("docker compose up --remove-orphans failed with status: {}", status);
         }
         Ok(())
     }
@@ -214,6 +254,22 @@ impl SystemOps for MockSystemOps {
         );
         Ok(())
     }
+
+    fn is_service_active(&self, service_name: &str) -> bool {
+        let _ = self
+            .calls
+            .lock()
+            .map(|mut c| c.push(format!("is_service_active:{}", service_name)));
+        false
+    }
+
+    fn stop_system_service(&self, service_name: &str) -> Result<()> {
+        let _ = self
+            .calls
+            .lock()
+            .map(|mut c| c.push(format!("stop_system_service:{}", service_name)));
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -263,6 +319,14 @@ impl DockerOps for MockDockerOps {
             .calls
             .lock()
             .map(|mut c| c.push("prune_system".to_string()));
+        Ok(())
+    }
+
+    fn compose_up_remove_orphans(&self) -> Result<()> {
+        let _ = self
+            .calls
+            .lock()
+            .map(|mut c| c.push("compose_up_remove_orphans".to_string()));
         Ok(())
     }
 }

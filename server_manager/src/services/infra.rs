@@ -213,9 +213,14 @@ impl Service for NginxProxyService {
         // these for an unrelated purpose. Only act if the service unit is
         // actually present and active — never touch a service that isn't
         // currently running.
+        //
+        // ARCHITECTURE (F04): These calls should ideally go through the
+        // `SystemOps::is_service_active` / `stop_system_service` trait methods,
+        // but the `Service::initialize` signature does not currently accept an
+        // `&dyn SystemOps`. Using absolute paths here as an interim measure.
         let services = ["apache2", "nginx", "httpd"];
         for svc in services {
-            let is_active = Command::new("systemctl")
+            let is_active = Command::new("/usr/bin/systemctl")
                 .args(["is-active", "--quiet", svc])
                 .status()
                 .map(|s| s.success())
@@ -229,8 +234,8 @@ impl Service for NginxProxyService {
                  own services.",
                 svc
             );
-            let _ = Command::new("systemctl").args(["stop", svc]).status();
-            let _ = Command::new("systemctl").args(["disable", svc]).status();
+            let _ = Command::new("/usr/bin/systemctl").args(["stop", svc]).status();
+            let _ = Command::new("/usr/bin/systemctl").args(["disable", svc]).status();
         }
         Ok(())
     }
