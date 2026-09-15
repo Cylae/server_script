@@ -4,6 +4,7 @@ use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 /// Advisory inter-process lock to guard against concurrent mutating operations.
+#[derive(Debug)]
 pub struct ProcessLock {
     _file: std::fs::File,
     path: PathBuf,
@@ -73,5 +74,36 @@ impl ProcessLock {
 impl Drop for ProcessLock {
     fn drop(&mut self) {
         let _ = self._file.unlock();
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lock_acquire_path_and_contention() {
+        let temp_dir = std::env::temp_dir().join(format!("test_lock_{}", rand::random::<u64>()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let lock_file = temp_dir.join("test.lock");
+
+        let lock1 = ProcessLock::acquire(&lock_file, true).unwrap();
+        assert_eq!(lock1.path(), lock_file);
+
+        // Acquiring non-blocking while held must fail
+        let lock2_res = ProcessLock::acquire(&lock_file, true);
+        assert!(lock2_res.is_err());
+        let err_msg = lock2_res.unwrap_err().to_string();
+        assert!(err_msg.contains("Advisory lock is already held"));
+
+        // Dropping lock1 releases the lock
+        drop(lock1);
+
+        // Now acquire succeeds
+        let lock3 = ProcessLock::acquire(&lock_file, false).unwrap();
+        drop(lock3);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

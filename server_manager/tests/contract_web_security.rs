@@ -290,7 +290,11 @@ async fn test_http_security_headers_middleware() {
         .header("x-forwarded-proto", "https")
         .body(Body::empty())
         .expect("Valid request");
-    let https_resp = app.clone().oneshot(https_req).await.expect("App should respond");
+    let https_resp = app
+        .clone()
+        .oneshot(https_req)
+        .await
+        .expect("App should respond");
     assert_eq!(
         https_resp
             .headers()

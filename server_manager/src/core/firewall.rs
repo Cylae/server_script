@@ -50,3 +50,16 @@ fn run_ufw(args: &[&str]) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_firewall_configure_does_not_panic() {
+        // In an unprivileged test environment, configure() either succeeds (skipped or ufw succeeds)
+        // or returns an error due to missing privileges, but never panics.
+        let _ = configure();
+    }
+}

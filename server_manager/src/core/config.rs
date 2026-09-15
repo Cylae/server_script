@@ -101,3 +101,104 @@ impl Config {
             .await
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_load_defaults() {
+        let temp_dir = std::env::temp_dir().join(format!("test_cfg_{}", rand::random::<u64>()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let non_existent = temp_dir.join("non_existent.yaml");
+        let cfg = Config::load_from(&non_existent).unwrap();
+        assert!(cfg.disabled_services.is_empty());
+
+        let empty_file = temp_dir.join("empty.yaml");
+        fs::write(&empty_file, "   \n  ").unwrap();
+        let cfg2 = Config::load_from(&empty_file).unwrap();
+        assert!(cfg2.disabled_services.is_empty());
+
+        let invalid_file = temp_dir.join("invalid.yaml");
+        fs::write(&invalid_file, ": : invalid yaml :::").unwrap();
+        let err = Config::load_from(&invalid_file);
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err().to_string(), "Invalid config YAML");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_config_save_load_roundtrip_and_enable_disable() {
+        let temp_dir = std::env::temp_dir().join(format!("test_cfg_rt_{}", rand::random::<u64>()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let config_path = temp_dir.join("config.yaml");
+
+        let mut cfg = Config::default();
+        assert!(cfg.is_enabled("plex"));
+
+        cfg.disable_service("plex");
+        assert!(!cfg.is_enabled("plex"));
+        // Disabling again returns false
+        cfg.disable_service("plex");
+
+        cfg.disable_service("radarr");
+        cfg.disable_service("sonarr");
+
+        cfg.save_to(&config_path).unwrap();
+
+        let loaded = Config::load_from(&config_path).unwrap();
+        assert!(!loaded.is_enabled("plex"));
+        assert!(!loaded.is_enabled("radarr"));
+        assert!(!loaded.is_enabled("sonarr"));
+        assert!(loaded.is_enabled("jellyfin"));
+
+        let content = fs::read_to_string(&config_path).unwrap();
+        // Verify sorted serialization: plex, radarr, sonarr
+        let plex_pos = content.find("plex").unwrap();
+        let radarr_pos = content.find("radarr").unwrap();
+        let sonarr_pos = content.find("sonarr").unwrap();
+        assert!(plex_pos < radarr_pos && radarr_pos < sonarr_pos);
+
+        let mut modified = loaded;
+        modified.enable_service("plex");
+        assert!(modified.is_enabled("plex"));
+        // Enabling again returns false
+        modified.enable_service("plex");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_update_service_at() {
+        let temp_dir = std::env::temp_dir().join(format!("test_cfg_upd_{}", rand::random::<u64>()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let config_path = temp_dir.join("config.yaml");
+
+        // Invalid service name fails immediately
+        let err = Config::update_service_at(&config_path, "../malicious", |cfg, name| {
+            cfg.disable_service(name);
+            true
+        });
+        assert!(err.is_err());
+
+        // Valid update persists
+        let res = Config::update_service_at(&config_path, "plex", |cfg, name| {
+            cfg.disable_service(name);
+            true
+        });
+        assert!(res.is_ok());
+
+        let loaded = Config::load_from(&config_path).unwrap();
+        assert!(!loaded.is_enabled("plex"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_get_config_path() {
+        let path = Config::get_config_path();
+        assert!(path.ends_with("config.yaml"));
+    }
+}

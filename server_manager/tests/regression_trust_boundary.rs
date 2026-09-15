@@ -15,7 +15,10 @@ fn check_forbidden_patterns(dir: &Path) {
             for (line_idx, line) in content.lines().enumerate() {
                 // Ignore comments
                 let trimmed = line.trim();
-                if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+                if trimmed.starts_with("//")
+                    || trimmed.starts_with("/*")
+                    || trimmed.starts_with('*')
+                {
                     continue;
                 }
                 assert!(

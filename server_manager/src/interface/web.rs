@@ -243,12 +243,14 @@ pub async fn start_server(bind: &str, port: u16) -> anyhow::Result<()> {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let initial_config = Config::load().context("Failed to load initial configuration from disk")?;
+    let initial_config =
+        Config::load().context("Failed to load initial configuration from disk")?;
     let initial_config_mtime = std::fs::metadata("config.yaml")
         .ok()
         .and_then(|m| m.modified().ok());
 
-    let initial_users = UserManager::load().context("Failed to load initial users database from disk")?;
+    let initial_users =
+        UserManager::load().context("Failed to load initial users database from disk")?;
     let initial_users_mtime = std::fs::metadata("users.yaml")
         .ok()
         .and_then(|m| m.modified().ok())

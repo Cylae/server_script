@@ -177,7 +177,10 @@ impl DockerOps for RealDockerOps {
             .status()
             .context("Failed to spawn docker compose up --remove-orphans")?;
         if !status.success() {
-            bail!("docker compose up --remove-orphans failed with status: {}", status);
+            bail!(
+                "docker compose up --remove-orphans failed with status: {}",
+                status
+            );
         }
         Ok(())
     }

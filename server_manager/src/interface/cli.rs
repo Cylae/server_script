@@ -1,10 +1,10 @@
+use crate::core::ops::{DockerOps, RealDockerOps, RealSystemOps, SystemOps};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use log::{error, info, warn};
 use std::fmt::Write;
 use std::fs;
 use std::io::{self, Write as IoWrite};
-use crate::core::ops::{DockerOps, RealDockerOps, RealSystemOps, SystemOps};
 
 use crate::core::{config, docker, firewall, hardware, secrets, system, users};
 use crate::services;
@@ -315,14 +315,12 @@ async fn run_toggle_service(service_name: String, enable: bool) -> Result<()> {
     generate_compose(&hw, &secrets, &config).await?;
 
     info!("Applying changes via Docker Compose...");
-    docker_ops
-        .compose_up_remove_orphans()
-        .with_context(|| {
-            format!(
-                "Failed to apply changes via Docker Compose for service '{}'",
-                service_name
-            )
-        })?;
+    docker_ops.compose_up_remove_orphans().with_context(|| {
+        format!(
+            "Failed to apply changes via Docker Compose for service '{}'",
+            service_name
+        )
+    })?;
 
     info!(
         "Service '{}' {} successfully!",
@@ -556,7 +554,10 @@ async fn run_update() -> Result<()> {
     let docker_ops = RealDockerOps;
     info!("Pulling latest Docker images...");
     if let Err(e) = docker_ops.compose_pull_current() {
-        log::warn!("Some images failed to pull or docker compose pull returned non-zero status: {}", e);
+        log::warn!(
+            "Some images failed to pull or docker compose pull returned non-zero status: {}",
+            e
+        );
     }
 
     info!("Re-deploying updated services...");

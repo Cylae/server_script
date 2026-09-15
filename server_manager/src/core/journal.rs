@@ -285,3 +285,108 @@ pub fn generate_op_id() -> String {
         rand::random::<u64>()
     )
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_journal_restore_file_compensation() {
+        let temp_dir = std::env::temp_dir().join(format!("test_j_rf_{}", rand::random::<u64>()));
+        let _ = fs::create_dir_all(&temp_dir);
+
+        let target_file = temp_dir.join("config.txt");
+        let backup_file = temp_dir.join("config.txt.bak");
+
+        fs::write(&target_file, "corrupted state").unwrap();
+        fs::write(&backup_file, "original good state").unwrap();
+
+        let action = CompensatoryAction::RestoreFile {
+            path: target_file.clone(),
+            backup_path: backup_file.clone(),
+        };
+
+        Journal::execute_compensation(&action).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&target_file).unwrap(),
+            "original good state"
+        );
+        // Backup file must be cleaned up
+        assert!(!backup_file.exists());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_journal_custom_compensation() {
+        let mut details = HashMap::new();
+        details.insert("action".to_string(), "noop".to_string());
+        let action = CompensatoryAction::Custom {
+            name: "custom_noop".to_string(),
+            details,
+        };
+        assert!(Journal::execute_compensation(&action).is_ok());
+    }
+
+    #[test]
+    fn test_journal_rollback_incomplete_transactions() {
+        let temp_dir = std::env::temp_dir().join(format!("test_j_inc_{}", rand::random::<u64>()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let journal_path = temp_dir.join("journal.jsonl");
+
+        let mut journal = Journal::open_or_create(&journal_path).unwrap();
+        assert_eq!(journal.path(), journal_path.as_path());
+
+        let op_id = generate_op_id();
+        let target_file = temp_dir.join("target.txt");
+        fs::write(&target_file, "should be deleted").unwrap();
+
+        let step1 = JournalEntry {
+            timestamp: now_iso8601(),
+            op_id: op_id.clone(),
+            step_index: 0,
+            step_name: "create_file".to_string(),
+            parameters: HashMap::new(),
+            status: StepStatus::Completed,
+            compensatory_action: Some(CompensatoryAction::RemoveFile {
+                path: target_file.clone(),
+            }),
+        };
+        journal.append(&step1).unwrap();
+
+        let step2 = JournalEntry {
+            timestamp: now_iso8601(),
+            op_id: op_id.clone(),
+            step_index: 1,
+            step_name: "failing_step".to_string(),
+            parameters: HashMap::new(),
+            status: StepStatus::Failed,
+            compensatory_action: None,
+        };
+        journal.append(&step2).unwrap();
+
+        let rolled_back = journal.rollback_incomplete_transactions().unwrap();
+        assert_eq!(rolled_back, 1);
+        assert!(!target_file.exists());
+
+        // Calling it again finds nothing incomplete
+        let rolled_back_again = journal.rollback_incomplete_transactions().unwrap();
+        assert_eq!(rolled_back_again, 0);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_journal_metadata_helpers() {
+        let op_id = generate_op_id();
+        assert_eq!(op_id.len(), 32);
+
+        let ts = now_iso8601();
+        assert!(ts.contains('T'));
+
+        let def_path = Journal::default_path();
+        assert!(def_path.ends_with("journal.jsonl"));
+    }
+}

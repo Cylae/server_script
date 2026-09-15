@@ -24,3 +24,23 @@ pub fn install() -> anyhow::Result<()> {
          See https://docs.docker.com/engine/install/ for installation instructions."
     );
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_docker_check_installation_does_not_panic() {
+        let is_installed = check_installation();
+        // install() result must be consistent with check_installation()
+        let install_res = install();
+        if is_installed {
+            assert!(install_res.is_ok());
+        } else {
+            assert!(install_res.is_err());
+            let err_msg = install_res.unwrap_err().to_string();
+            assert!(err_msg.contains("Docker is not installed"));
+        }
+    }
+}
