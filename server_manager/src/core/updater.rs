@@ -32,7 +32,12 @@ pub fn check_for_updates() -> Result<UpdateInfo> {
         let git_path = if std::path::Path::new("/usr/bin/git").exists() {
             "/usr/bin/git"
         } else {
-            "git"
+            return Ok(UpdateInfo {
+                current_version: current,
+                latest_version: latest,
+                update_available: false,
+                release_notes: "Git not found; cannot check for updates.".to_string(),
+            });
         };
         if let Ok(git_output) = Command::new(git_path)
             .args(["describe", "--tags", "--abbrev=0"])
@@ -96,7 +101,7 @@ pub fn self_update() -> Result<String> {
     let git_path = if std::path::Path::new("/usr/bin/git").exists() {
         "/usr/bin/git"
     } else {
-        "git"
+        bail!("git not found at absolute path /usr/bin/git");
     };
     let pull_status = Command::new(git_path)
         .current_dir(repo_dir)

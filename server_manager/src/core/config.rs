@@ -116,12 +116,13 @@ mod tests {
         assert!(cfg.disabled_services.is_empty());
 
         let empty_file = temp_dir.join("empty.yaml");
-        fs::write(&empty_file, "   \n  ").unwrap();
+        crate::core::atomic_io::atomic_write_str(&empty_file, "   \n  ", 0o644).unwrap();
         let cfg2 = Config::load_from(&empty_file).unwrap();
         assert!(cfg2.disabled_services.is_empty());
 
         let invalid_file = temp_dir.join("invalid.yaml");
-        fs::write(&invalid_file, ": : invalid yaml :::").unwrap();
+        crate::core::atomic_io::atomic_write_str(&invalid_file, ": : invalid yaml :::", 0o644)
+            .unwrap();
         let err = Config::load_from(&invalid_file);
         assert!(err.is_err());
         assert_eq!(err.unwrap_err().to_string(), "Invalid config YAML");

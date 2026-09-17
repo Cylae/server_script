@@ -21,3 +21,11 @@ A comprehensive security and robustness audit of `server_manager` was performed,
 
 ## Next Steps
 All deployed changes have been systematically verified using the project's native contract testing suite (`./verify.sh`), which successfully confirmed functional integrity without introducing performance degradation.
+
+## 4. Remaining Strict Path and Argument Boundary Defenses
+- **Finding (Medium):** The initial audit remediations enforcing absolute paths missed fallbacks in secondary utilities (`df`, `apt-get`, `sysctl`, `systemctl`, `journalctl`, `timedatectl`, `git`) which would still fallback to `$PATH` if the absolute path was absent, re-introducing path substitution vulnerability. Furthermore, argument bounds (`--`) were missing in `systemctl` commands.
+- **Remediation:** Removed string fallbacks for all binary lookups ensuring hard failures if the binary does not exist at the trusted absolute path. Added explicit `--` bounds to `systemctl` arguments to protect against injection.
+
+## 5. Test File Persistence Hazards
+- **Finding (Low):** Raw `std::fs::write` usages remained within `config.rs` and `journal.rs` test suites.
+- **Remediation:** Replaced remaining `fs::write` calls in tests with the project native `atomic_io::atomic_write_str`.
