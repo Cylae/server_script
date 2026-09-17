@@ -1412,11 +1412,9 @@ async fn toggle_service_in_process(service_name: &str, enable: bool) -> anyhow::
     use crate::core::{config, hardware, lock::ProcessLock, secrets};
 
     // Serialize service mutations with an advisory lock across processes and concurrent requests
-    let _lock = tokio::task::spawn_blocking(|| {
-        ProcessLock::acquire_default_blocking(false)
-    })
-    .await
-    .map_err(|e| anyhow::anyhow!("Task join error acquiring lock: {}", e))??;
+    let _lock = tokio::task::spawn_blocking(|| ProcessLock::acquire_default_blocking(false))
+        .await
+        .map_err(|e| anyhow::anyhow!("Task join error acquiring lock: {}", e))??;
 
     let mut config = config::Config::load_async().await?;
     if enable {

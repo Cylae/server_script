@@ -45,7 +45,7 @@ pub fn install_dependencies() -> Result<()> {
     let apt_path = if std::path::Path::new("/usr/bin/apt-get").exists() {
         "/usr/bin/apt-get"
     } else {
-        "apt-get"
+        bail!("apt-get not found at absolute path /usr/bin/apt-get");
     };
     let update_status = Command::new(apt_path)
         .env("DEBIAN_FRONTEND", "noninteractive")
@@ -74,7 +74,7 @@ pub fn install_dependencies() -> Result<()> {
     let systemctl_path = if std::path::Path::new("/usr/bin/systemctl").exists() {
         "/usr/bin/systemctl"
     } else {
-        "systemctl"
+        bail!("systemctl not found at absolute path /usr/bin/systemctl");
     };
     let _ = Command::new(systemctl_path)
         .args(["enable", "--now", "fail2ban"])
@@ -222,7 +222,7 @@ fn get_home_device() -> Result<String> {
     } else if std::path::Path::new("/usr/bin/df").exists() {
         "/usr/bin/df"
     } else {
-        "df"
+        bail!("df not found at absolute paths /bin/df or /usr/bin/df");
     };
     let output = Command::new(df_path)
         .arg("-P")
@@ -330,7 +330,7 @@ net.core.wmem_max=1048576
     } else if std::path::Path::new("/usr/sbin/sysctl").exists() {
         "/usr/sbin/sysctl"
     } else {
-        "sysctl"
+        bail!("sysctl not found at absolute paths /sbin/sysctl or /usr/sbin/sysctl");
     };
     let status = Command::new(sysctl_path)
         .arg("--system")
