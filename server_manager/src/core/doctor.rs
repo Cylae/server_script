@@ -339,7 +339,12 @@ pub fn check_disk_space() -> DoctorCheckResult {
     } else if std::path::Path::new("/usr/bin/df").exists() {
         "/usr/bin/df"
     } else {
-        "df"
+        return DoctorCheckResult {
+            name: "Disk Capacity".to_string(),
+            status: CheckStatus::Skipped,
+            message: "df utility not available or disk space query failed".to_string(),
+            details: None,
+        };
     };
     if let Ok(output) = Command::new(df_path).arg("-Pk").arg(".").output() {
         if output.status.success() {
@@ -390,7 +395,12 @@ pub fn check_ntp_sync() -> DoctorCheckResult {
     } else if std::path::Path::new("/bin/timedatectl").exists() {
         "/bin/timedatectl"
     } else {
-        "timedatectl"
+        return DoctorCheckResult {
+            name: "NTP Time Sync".to_string(),
+            status: CheckStatus::Skipped,
+            message: "timedatectl or /etc/localtime not accessible".to_string(),
+            details: None,
+        };
     };
     if let Ok(output) = Command::new(timedatectl_path).arg("status").output() {
         if output.status.success() {

@@ -10,6 +10,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -45,3 +48,15 @@ jobs:
         run: |
           chmod +x ./verify.sh
           ./verify.sh
+
+      - name: Clippy Analysis
+        run: cd server_manager && cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Unit & Integration Tests
+        run: cd server_manager && cargo test --all-features
+
+      - name: Dependency License & Bans Check
+        run: cd server_manager && cargo deny check
+
+      - name: Vulnerability Audit
+        run: cd server_manager && cargo audit

@@ -303,8 +303,9 @@ mod tests {
         let target_file = temp_dir.join("config.txt");
         let backup_file = temp_dir.join("config.txt.bak");
 
-        fs::write(&target_file, "corrupted state").unwrap();
-        fs::write(&backup_file, "original good state").unwrap();
+        crate::core::atomic_io::atomic_write_str(&target_file, "corrupted state", 0o644).unwrap();
+        crate::core::atomic_io::atomic_write_str(&backup_file, "original good state", 0o644)
+            .unwrap();
 
         let action = CompensatoryAction::RestoreFile {
             path: target_file.clone(),
@@ -345,7 +346,7 @@ mod tests {
 
         let op_id = generate_op_id();
         let target_file = temp_dir.join("target.txt");
-        fs::write(&target_file, "should be deleted").unwrap();
+        crate::core::atomic_io::atomic_write_str(&target_file, "should be deleted", 0o644).unwrap();
 
         let step1 = JournalEntry {
             timestamp: now_iso8601(),

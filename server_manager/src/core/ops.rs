@@ -76,7 +76,7 @@ impl SystemOps for RealSystemOps {
 
     fn is_service_active(&self, service_name: &str) -> bool {
         Command::new("/usr/bin/systemctl")
-            .args(["is-active", "--quiet", service_name])
+            .args(["is-active", "--quiet", "--", service_name])
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
@@ -84,10 +84,10 @@ impl SystemOps for RealSystemOps {
 
     fn stop_system_service(&self, service_name: &str) -> Result<()> {
         let _ = Command::new("/usr/bin/systemctl")
-            .args(["stop", service_name])
+            .args(["stop", "--", service_name])
             .status();
         let _ = Command::new("/usr/bin/systemctl")
-            .args(["disable", service_name])
+            .args(["disable", "--", service_name])
             .status();
         Ok(())
     }
@@ -97,7 +97,7 @@ impl SystemOps for RealSystemOps {
         let path = if Path::new("/usr/bin/journalctl").exists() {
             "/usr/bin/journalctl"
         } else {
-            "journalctl"
+            bail!("journalctl not found at absolute path /usr/bin/journalctl");
         };
         let status = Command::new(path)
             .arg(&arg)
