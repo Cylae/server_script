@@ -1189,9 +1189,8 @@ async fn add_user_handler(
         Ok(manager_clone)
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(anyhow::Error::from(e).context("Blocking task join error in add_user"))
-    });
+    .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in add_user"))
+    .and_then(|r| r);
 
     match res {
         Ok(new_manager) => {
@@ -1263,9 +1262,8 @@ async fn update_user_handler(
         Ok(manager_clone)
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(anyhow::Error::from(e).context("Blocking task join error in update_user"))
-    });
+    .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in update_user"))
+    .and_then(|r| r);
 
     match res {
         Ok(new_manager) => {
@@ -1317,9 +1315,8 @@ async fn delete_user_handler(
         Ok(manager_clone)
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(anyhow::Error::from(e).context("Blocking task join error in delete_user"))
-    });
+    .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in delete_user"))
+    .and_then(|r| r);
 
     match res {
         Ok(new_manager) => {
@@ -1655,9 +1652,8 @@ async fn user_install_app_handler(
         Ok(manager_clone)
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(anyhow::Error::from(e).context("Blocking task join error in install_user_app"))
-    });
+    .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in install_user_app"))
+    .and_then(|r| r);
 
     if let Ok(new_manager) = res {
         cache.manager = new_manager;
@@ -1700,9 +1696,8 @@ async fn user_uninstall_app_handler(
         Ok(manager_clone)
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(anyhow::Error::from(e).context("Blocking task join error in uninstall_user_app"))
-    });
+    .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in uninstall_user_app"))
+    .and_then(|r| r);
 
     if let Ok(new_manager) = res {
         cache.manager = new_manager;
@@ -1846,9 +1841,8 @@ async fn user_passwd_handler(
         Ok(manager_clone)
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(anyhow::Error::from(e).context("Blocking task join error in update_password"))
-    });
+    .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in update_password"))
+    .and_then(|r| r);
 
     if let Ok(new_manager) = res {
         cache.manager = new_manager;
