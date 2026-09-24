@@ -180,20 +180,21 @@ fn generate_hex(bytes: usize) -> Result<String> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_hex_generation() {
-        let hex = generate_hex(16).expect("Value should exist");
+    fn test_hex_generation() -> anyhow::Result<()> {
+        let hex = generate_hex(16)?;
         assert_eq!(hex.len(), 32); // 16 bytes = 32 hex chars
+        Ok(())
     }
 
     #[test]
-    fn test_secrets_default() {
+    fn test_secrets_default() -> anyhow::Result<()> {
         let secrets = Secrets::default();
         assert!(secrets.mysql_root_password.is_none());
         assert!(secrets.server_manager_admin_password.is_none());
+        Ok(())
     }
 }

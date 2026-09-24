@@ -202,12 +202,11 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_version_comparison() {
+    fn test_version_comparison() -> anyhow::Result<()> {
         assert!(is_newer_version("1.1.0", "1.0.9"));
         assert!(is_newer_version("2.0.0", "1.0.9"));
         assert!(!is_newer_version("1.0.9", "1.0.9"));
@@ -217,11 +216,13 @@ mod tests {
         assert!(!is_newer_version("1.0.9", "invalid"));
         assert!(!is_newer_version("", "1.0.9"));
         assert!(is_newer_version("v1.2.0", "v1.1.0"));
+        Ok(())
     }
 
     #[test]
-    fn test_check_for_updates() {
-        let info = check_for_updates().expect("Checked error condition in code");
+    fn test_check_for_updates() -> anyhow::Result<()> {
+        let info = check_for_updates()?;
         assert_eq!(info.current_version, CURRENT_VERSION);
+        Ok(())
     }
 }

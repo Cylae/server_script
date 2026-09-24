@@ -291,41 +291,37 @@ pub fn generate_op_id() -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_journal_restore_file_compensation() {
+    fn test_journal_restore_file_compensation() -> anyhow::Result<()> {
         let temp_dir = std::env::temp_dir().join(format!("test_j_rf_{}", rand::random::<u64>()));
         let _ = fs::create_dir_all(&temp_dir);
 
         let target_file = temp_dir.join("config.txt");
         let backup_file = temp_dir.join("config.txt.bak");
 
-        crate::core::atomic_io::atomic_write_str(&target_file, "corrupted state", 0o644).unwrap();
-        crate::core::atomic_io::atomic_write_str(&backup_file, "original good state", 0o644)
-            .unwrap();
+        crate::core::atomic_io::atomic_write_str(&target_file, "corrupted state", 0o644)?;
+        crate::core::atomic_io::atomic_write_str(&backup_file, "original good state", 0o644)?;
 
         let action = CompensatoryAction::RestoreFile {
             path: target_file.clone(),
             backup_path: backup_file.clone(),
         };
 
-        Journal::execute_compensation(&action).unwrap();
+        Journal::execute_compensation(&action)?;
 
-        assert_eq!(
-            fs::read_to_string(&target_file).unwrap(),
-            "original good state"
-        );
+        assert_eq!(fs::read_to_string(&target_file)?, "original good state");
         // Backup file must be cleaned up
         assert!(!backup_file.exists());
 
         let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_journal_custom_compensation() {
+    fn test_journal_custom_compensation() -> anyhow::Result<()> {
         let mut details = HashMap::new();
         details.insert("action".to_string(), "noop".to_string());
         let action = CompensatoryAction::Custom {
@@ -333,20 +329,21 @@ mod tests {
             details,
         };
         assert!(Journal::execute_compensation(&action).is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_journal_rollback_incomplete_transactions() {
+    fn test_journal_rollback_incomplete_transactions() -> anyhow::Result<()> {
         let temp_dir = std::env::temp_dir().join(format!("test_j_inc_{}", rand::random::<u64>()));
         let _ = fs::create_dir_all(&temp_dir);
         let journal_path = temp_dir.join("journal.jsonl");
 
-        let mut journal = Journal::open_or_create(&journal_path).unwrap();
+        let mut journal = Journal::open_or_create(&journal_path)?;
         assert_eq!(journal.path(), journal_path.as_path());
 
         let op_id = generate_op_id();
         let target_file = temp_dir.join("target.txt");
-        crate::core::atomic_io::atomic_write_str(&target_file, "should be deleted", 0o644).unwrap();
+        crate::core::atomic_io::atomic_write_str(&target_file, "should be deleted", 0o644)?;
 
         let step1 = JournalEntry {
             timestamp: now_iso8601(),
@@ -359,7 +356,7 @@ mod tests {
                 path: target_file.clone(),
             }),
         };
-        journal.append(&step1).unwrap();
+        journal.append(&step1)?;
 
         let step2 = JournalEntry {
             timestamp: now_iso8601(),
@@ -370,21 +367,22 @@ mod tests {
             status: StepStatus::Failed,
             compensatory_action: None,
         };
-        journal.append(&step2).unwrap();
+        journal.append(&step2)?;
 
-        let rolled_back = journal.rollback_incomplete_transactions().unwrap();
+        let rolled_back = journal.rollback_incomplete_transactions()?;
         assert_eq!(rolled_back, 1);
         assert!(!target_file.exists());
 
         // Calling it again finds nothing incomplete
-        let rolled_back_again = journal.rollback_incomplete_transactions().unwrap();
+        let rolled_back_again = journal.rollback_incomplete_transactions()?;
         assert_eq!(rolled_back_again, 0);
 
         let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_journal_metadata_helpers() {
+    fn test_journal_metadata_helpers() -> anyhow::Result<()> {
         let op_id = generate_op_id();
         assert_eq!(op_id.len(), 32);
 
@@ -393,5 +391,6 @@ mod tests {
 
         let def_path = Journal::default_path();
         assert!(def_path.ends_with("journal.jsonl"));
+        Ok(())
     }
 }
