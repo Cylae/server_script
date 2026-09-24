@@ -174,6 +174,9 @@ fn test_port_matrix_documentation_sync() {
         .unwrap_or_else(|| {
             // If file does not exist yet during initial setup, create it
             let target = Path::new("../docs/PORT-MATRIX.md");
+            if let Some(parent) = target.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
             let _ = fs::write(target, &generated);
             target
         });
