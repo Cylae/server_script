@@ -103,35 +103,39 @@ impl Config {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_config_load_defaults() {
+    fn test_config_load_defaults() -> anyhow::Result<()> {
         let temp_dir = std::env::temp_dir().join(format!("test_cfg_{}", rand::random::<u64>()));
         let _ = fs::create_dir_all(&temp_dir);
         let non_existent = temp_dir.join("non_existent.yaml");
-        let cfg = Config::load_from(&non_existent).unwrap();
+        let cfg = Config::load_from(&non_existent)?;
         assert!(cfg.disabled_services.is_empty());
 
         let empty_file = temp_dir.join("empty.yaml");
-        crate::core::atomic_io::atomic_write_str(&empty_file, "   \n  ", 0o644).unwrap();
-        let cfg2 = Config::load_from(&empty_file).unwrap();
+        crate::core::atomic_io::atomic_write_str(&empty_file, "   \n  ", 0o644)?;
+        let cfg2 = Config::load_from(&empty_file)?;
         assert!(cfg2.disabled_services.is_empty());
 
         let invalid_file = temp_dir.join("invalid.yaml");
-        crate::core::atomic_io::atomic_write_str(&invalid_file, ": : invalid yaml :::", 0o644)
-            .unwrap();
+        crate::core::atomic_io::atomic_write_str(&invalid_file, ": : invalid yaml :::", 0o644)?;
         let err = Config::load_from(&invalid_file);
         assert!(err.is_err());
-        assert_eq!(err.unwrap_err().to_string(), "Invalid config YAML");
+        assert_eq!(
+            err.err()
+                .ok_or_else(|| anyhow::anyhow!("Expected error"))?
+                .to_string(),
+            "Invalid config YAML"
+        );
 
         let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_config_save_load_roundtrip_and_enable_disable() {
+    fn test_config_save_load_roundtrip_and_enable_disable() -> anyhow::Result<()> {
         let temp_dir = std::env::temp_dir().join(format!("test_cfg_rt_{}", rand::random::<u64>()));
         let _ = fs::create_dir_all(&temp_dir);
         let config_path = temp_dir.join("config.yaml");
@@ -147,19 +151,25 @@ mod tests {
         cfg.disable_service("radarr");
         cfg.disable_service("sonarr");
 
-        cfg.save_to(&config_path).unwrap();
+        cfg.save_to(&config_path)?;
 
-        let loaded = Config::load_from(&config_path).unwrap();
+        let loaded = Config::load_from(&config_path)?;
         assert!(!loaded.is_enabled("plex"));
         assert!(!loaded.is_enabled("radarr"));
         assert!(!loaded.is_enabled("sonarr"));
         assert!(loaded.is_enabled("jellyfin"));
 
-        let content = fs::read_to_string(&config_path).unwrap();
+        let content = fs::read_to_string(&config_path)?;
         // Verify sorted serialization: plex, radarr, sonarr
-        let plex_pos = content.find("plex").unwrap();
-        let radarr_pos = content.find("radarr").unwrap();
-        let sonarr_pos = content.find("sonarr").unwrap();
+        let plex_pos = content
+            .find("plex")
+            .ok_or_else(|| anyhow::anyhow!("plex not found"))?;
+        let radarr_pos = content
+            .find("radarr")
+            .ok_or_else(|| anyhow::anyhow!("radarr not found"))?;
+        let sonarr_pos = content
+            .find("sonarr")
+            .ok_or_else(|| anyhow::anyhow!("sonarr not found"))?;
         assert!(plex_pos < radarr_pos && radarr_pos < sonarr_pos);
 
         let mut modified = loaded;
@@ -169,10 +179,11 @@ mod tests {
         modified.enable_service("plex");
 
         let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_update_service_at() {
+    fn test_update_service_at() -> anyhow::Result<()> {
         let temp_dir = std::env::temp_dir().join(format!("test_cfg_upd_{}", rand::random::<u64>()));
         let _ = fs::create_dir_all(&temp_dir);
         let config_path = temp_dir.join("config.yaml");
@@ -191,15 +202,17 @@ mod tests {
         });
         assert!(res.is_ok());
 
-        let loaded = Config::load_from(&config_path).unwrap();
+        let loaded = Config::load_from(&config_path)?;
         assert!(!loaded.is_enabled("plex"));
 
         let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_get_config_path() {
+    fn test_get_config_path() -> anyhow::Result<()> {
         let path = Config::get_config_path();
         assert!(path.ends_with("config.yaml"));
+        Ok(())
     }
 }

@@ -63,7 +63,13 @@ pub fn verify_password(password: &str, hash_str: &str) -> bool {
                 .is_ok();
         }
     } else if hash_str.starts_with("$2") {
-        return bcrypt::verify(password, hash_str).unwrap_or(false);
+        match bcrypt::verify(password, hash_str) {
+            Ok(valid) => return valid,
+            Err(e) => {
+                log::warn!("bcrypt verification error: {}", e);
+                return false;
+            }
+        }
     }
     false
 }
@@ -362,8 +368,15 @@ impl UserManager {
                     return Some(user.clone());
                 }
             }
-        } else if hash_str.starts_with("$2") && bcrypt::verify(password, &hash_str).unwrap_or(false)
-        {
+        } else if hash_str.starts_with("$2") && {
+            match bcrypt::verify(password, &hash_str) {
+                Ok(valid) => valid,
+                Err(e) => {
+                    log::warn!("bcrypt verification error during migration check: {}", e);
+                    false
+                }
+            }
+        } {
             info!(
                 "Transparently upgrading password hash for user '{}' from bcrypt to Argon2id",
                 username
@@ -422,12 +435,11 @@ impl UserManager {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_user_management() {
+    fn test_user_management() -> anyhow::Result<()> {
         let mut manager = UserManager::default();
 
         // Add User
@@ -441,7 +453,10 @@ mod tests {
         // Verify
         let user = manager.verify("testuser", "password123");
         assert!(user.is_some());
-        assert_eq!(user.expect("Value should exist").role, Role::Observer);
+        assert_eq!(
+            user.ok_or_else(|| anyhow::anyhow!("Expected user"))?.role,
+            Role::Observer
+        );
 
         assert!(manager.verify("testuser", "wrongpass").is_none());
 
@@ -453,50 +468,53 @@ mod tests {
         // Delete
         assert!(manager.delete_user("testuser").is_ok());
         assert!(manager.verify("testuser", "newpass").is_none());
+        Ok(())
     }
 
     #[test]
-    fn test_user_app_management() {
+    fn test_user_app_management() -> anyhow::Result<()> {
         let mut manager = UserManager::default();
         assert!(manager
             .add_user("appuser", "pass123", Role::Observer, None)
             .is_ok());
 
         assert!(manager.install_user_app("appuser", "plex").is_ok());
-        let u = manager.get_user("appuser").expect("User exists");
+        let u = manager
+            .get_user("appuser")
+            .ok_or_else(|| anyhow::anyhow!("Expected user"))?;
         assert!(u.installed_apps.contains("plex"));
 
         assert!(manager.uninstall_user_app("appuser", "plex").is_ok());
-        let u2 = manager.get_user("appuser").expect("User exists");
+        let u2 = manager
+            .get_user("appuser")
+            .ok_or_else(|| anyhow::anyhow!("Expected user"))?;
         assert!(!u2.installed_apps.contains("plex"));
+        Ok(())
     }
 
     #[test]
-    fn test_admin_protection() {
+    fn test_admin_protection() -> anyhow::Result<()> {
         let mut manager = UserManager::default();
-        manager
-            .add_user("admin", "admin", Role::Admin, None)
-            .expect("Value should exist");
+        manager.add_user("admin", "admin", Role::Admin, None)?;
 
         // Should fail to delete last admin
         assert!(manager.delete_user("admin").is_err());
 
         // Add another admin
-        manager
-            .add_user("admin2", "admin", Role::Admin, None)
-            .expect("Value should exist");
+        manager.add_user("admin2", "admin", Role::Admin, None)?;
         // Now can delete one
         assert!(manager.delete_user("admin").is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_update_user_role_and_quota() {
+    fn test_update_user_role_and_quota() -> anyhow::Result<()> {
         let mut manager = UserManager::default();
-        manager
-            .add_user("user1", "pass123", Role::Observer, Some(10))
-            .expect("User creation failed");
+        manager.add_user("user1", "pass123", Role::Observer, Some(10))?;
 
-        let u = manager.get_user("user1").expect("User exists");
+        let u = manager
+            .get_user("user1")
+            .ok_or_else(|| anyhow::anyhow!("Expected user"))?;
         assert_eq!(u.role, Role::Observer);
         assert_eq!(u.quota_gb, Some(10));
 
@@ -504,25 +522,28 @@ mod tests {
             .update_user_role_and_quota("user1", Role::Admin, Some(50))
             .is_ok());
 
-        let updated_u = manager.get_user("user1").expect("User exists");
+        let updated_u = manager
+            .get_user("user1")
+            .ok_or_else(|| anyhow::anyhow!("Expected user"))?;
         assert_eq!(updated_u.role, Role::Admin);
         assert_eq!(updated_u.quota_gb, Some(50));
+        Ok(())
     }
 
     #[test]
-    fn test_argon2id_hashing_and_verify() {
-        let hash = hash_password("SuperSecret123!").expect("hashing should succeed");
+    fn test_argon2id_hashing_and_verify() -> anyhow::Result<()> {
+        let hash = hash_password("SuperSecret123!")?;
         assert!(hash.starts_with("$argon2id$"));
         assert!(verify_password("SuperSecret123!", &hash));
         assert!(!verify_password("WrongPassword!", &hash));
+        Ok(())
     }
 
     #[test]
-    fn test_transparent_bcrypt_migration() {
+    fn test_transparent_bcrypt_migration() -> anyhow::Result<()> {
         let mut manager = UserManager::default();
         // Insert a user with a legacy bcrypt hash directly
-        let legacy_bcrypt =
-            bcrypt::hash("legacy_password", bcrypt::DEFAULT_COST).expect("bcrypt hash failed");
+        let legacy_bcrypt = bcrypt::hash("legacy_password", bcrypt::DEFAULT_COST)?;
         assert!(legacy_bcrypt.starts_with("$2"));
 
         manager.users.insert(
@@ -542,7 +563,7 @@ mod tests {
             .is_none());
         assert!(manager
             .get_user("legacy_user")
-            .expect("user exists")
+            .ok_or_else(|| anyhow::anyhow!("Expected user"))?
             .password_hash
             .starts_with("$2"));
 
@@ -552,7 +573,7 @@ mod tests {
 
         let upgraded_hash = &manager
             .get_user("legacy_user")
-            .expect("user exists")
+            .ok_or_else(|| anyhow::anyhow!("Expected user"))?
             .password_hash;
         assert!(
             upgraded_hash.starts_with("$argon2id$"),
@@ -562,10 +583,11 @@ mod tests {
 
         // Next verification uses Argon2id directly
         assert!(manager.verify("legacy_user", "legacy_password").is_some());
+        Ok(())
     }
 
     #[test]
-    fn test_role_matrix_permissions() {
+    fn test_role_matrix_permissions() -> anyhow::Result<()> {
         assert!(Role::Admin.can_manage_users());
         assert!(!Role::Operator.can_manage_users());
         assert!(!Role::Observer.can_manage_users());
@@ -590,23 +612,19 @@ mod tests {
         assert!(Role::Operator.can_trigger_updates());
         assert!(!Role::Observer.can_trigger_updates());
         assert!(!Role::Auditor.can_trigger_updates());
+        Ok(())
     }
 
     #[test]
-    fn test_list_users_deterministic_sorting() {
+    fn test_list_users_deterministic_sorting() -> anyhow::Result<()> {
         let mut manager = UserManager::default();
-        manager
-            .add_user("charlie", "pass123", Role::Observer, None)
-            .expect("User charlie creation failed");
-        manager
-            .add_user("alice", "pass123", Role::Admin, None)
-            .expect("User alice creation failed");
-        manager
-            .add_user("bob", "pass123", Role::Operator, None)
-            .expect("User bob creation failed");
+        manager.add_user("charlie", "pass123", Role::Observer, None)?;
+        manager.add_user("alice", "pass123", Role::Admin, None)?;
+        manager.add_user("bob", "pass123", Role::Operator, None)?;
 
         let list = manager.list_users();
         let usernames: Vec<&str> = list.iter().map(|u| u.username.as_str()).collect();
         assert_eq!(usernames, vec!["alice", "bob", "charlie"]);
+        Ok(())
     }
 }

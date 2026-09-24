@@ -4,7 +4,7 @@ use server_manager::core::hardware::{HardwareInfo, HardwareProfile};
 use server_manager::core::secrets::Secrets;
 
 #[test]
-fn test_generate_compose_structure() {
+fn test_generate_compose_structure() -> anyhow::Result<()> {
     // 1. Mock Hardware and Secrets
     let hw = HardwareInfo {
         profile: HardwareProfile::Standard,
@@ -33,7 +33,7 @@ fn test_generate_compose_structure() {
     let config = Config::default();
 
     // 2. Build Structure
-    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Must return compose");
 
     // 3. Verify Top Level Keys (Struct fields exist by definition)
 
@@ -49,26 +49,39 @@ fn test_generate_compose_structure() {
     assert!(compose.services.contains_key("bazarr"));
     assert!(compose.services.contains_key("syncthing"));
 
-    let plex = compose.services.get("plex").expect("Value should exist");
+    let plex = compose
+        .services
+        .get("plex")
+        .ok_or_else(|| anyhow::anyhow!("Expected service"))?;
     assert_eq!(plex.image, "lscr.io/linuxserver/plex:1.41.4");
 
-    let yourls = compose.services.get("yourls").expect("Value should exist");
+    let yourls = compose
+        .services
+        .get("yourls")
+        .ok_or_else(|| anyhow::anyhow!("Expected service"))?;
     assert_eq!(yourls.image, "yourls:1.9.2");
 
     let syncthing = compose
         .services
         .get("syncthing")
-        .expect("Value should exist");
-    let st_ports = syncthing.ports.as_ref().expect("Value should exist");
+        .ok_or_else(|| anyhow::anyhow!("Expected syncthing"))?;
+    let st_ports = syncthing
+        .ports
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected ports"))?;
     assert!(st_ports.iter().any(|p| p.starts_with("127.0.0.1:8384")));
 
     // 7. Verify Network attachment
-    let plex_nets = plex.networks.as_ref().expect("Value should exist");
+    let plex_nets = plex
+        .networks
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected networks"))?;
     assert!(plex_nets.contains(&"server_manager_net".to_string()));
+    Ok(())
 }
 
 #[test]
-fn test_security_bindings() {
+fn test_security_bindings() -> anyhow::Result<()> {
     // Test that sensitive services are bound to localhost and internal DBs have no ports
     let hw = HardwareInfo {
         profile: HardwareProfile::Standard,
@@ -84,15 +97,24 @@ fn test_security_bindings() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Must return compose");
 
     // 1. MariaDB should have NO ports
-    let mariadb = compose.services.get("mariadb").expect("Value should exist");
+    let mariadb = compose
+        .services
+        .get("mariadb")
+        .ok_or_else(|| anyhow::anyhow!("Expected service"))?;
     assert!(mariadb.ports.is_none(), "MariaDB should not expose ports");
 
     // 2. Sonarr should be bound to 127.0.0.1
-    let sonarr = compose.services.get("sonarr").expect("Value should exist");
-    let ports = sonarr.ports.as_ref().expect("Value should exist");
+    let sonarr = compose
+        .services
+        .get("sonarr")
+        .ok_or_else(|| anyhow::anyhow!("Expected service"))?;
+    let ports = sonarr
+        .ports
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected ports"))?;
     let port_str = &ports[0];
     assert!(
         port_str.starts_with("127.0.0.1:"),
@@ -101,18 +123,25 @@ fn test_security_bindings() {
     );
 
     // 3. Plex should still be exposed (host mapping implied or explicit 0.0.0.0)
-    let plex = compose.services.get("plex").expect("Value should exist");
-    let ports = plex.ports.as_ref().expect("Value should exist");
+    let plex = compose
+        .services
+        .get("plex")
+        .ok_or_else(|| anyhow::anyhow!("Expected service"))?;
+    let ports = plex
+        .ports
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected ports"))?;
     let port_str = &ports[0];
     assert!(
         !port_str.starts_with("127.0.0.1:"),
         "Plex port should be exposed: {}",
         port_str
     );
+    Ok(())
 }
 
 #[test]
-fn test_profile_logic_low() {
+fn test_profile_logic_low() -> anyhow::Result<()> {
     // Test that Low profile disables SpamAssassin in MailService
     let hw = HardwareInfo {
         profile: HardwareProfile::Low,
@@ -128,20 +157,24 @@ fn test_profile_logic_low() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Must return compose");
     let mail = compose
         .services
         .get("mailserver")
-        .expect("Value should exist");
-    let envs = mail.environment.as_ref().expect("Value should exist");
+        .ok_or_else(|| anyhow::anyhow!("Expected mailserver"))?;
+    let envs = mail
+        .environment
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected env"))?;
 
     // Check for ENABLE_SPAMASSASSIN=0
     let has_disabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=0");
     assert!(has_disabled_spam, "Low profile should disable SpamAssassin");
+    Ok(())
 }
 
 #[test]
-fn test_profile_logic_standard() {
+fn test_profile_logic_standard() -> anyhow::Result<()> {
     // Test that Standard profile enables SpamAssassin
     let hw = HardwareInfo {
         profile: HardwareProfile::Standard,
@@ -157,12 +190,15 @@ fn test_profile_logic_standard() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Must return compose");
     let mail = compose
         .services
         .get("mailserver")
-        .expect("Value should exist");
-    let envs = mail.environment.as_ref().expect("Value should exist");
+        .ok_or_else(|| anyhow::anyhow!("Expected mailserver"))?;
+    let envs = mail
+        .environment
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected env"))?;
 
     // Check for ENABLE_SPAMASSASSIN=1
     let has_enabled_spam = envs.iter().any(|v| v == "ENABLE_SPAMASSASSIN=1");
@@ -170,10 +206,11 @@ fn test_profile_logic_standard() {
         has_enabled_spam,
         "Standard profile should enable SpamAssassin"
     );
+    Ok(())
 }
 
 #[test]
-fn test_resource_generation() {
+fn test_resource_generation() -> anyhow::Result<()> {
     // Test that resources are generated correctly for MariaDB on High Profile
     let hw = HardwareInfo {
         profile: HardwareProfile::High,
@@ -189,22 +226,38 @@ fn test_resource_generation() {
     let secrets = Secrets::default();
     let config = Config::default();
 
-    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
-    let mariadb = compose.services.get("mariadb").expect("Value should exist");
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Must return compose");
+    let mariadb = compose
+        .services
+        .get("mariadb")
+        .ok_or_else(|| anyhow::anyhow!("Expected service"))?;
 
     // Check deploy key exists
     assert!(mariadb.deploy.is_some());
 
-    let deploy = mariadb.deploy.as_ref().expect("Value should exist");
-    let resources = deploy.resources.as_ref().expect("Value should exist");
-    let limits = resources.limits.as_ref().expect("Value should exist");
+    let deploy = mariadb
+        .deploy
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected deploy"))?;
+    let resources = deploy
+        .resources
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected resources"))?;
+    let limits = resources
+        .limits
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected limits"))?;
 
-    let memory = limits.memory.as_ref().expect("Value should exist");
+    let memory = limits
+        .memory
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Expected memory"))?;
     assert_eq!(memory, "4G", "MariaDB should have 4G limit on High profile");
+    Ok(())
 }
 
 #[test]
-fn test_disabled_service_filtering() {
+fn test_disabled_service_filtering() -> anyhow::Result<()> {
     let hw = HardwareInfo {
         profile: HardwareProfile::Standard,
         ram_gb: 8,
@@ -222,7 +275,7 @@ fn test_disabled_service_filtering() {
     let mut config = Config::default();
     config.disable_service("plex");
 
-    let compose = build_compose_structure(&hw, &secrets, &config).expect("Value should exist");
+    let compose = build_compose_structure(&hw, &secrets, &config).expect("Must return compose");
 
     assert!(
         !compose.services.contains_key("plex"),
@@ -232,14 +285,15 @@ fn test_disabled_service_filtering() {
         compose.services.contains_key("jellyfin"),
         "Jellyfin should still be enabled"
     );
+    Ok(())
 }
 
 #[test]
-fn test_cli_update_command_parsing() {
+fn test_cli_update_command_parsing() -> anyhow::Result<()> {
     use clap::Parser;
     use server_manager::interface::cli::{Cli, Commands};
 
-    let cli =
-        Cli::try_parse_from(["server_manager", "update"]).expect("Should parse update command");
+    let cli = Cli::try_parse_from(["server_manager", "update"])?;
     assert!(matches!(cli.command, Commands::Update));
+    Ok(())
 }
