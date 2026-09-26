@@ -410,10 +410,11 @@ impl UserManager {
 
             let is_valid = tokio::task::spawn_blocking(move || verify_password(&password, &hash))
                 .await
-                .unwrap_or_else(|e| {
+                .map_err(|e| {
                     log::error!("Task join error during password verification: {}", e);
-                    false
-                });
+                    e
+                })
+                .ok()?;
 
             if is_valid {
                 return Some(user_clone);
