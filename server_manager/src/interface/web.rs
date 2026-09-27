@@ -400,7 +400,7 @@ async fn security_headers_middleware(
     );
     headers.insert(
         axum::http::header::CONTENT_SECURITY_POLICY,
-        axum::http::HeaderValue::from_static("default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"),
+        axum::http::HeaderValue::from_static("default-src \'self\'; script-src \'self\'; style-src \'self\'; object-src \'none\'; frame-ancestors \'none\'; base-uri \'none\'; require-trusted-types-for \'script\';"),
     );
     response
 }
