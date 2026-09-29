@@ -1,6 +1,7 @@
 use log::{info, warn};
 use nix::unistd::User;
 use std::path::Path;
+use std::sync::OnceLock;
 use sysinfo::{DiskExt, System, SystemExt};
 use which::which;
 
@@ -24,8 +25,14 @@ pub struct HardwareInfo {
     pub group_id: String,
 }
 
+static HARDWARE_CACHE: OnceLock<HardwareInfo> = OnceLock::new();
+
 impl HardwareInfo {
     pub fn detect() -> Self {
+        HARDWARE_CACHE.get_or_init(Self::detect_uncached).clone()
+    }
+
+    fn detect_uncached() -> Self {
         let (user_id, group_id) = Self::detect_user();
         let mut sys = System::new();
         sys.refresh_memory();
@@ -44,9 +51,8 @@ impl HardwareInfo {
         let mut disk_gb = 0;
         for disk in sys.disks() {
             // Filter out virtual filesystems to prevent double counting (e.g., overlayfs)
-            let fs_type = std::str::from_utf8(disk.file_system()).unwrap_or("unknown");
-            match fs_type {
-                "overlay" | "tmpfs" | "devtmpfs" | "squashfs" | "sysfs" | "proc" => continue,
+            match disk.file_system() {
+                b"overlay" | b"tmpfs" | b"devtmpfs" | b"squashfs" | b"sysfs" | b"proc" => continue,
                 _ => {}
             }
             disk_gb += disk.total_space() / 1024 / 1024 / 1024;
