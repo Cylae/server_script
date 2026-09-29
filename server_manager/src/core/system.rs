@@ -77,7 +77,7 @@ pub fn install_dependencies() -> Result<()> {
         bail!("systemctl not found at absolute path /usr/bin/systemctl");
     };
     let _ = Command::new(systemctl_path)
-        .args(["enable", "--now", "fail2ban"])
+        .args(["enable", "--now", "--", "fail2ban"])
         .status();
 
     Ok(())
