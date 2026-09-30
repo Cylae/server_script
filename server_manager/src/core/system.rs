@@ -345,7 +345,6 @@ net.core.wmem_max=1048576
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 

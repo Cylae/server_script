@@ -26,7 +26,6 @@ pub fn install() -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
@@ -39,7 +38,7 @@ mod tests {
             assert!(install_res.is_ok());
         } else {
             assert!(install_res.is_err());
-            let err_msg = install_res.unwrap_err().to_string();
+            let err_msg = install_res.err().map(|e| e.to_string()).unwrap_or_default();
             assert!(err_msg.contains("Docker is not installed"));
         }
     }
