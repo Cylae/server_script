@@ -1655,9 +1655,17 @@ async fn user_install_app_handler(
     .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in install_user_app"))
     .and_then(|r| r);
 
-    if let Ok(new_manager) = res {
-        cache.manager = new_manager;
-        info!("User {} installed app {}", user.username, name);
+    match res {
+        Ok(new_manager) => {
+            cache.manager = new_manager;
+            info!("User {} installed app {}", user.username, name);
+        }
+        Err(e) => {
+            error!(
+                "Failed to install app {} for user {}: {:#}",
+                name, user.username, e
+            );
+        }
     }
 
     Redirect::to("/").into_response()
@@ -1699,9 +1707,17 @@ async fn user_uninstall_app_handler(
     .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in uninstall_user_app"))
     .and_then(|r| r);
 
-    if let Ok(new_manager) = res {
-        cache.manager = new_manager;
-        info!("User {} uninstalled app {}", user.username, name);
+    match res {
+        Ok(new_manager) => {
+            cache.manager = new_manager;
+            info!("User {} uninstalled app {}", user.username, name);
+        }
+        Err(e) => {
+            error!(
+                "Failed to uninstall app {} for user {}: {:#}",
+                name, user.username, e
+            );
+        }
     }
 
     Redirect::to("/").into_response()
@@ -1844,9 +1860,17 @@ async fn user_passwd_handler(
     .map_err(|e| anyhow::Error::from(e).context("Blocking task join error in update_password"))
     .and_then(|r| r);
 
-    if let Ok(new_manager) = res {
-        cache.manager = new_manager;
-        info!("User {} updated their password", user.username);
+    match res {
+        Ok(new_manager) => {
+            cache.manager = new_manager;
+            info!("User {} updated their password", user.username);
+        }
+        Err(e) => {
+            error!(
+                "Failed to update password for user {}: {:#}",
+                user.username, e
+            );
+        }
     }
 
     Redirect::to("/user/profile").into_response()
