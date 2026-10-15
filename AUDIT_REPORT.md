@@ -29,3 +29,12 @@ All deployed changes have been systematically verified using the project's nativ
 ## 5. Test File Persistence Hazards
 - **Finding (Low):** Raw `std::fs::write` usages remained within `config.rs` and `journal.rs` test suites.
 - **Remediation:** Replaced remaining `fs::write` calls in tests with the project native `atomic_io::atomic_write_str`.
+# Audit Report Supplement: G2 Lint & Panic Hygiene Fix
+
+## Findings
+- **server_manager/src/interface/web.rs (verify_csrf)**: An `.unwrap_u8()` on `subtle::Choice` was replaced with a panic-free `bool::from(...)` conversion.
+- Remaining `.unwrap_or(...)`, `.unwrap_or_else(...)`, and `.unwrap_or_default(...)` usages were audited and found to be inherently panic-free, thus conforming to the hygiene mandate.
+- All tests and clippy checks pass smoothly.
+
+## Conclusion
+Core remains protected. The web UI is fully clippy-hygienic regarding `unwrap` paths.
