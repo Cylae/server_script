@@ -68,7 +68,7 @@ async fn verify_csrf(session: &Session, submitted: Option<&str>) -> bool {
     match (session_csrf, submitted) {
         (Some(expected), Some(actual)) if !expected.is_empty() => {
             use subtle::ConstantTimeEq;
-            expected.as_bytes().ct_eq(actual.as_bytes()).unwrap_u8() == 1
+            bool::from(expected.as_bytes().ct_eq(actual.as_bytes()))
         }
         _ => false,
     }
