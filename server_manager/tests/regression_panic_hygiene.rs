@@ -15,7 +15,7 @@ fn test_regression_no_panic_on_invalid_users_file() {
     fs::write(&invalid_file, "INVALID_YAML: [:::").unwrap_or_default();
 
     // Verify loading an invalid YAML file does not panic but returns an error
-    let res = serde_yaml_ng::from_str::<UserManager>("INVALID_YAML: [:::");
+    let res = serde_saphyr::from_str::<UserManager>("INVALID_YAML: [:::");
     assert!(res.is_err(), "Invalid YAML must return Err, not panic");
 
     let _ = fs::remove_dir_all(&temp_dir);

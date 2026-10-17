@@ -22,13 +22,13 @@ fn test_config_save_idempotence() {
         disabled_services: HashSet::from(["vaultwarden".to_string()]),
     };
 
-    let yaml1 = serde_yaml_ng::to_string(&config).unwrap_or_default();
+    let yaml1 = serde_saphyr::to_string(&config).unwrap_or_default();
     server_manager::core::atomic_io::atomic_write_str(&config_file, &yaml1, 0o644)
         .unwrap_or_default();
     let bytes_run1 = fs::read(&config_file).unwrap_or_default();
 
     // Run 2: Write exact same config again
-    let yaml2 = serde_yaml_ng::to_string(&config).unwrap_or_default();
+    let yaml2 = serde_saphyr::to_string(&config).unwrap_or_default();
     server_manager::core::atomic_io::atomic_write_str(&config_file, &yaml2, 0o644)
         .unwrap_or_default();
     let bytes_run2 = fs::read(&config_file).unwrap_or_default();
@@ -89,12 +89,12 @@ fn test_compose_generation_byte_determinism_run_twice() {
     let compose1 = build_compose_structure(&hw, &secrets, &config).unwrap_or_else(|e| {
         panic!("First compose generation failed: {}", e);
     });
-    let yaml1 = serde_yaml_ng::to_string(&compose1).unwrap_or_default();
+    let yaml1 = serde_saphyr::to_string(&compose1).unwrap_or_default();
 
     let compose2 = build_compose_structure(&hw, &secrets, &config).unwrap_or_else(|e| {
         panic!("Second compose generation failed: {}", e);
     });
-    let yaml2 = serde_yaml_ng::to_string(&compose2).unwrap_or_default();
+    let yaml2 = serde_saphyr::to_string(&compose2).unwrap_or_default();
 
     assert_eq!(
         yaml1, yaml2,

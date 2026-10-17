@@ -30,7 +30,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   dnscrypt-proxy:
     image: klutchell/dnscrypt-proxy:2.1.5
@@ -50,7 +50,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   filebrowser:
     image: filebrowser/filebrowser:v2.32.0
@@ -67,7 +67,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   gitea:
     image: gitea/gitea:1.23.4
@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
     ports:
     - 127.0.0.1:3000:3000
-    - 2222:22
+    - "2222:22"
     environment:
     - GITEA__database__DB_TYPE=mysql
     - GITEA__database__HOST=mariadb:3306
@@ -93,7 +93,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   glpi:
     image: diouxx/glpi:10.0.16
@@ -110,7 +110,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   jackett:
     image: lscr.io/linuxserver/jackett:0.22.1237
@@ -142,7 +142,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:10.10.6
@@ -175,7 +175,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   jellyseerr:
     image: fallenbagel/jellyseerr:1.7.0
@@ -194,14 +194,14 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   mailserver:
     image: mailserver/docker-mailserver:14.0.0
     container_name: mailserver
     restart: unless-stopped
     ports:
-    - 25:25
+    - "25:25"
     - 143:143
     - 587:587
     - 993:993
@@ -228,7 +228,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   mariadb:
     image: lscr.io/linuxserver/mariadb:11.4.5
@@ -252,7 +252,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   netdata:
     image: netdata/netdata:v2.2.1
@@ -277,7 +277,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   nextcloud:
     image: lscr.io/linuxserver/nextcloud:30.0.6
@@ -304,7 +304,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   nginx-proxy:
     image: jc21/nginx-proxy-manager:2.12.1
@@ -326,7 +326,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   overseerr:
     image: lscr.io/linuxserver/overseerr:1.33.2
@@ -345,7 +345,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   plex:
     image: lscr.io/linuxserver/plex:1.41.4
@@ -380,7 +380,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   portainer:
     image: portainer/portainer-ce:2.21.5
@@ -402,7 +402,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:1.30.2
@@ -434,7 +434,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:4.6.5
@@ -456,7 +456,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   radarr:
     image: lscr.io/linuxserver/radarr:5.19.3
@@ -488,7 +488,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   redis:
     image: redis:alpine
@@ -505,7 +505,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   roundcube:
     image: roundcube/roundcubemail:1.6.10-fpm
@@ -528,7 +528,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   sonarr:
     image: lscr.io/linuxserver/sonarr:4.0.13
@@ -560,7 +560,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   syncthing:
     image: lscr.io/linuxserver/syncthing:1.29.2
@@ -582,7 +582,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   tautulli:
     image: lscr.io/linuxserver/tautulli:2.14.4
@@ -603,7 +603,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -622,7 +622,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   vaultwarden:
     image: vaultwarden/server:1.33.2
@@ -639,7 +639,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   wireguard:
     image: lscr.io/linuxserver/wireguard:1.0.20210914
@@ -664,7 +664,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
   yourls:
     image: yourls:1.9.2
@@ -686,7 +686,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-file: '3'
+        max-file: "3"
         max-size: 10m
 networks:
   server_manager_net:

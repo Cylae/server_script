@@ -103,7 +103,7 @@ impl Secrets {
         let mut secrets: Secrets = if path.exists() {
             let content = fs::read_to_string(path)
                 .with_context(|| format!("Failed to read {}", path.display()))?;
-            serde_yaml_ng::from_str(&content)
+            serde_saphyr::from_str(&content)
                 .map_err(|_| anyhow::anyhow!("Invalid secrets YAML; values withheld"))?
         } else {
             Secrets::default()
@@ -158,7 +158,7 @@ impl Secrets {
         if changed {
             info!("Generated new secrets.");
         }
-        let content = serde_yaml_ng::to_string(&secrets)?;
+        let content = serde_saphyr::to_string(&secrets)?;
         atomic_io::atomic_write_str(path, &content, 0o600)
             .with_context(|| format!("Failed to write {}", path.display()))?;
 

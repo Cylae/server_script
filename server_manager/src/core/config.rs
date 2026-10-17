@@ -34,8 +34,9 @@ impl Config {
     pub fn load_from(path: &Path) -> Result<Self> {
         match fs::read_to_string(path) {
             Ok(content) if content.trim().is_empty() => Ok(Self::default()),
-            Ok(content) => serde_yaml_ng::from_str(&content)
-                .map_err(|_| anyhow::anyhow!("Invalid config YAML")),
+            Ok(content) => {
+                serde_saphyr::from_str(&content).map_err(|_| anyhow::anyhow!("Invalid config YAML"))
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e).context("Failed to read config YAML"),
         }
@@ -49,7 +50,7 @@ impl Config {
     }
 
     pub fn save_to(&self, path: &Path) -> Result<()> {
-        let content = serde_yaml_ng::to_string(self)?;
+        let content = serde_saphyr::to_string(self)?;
         crate::core::atomic_io::atomic_write_str(path, &content, 0o644)
     }
     pub fn save(&self) -> Result<()> {

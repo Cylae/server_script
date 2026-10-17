@@ -127,7 +127,7 @@ impl UserManager {
             if content.trim().is_empty() {
                 UserManager::default()
             } else {
-                serde_yaml_ng::from_str(&content).context("Failed to parse users.yaml")?
+                serde_saphyr::from_str(&content).context("Failed to parse users.yaml")?
             }
         } else {
             UserManager::default()
@@ -179,7 +179,7 @@ impl UserManager {
             Path::new("users.yaml")
         };
 
-        let content = serde_yaml_ng::to_string(self)?;
+        let content = serde_saphyr::to_string(self)?;
         crate::core::atomic_io::atomic_write_str(target, &content, 0o600)
             .context("Failed to write users.yaml")?;
 

@@ -60,7 +60,7 @@ users:
         legacy_bcrypt_hash
     );
     let mut user_mgr: UserManager =
-        serde_yaml_ng::from_str(&yaml).expect("Deserialization of legacy user");
+        serde_saphyr::from_str(&yaml).expect("Deserialization of legacy user");
 
     // Initial check: legacy verify works
     let initial_valid = verify_password(password, &legacy_bcrypt_hash);
@@ -210,9 +210,8 @@ fn test_four_roles_serialization_and_deserialization() {
     let roles = vec![Role::Admin, Role::Operator, Role::Observer, Role::Auditor];
 
     for role in roles {
-        let serialized = serde_yaml_ng::to_string(&role).expect("YAML serialization");
-        let deserialized: Role =
-            serde_yaml_ng::from_str(&serialized).expect("YAML deserialization");
+        let serialized = serde_saphyr::to_string(&role).expect("YAML serialization");
+        let deserialized: Role = serde_saphyr::from_str(&serialized).expect("YAML deserialization");
         assert_eq!(
             role, deserialized,
             "YAML round-trip mismatch for {:?}",
