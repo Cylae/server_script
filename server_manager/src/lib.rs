@@ -180,6 +180,6 @@ pub fn generate_compose_yaml(
     config: &config::Config,
 ) -> Result<String> {
     let top_level = build_compose_structure(hw, secrets, config)?;
-    let yaml = serde_yaml_ng::to_string(&top_level)?;
+    let yaml = serde_saphyr::to_string(&top_level)?;
     Ok(yaml)
 }
